@@ -101,9 +101,10 @@ export const QUIZ_SYSTEM_INSTRUCTION = `You are an expert educational content ge
 
 CRITICAL INSTRUCTIONS:
 1. Output MUST be valid JSON only.
-2. Do NOT include any introductory text, markdown headers, or code block delimiters (like \`\`\`json).
-3. Do NOT include internal reasoning, 'thinking' steps, or system instruction repetitions inside the JSON string values (e.g. in the 'explanation' field).
-4. The 'explanation' field must contain ONLY the educational explanation for the answer.`;
+2. Use LaTeX for ALL mathematical, scientific, or technical notations. ALWAYS wrap math in either $...$ for inline or $$...$$ for block math. Example: $E=mc^2$.
+3. Do NOT include any introductory text, markdown headers, or code block delimiters (like \`\`\`json).
+4. Do NOT include internal reasoning, 'thinking' steps, or system instruction repetitions inside the JSON string values (e.g. in the 'explanation' field).
+5. The 'explanation' field must contain ONLY the educational explanation for the answer.`;
 
 export const FALLBACK_QUIZ_INSTRUCTION = (subject: string) => `The user has provided very minimal notes for the topic. Generate a 10-question quiz (following the standard JSON schema) focusing on fundamental and broad concepts within the subject area of '${subject}' to ensure the user can still complete a repetition cycle. Make the questions slightly conceptual or motivational, related to study habits and core principles of ${subject}.`;
 
@@ -141,6 +142,7 @@ export const FLASHCARD_SCHEMA: Schema = {
   properties: {
     flashcards: {
       type: Type.ARRAY,
+      description: "An array of flashcards. Use LaTeX for all math expressions, wrapped in $...$ or $$...$$.",
       items: {
         type: Type.OBJECT,
         properties: {

@@ -44,37 +44,46 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
 
     const renderMathHtml = (text: string) => {
         if (!text) return "";
-        const blockMathRegex = /\$\$(.*?)\$\$/g;
-        const inlineMathRegex = /\$(.*?)\$/g;
-        let processedText = text;
+        
+        // 1. Protect and render math blocks first to avoid markdown interference
+        const mathBlocks: string[] = [];
+        let processed = text;
 
-        const blockMatches: string[] = [];
-        processedText = processedText.replace(blockMathRegex, (match, formula) => {
+        // Support $$, $, \[, \(, and \begin{...}
+        const blockRegex = /\$\$(.*?)\$\$/gs;
+        const bracketRegex = /\\\[(.*?)\\\]/gs;
+        const inlineRegex = /\$(.*?)\$/g;
+        const parenRegex = /\\\((.*?)\\\)/g;
+        const envRegex = /(\\begin\{[a-z*]+\}[\s\S]*?\\end\{[a-z*]+\})/g;
+
+        const renderAndStore = (formula: string, displayMode: boolean) => {
             try {
-                const html = katex.renderToString(formula, { displayMode: true, throwOnError: false });
-                blockMatches.push(html);
-                return `__BLOCK_MATH_${blockMatches.length - 1}__`;
-            } catch (e: any) { return match; }
-        });
+                const html = katex.renderToString(formula.trim(), { displayMode, throwOnError: false });
+                mathBlocks.push(html);
+                return `[[MATH_BLOCK_${mathBlocks.length - 1}]]`;
+            } catch (e) {
+                return formula;
+            }
+        };
 
-        processedText = processedText.replace(inlineMathRegex, (match, formula) => {
-            try {
-                const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
-                return html;
-            } catch (e: any) { return match; }
-        });
+        processed = processed.replace(blockRegex, (_, f) => renderAndStore(f, true));
+        processed = processed.replace(bracketRegex, (_, f) => renderAndStore(f, true));
+        processed = processed.replace(envRegex, (f) => renderAndStore(f, true));
+        processed = processed.replace(inlineRegex, (_, f) => renderAndStore(f, false));
+        processed = processed.replace(parenRegex, (_, f) => renderAndStore(f, false));
 
-        // Basic Markdown Support
-        processedText = processedText
+        // 2. Apply basic Markdown support to the remaining text
+        processed = processed
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
-            .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+            .replace(/_(.*?)_/g, '<em>$1</em>') // Italic (standardized to underscore)
             .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-xs text-red-500 dark:text-red-400">$1</code>'); // Inline Code
 
-        blockMatches.forEach((html, index) => {
-            processedText = processedText.replace(`__BLOCK_MATH_${index}__`, html);
+        // 3. Restore math blocks
+        mathBlocks.forEach((html, i) => {
+            processed = processed.replace(`[[MATH_BLOCK_${i}]]`, html);
         });
 
-        return DOMPurify.sanitize(processedText);
+        return DOMPurify.sanitize(processed);
     };
 
     if (!quizData || !answers || !topic) {

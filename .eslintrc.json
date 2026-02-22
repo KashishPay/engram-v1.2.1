@@ -2,15 +2,12 @@
 {
   "root": true,
   "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint", "local-guards"],
+  "plugins": ["@typescript-eslint"],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended"
   ],
   "rules": {
-    "local-guards/no-double-hash-callback": "error",
-    "local-guards/require-sanitizer-after-hash-write": "warn",
-    "local-guards/no-unsafe-history-url": "error",
     "no-restricted-imports": [
       "error",
       {

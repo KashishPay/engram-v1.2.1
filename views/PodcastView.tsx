@@ -513,14 +513,18 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
 
     const renderTranscript = (text: string) => {
         if (!text) return null;
-        const blockMathRegex = /\$\$(.*?)\$\$/g;
-        const inlineMathRegex = /\$(.*?)\$/g;
+        // Support $$, \[ \] for block math and $, \( \) for inline math
+        const blockMathRegex = /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g;
+        const inlineMathRegex = /\$([\s\S]*?)\$|\\\(([\s\S]*?)\\\)/g;
 
         return text.split('\n').map((line, i) => {
             if (!line.trim()) return <br key={i} />;
             let processedLine = line;
             const blockMatches: string[] = [];
-            processedLine = processedLine.replace(blockMathRegex, (match, formula) => {
+            
+            // 1. Process Block Math
+            processedLine = processedLine.replace(blockMathRegex, (match, p1, p2) => {
+                const formula = p1 || p2;
                 try {
                     const html = katex.renderToString(formula, { displayMode: true, throwOnError: false });
                     blockMatches.push(html);
@@ -529,7 +533,10 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                     return match;
                 }
             });
-            processedLine = processedLine.replace(inlineMathRegex, (match, formula) => {
+
+            // 2. Process Inline Math
+            processedLine = processedLine.replace(inlineMathRegex, (match, p1, p2) => {
+                const formula = p1 || p2;
                 try {
                     const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
                     return html;
@@ -537,10 +544,18 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                     return match;
                 }
             });
+
+            // 3. Restore Block Math
             blockMatches.forEach((html, index) => {
                 processedLine = processedLine.replace(`__BLOCK_MATH_${index}__`, html);
             });
+
+            // 4. Bold markdown
+            processedLine = processedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            // 5. Bold speaker names (if not already bolded by markdown)
             processedLine = processedLine.replace(/^([A-Za-z0-9\s]+):/g, '<strong class="text-gray-900 dark:text-white">$1:</strong>');
+            
             return <p key={i} className="mb-2" dangerouslySetInnerHTML={{ __html: processedLine }}></p>;
         });
     };
