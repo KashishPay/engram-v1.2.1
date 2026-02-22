@@ -1,0 +1,30 @@
+
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint", "local-guards"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "rules": {
+    "local-guards/no-double-hash-callback": "error",
+    "local-guards/require-sanitizer-after-hash-write": "warn",
+    "local-guards/no-unsafe-history-url": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["@/*"],
+            "message": "Do not use @/ alias imports. Use relative paths (./ ../) in this project."
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "browser": true,
+    "es2022": true
+  }
+}

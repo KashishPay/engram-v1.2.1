@@ -1,0 +1,10 @@
+{
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "javascript.preferences.importModuleSpecifier": "relative",
+  "typescript.preferences.importModuleSpecifierEnding": "auto",
+  "javascript.preferences.importModuleSpecifierEnding": "auto",
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true
+  }
+}

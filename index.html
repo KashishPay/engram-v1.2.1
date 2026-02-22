@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <base href="./" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#f59e0b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Make neurons happier with spaced repetition. Capture notes, generate quizzes, and master your studies with AI." />
+    
+    <!-- Google Site Verification -->
+    <meta name="google-site-verification" content="X0JWJUR8qBEUU5vkhZS-F5RKUgrafvYWf7pZSlDxPPs" />
+
+    <title>Engram - AI Study Companion</title>
+    
+    <!-- Icons & Manifest -->
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="icon" type="image/png" href="./brand/engram_logo/engram_logo_32.png?v=1" />
+    <link rel="apple-touch-icon" href="./brand/engram_logo/engram_logo_192.png?v=1" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://engram-space.vercel.app/" />
+    <meta property="og:title" content="Engram - AI Study Companion" />
+    <meta property="og:description" content="Make neurons happier with spaced repetition. Capture notes, generate quizzes, and master your studies with AI." />
+    <meta property="og:image" content="https://engram-space.vercel.app/brand/engram_logo/engram_logo_512.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://engram-space.vercel.app/" />
+    <meta name="twitter:title" content="Engram - AI Study Companion" />
+    <meta name="twitter:description" content="Make neurons happier with spaced repetition. Capture notes, generate quizzes, and master your studies with AI." />
+    <meta name="twitter:image" content="https://engram-space.vercel.app/brand/engram_logo/engram_logo_512.png" />
+    
+    <!-- Theme Initializer (Prevents FOUC) -->
+    <script>
+      (function() {
+        var key = 'engramAppMode';
+        var saved = localStorage.getItem(key) || 'light'; // Default to Light
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = (saved === 'dark') || (saved === 'system' && prefersDark);
+        document.documentElement.classList.toggle('dark', !!isDark);
+      })();
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+    
+    <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
+    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@3.11.174",
+    "jspdf": "https://esm.sh/jspdf@2.5.1",
+    "katex": "https://esm.sh/katex@0.16.9",
+    "dompurify": "https://esm.sh/dompurify@3.0.9",
+    "wouter": "https://esm.sh/wouter@3.3.1",
+    "react-window": "https://esm.sh/react-window@1.8.10",
+    "react-virtualized-auto-sizer": "https://esm.sh/react-virtualized-auto-sizer@1.0.24",
+    "react-markdown": "https://esm.sh/react-markdown@9.0.1?bundle",
+    "remark-math": "https://esm.sh/remark-math@6.0.0?bundle",
+    "remark-gfm": "https://esm.sh/remark-gfm@4.0.0?bundle",
+    "rehype-katex": "https://esm.sh/rehype-katex@7.0.0?bundle",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.7",
+    "@capacitor/core": "https://esm.sh/@capacitor/core@6.0.0",
+    "@capacitor/local-notifications": "https://esm.sh/@capacitor/local-notifications@6.0.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@capacitor/cli": "https://esm.sh/@capacitor/cli@^8.1.0",
+    "@capacitor/app": "https://esm.sh/@capacitor/app@^8.0.1",
+    "@capacitor/filesystem": "https://esm.sh/@capacitor/filesystem@^8.1.1",
+    "@capacitor/share": "https://esm.sh/@capacitor/share@^8.0.1",
+    "@capacitor/haptics": "https://esm.sh/@capacitor/haptics@^8.0.0"
+  }
+}
+</script>
+
+    <style>
+      html, body, #root {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      
+      /* Subtle Custom Scrollbar */
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0,0,0,0.2) transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: rgba(0,0,0,0.2);
+        border-radius: 4px;
+      }
+      .dark .custom-scrollbar {
+        scrollbar-color: rgba(255,255,255,0.2) transparent;
+      }
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: rgba(255,255,255,0.2);
+      }
+
+      /* No Scrollbar Utility */
+      .no-scrollbar {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* Task Chip Delete Button */
+      .task-delete-btn {
+        width: 28px; height: 28px;
+        min-width: 28px; min-height: 28px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 9999px;
+        color: #6b7280; /* gray-500 */
+        background: rgba(0,0,0,0.06);
+        border: 1px solid rgba(0,0,0,0.08);
+        position: relative; z-index: 5;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        margin-left: 6px;
+      }
+      .dark .task-delete-btn {
+        color: #d1d5db; /* gray-300 */
+        background: rgba(255,255,255,0.1);
+        border-color: rgba(255,255,255,0.1);
+      }
+      .task-delete-btn:hover {
+        background: #fee2e2; /* red-100 */
+        color: #ef4444; /* red-500 */
+        border-color: #fca5a5; /* red-300 */
+      }
+      .dark .task-delete-btn:hover {
+        background: rgba(127, 29, 29, 0.4);
+        color: #fca5a5;
+        border-color: #7f1d1d;
+      }
+      .task-delete-btn:active {
+        transform: scale(0.95);
+        opacity: 0.9;
+      }
+      .task-delete-btn:focus-visible {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+      }
+
+      /* Text Wrapping Helper */
+      .overflow-wrap-anywhere {
+        overflow-wrap: anywhere;
+        word-wrap: break-word;
+        word-break: break-word;
+        hyphens: auto;
+      }
+
+      /* Math Styling - Safe Frontend Enforcement */
+      .theme-math-red .katex { color: #ef4444 !important; }
+      .theme-math-bold .katex { font-weight: bold !important; }
+      .theme-math-red-bold .katex { color: #ef4444 !important; font-weight: bold !important; }
+
+      /* === Brand Border Glow (confined ring, no rotation) === */
+      :root {
+        /* Tunables: keep values modest for a premium feel */
+        --bbg-ring-width: 6px;                /* border glow thickness */
+        --bbg-blur: 14px;                     /* softness of halo */
+        --bbg-opacity: 0.55;                  /* base visibility */
+        --bbg-pulse-min: 0.40;                /* lower bound for pulse opacity */
+        --bbg-pulse-max: 0.60;                /* upper bound for pulse opacity */
+        --bbg-pulse-duration: 4.5s;           /* slow, subtle pulse */
+
+        /* Brand sweep colors (adjust to palette) */
+        --bbg-c1: #06b6d4;  /* cyan-500 */
+        --bbg-c2: #3b82f6;  /* blue-500 */
+        --bbg-c3: #8b5cf6;  /* violet-500 */
+        --bbg-c4: #e879f9;  /* fuchsia-400 */
+        --bbg-c5: #f59e0b;  /* amber-500 */
+      }
+
+      /* Low-end/compact phones: dial down blur/opacity to reduce raster work */
+      @media (max-width: 480px) {
+        :root {
+          --bbg-blur: 10px;
+          --bbg-opacity: 0.45;
+          --bbg-ring-width: 5px;
+        }
+      }
+      @media (max-width: 360px) {
+        :root {
+          --bbg-blur: 8px;
+          --bbg-opacity: 0.40;
+          --bbg-ring-width: 4px;
+        }
+      }
+
+      /* Gentle opacity pulse (no transforms; compositor-friendly) */
+      @keyframes bbg-pulse {
+        0%   { opacity: var(--bbg-pulse-min); }
+        50%  { opacity: var(--bbg-pulse-max); }
+        100% { opacity: var(--bbg-pulse-min); }
+      }
+
+      /* Host element applied to the logo frame container */
+      .brand-border-glow {
+        position: relative;
+        z-index: 0;
+        border-radius: 2.5rem;    /* match the existing frame corners */
+        isolation: isolate;       /* keep glow scoped behind content */
+      }
+
+      /* Confined glow ring: mask limits glow to border band only */
+      .brand-border-glow::after {
+        content: "";
+        position: absolute;
+        /* Outset slightly so the halo breathes beyond the white border */
+        inset: calc(var(--bbg-ring-width) * -1);
+        border-radius: inherit;
+        z-index: -1;
+
+        /* Multi-color gradient (subtle sweep). Use both gradient layers for richness. */
+        background:
+          linear-gradient(135deg,
+            var(--bbg-c1), var(--bbg-c2), var(--bbg-c3), var(--bbg-c4), var(--bbg-c5)
+          ),
+          radial-gradient(120% 120% at 20% 20%,
+            var(--bbg-c2), transparent 60%
+          );
+        background-size: 200% 200%, 100% 100%;
+        filter: blur(var(--bbg-blur));
+        opacity: var(--bbg-opacity);
+
+        /* Masking: keep glow only in the border band */
+        /* content-box mask = inner cut-out; padding-box defines outer edge */
+        mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0) padding-box;
+        -webkit-mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0) padding-box;
+        mask-composite: exclude;       /* “padding-box minus content-box” ring */
+        -webkit-mask-composite: xor;
+
+        /* Define the ring thickness via padding vs content area */
+        padding: var(--bbg-ring-width);
+
+        /* Subtle pulse (opacity only) */
+        animation: bbg-pulse var(--bbg-pulse-duration) ease-in-out infinite;
+      }
+
+      /* Optional: micro-shimmer on hover for desktop (background-position sweep) */
+      @media (hover: hover) and (pointer: fine) {
+        .brand-border-glow:hover::after {
+          background-position: 100% 0, 0 0;  /* gentle sweep */
+          transition: background-position 1600ms ease;
+        }
+      }
+
+      /* Respect reduced motion: remove the pulse & shimmer */
+      @media (prefers-reduced-motion: reduce) {
+        .brand-border-glow::after {
+          animation: none;
+          transition: none;
+        }
+      }
+
+      /* PWA Update Toast */
+      #update-toast {
+        position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+        max-width: 560px; width: calc(100% - 24px);
+        background: #fff; color: #222; border: 1px solid #eee; border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 12px 16px; z-index: 9999;
+        display: none;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      .dark #update-toast {
+        background: #1f2937; color: #f9fafb; border-color: #374151;
+      }
+      #update-toast[aria-hidden="false"] { display: flex; align-items: center; gap: 12px; animation: slideUp 0.3s ease-out; }
+      #update-toast button { border: none; border-radius: 8px; padding: 8px 12px; font-weight: 600; cursor: pointer; font-size: 13px; }
+      #btn-reload { background: #f59e0b; color: #fff; }
+      #btn-dismiss { background: #f3f4f6; color: #374151; }
+      .dark #btn-dismiss { background: #374151; color: #e5e7eb; }
+      @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+    </style>
+    <script>
+      // Runtime Shim for Vercel/Static hosting
+      window.process = { env: {} };
+      
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              handwriting: ['Caveat', 'cursive'],
+            }
+          },
+        }
+      }
+    </script>
+  </head>
+  <body class="bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200 overscroll-none">
+    <div id="root"></div>
+    
+    <div id="update-toast" role="alert" aria-live="polite" aria-hidden="true">
+      <div style="flex:1; font-size: 13px;"><strong>Update available</strong><br /><span style="opacity: 0.8">Click reload to apply.</span></div>
+      <button id="btn-reload">Reload now</button>
+      <button id="btn-dismiss">Later</button>
+    </div>
+
+    <!-- App Entry Point -->
+    <script type="module" src="./index.tsx"></script>
+
+    <script>
+      const hostname = window.location.hostname;
+      const isPreview = hostname.includes('googleusercontent.com') || 
+                        hostname.includes('scusercontent.goog') || 
+                        hostname.includes('ai.studio') ||
+                        hostname.includes('aistudio.google.com');
+      
+      const isHttps = window.location.protocol === 'https:' || hostname === 'localhost';
+      const shouldRegister = 'serviceWorker' in navigator && !isPreview && isHttps;
+
+      if (shouldRegister) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').then(reg => {
+            console.log('SW registered:', reg.scope);
+            
+            const toast = document.getElementById('update-toast');
+            const showToast = () => toast.setAttribute('aria-hidden', 'false');
+            const hideToast = () => toast.setAttribute('aria-hidden', 'true');
+            
+            // 1. Check if an update is already waiting from a previous load
+            if (reg.waiting) showToast();
+            
+            // 2. Listen for new updates
+            reg.onupdatefound = () => {
+              const installing = reg.installing;
+              if (!installing) return;
+              installing.onstatechange = () => {
+                // If it installed successfully AND we have a controller (meaning this isn't the first visit), show toast
+                if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                  showToast();
+                }
+              };
+            };
+            
+            // 3. Handle Reload
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              if (refreshing) return;
+              refreshing = true;
+              window.location.reload();
+            });
+            
+            document.getElementById('btn-reload').onclick = () => {
+              if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            };
+            document.getElementById('btn-dismiss').onclick = () => hideToast();
+            
+          }).catch(err => console.warn('[SW] registration failed', err));
+        });
+      } else {
+        console.log(`[SW] Disabled (Preview/HTTP)`);
+      }
+    </script>
+  </body>
+</html>
