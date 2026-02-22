@@ -1,11 +1,11 @@
 
 import { supabase } from '../services/supabase';
 
-export const performDeviceReset = async (): Promise<void> => {
-    console.debug("[RESET] Starting device wipe...");
+export const performDeviceReset = async (keepAuth: boolean = false): Promise<void> => {
+    console.debug(`[RESET] Starting device wipe (keepAuth: ${keepAuth})...`);
 
-    // 1. Sign Out (Best Effort)
-    if (supabase) {
+    // 1. Sign Out (Best Effort) - Skip if keepAuth is true
+    if (supabase && !keepAuth) {
         try {
             await supabase.auth.signOut();
             console.debug("[RESET] signout ok");
@@ -16,9 +16,26 @@ export const performDeviceReset = async (): Promise<void> => {
 
     // 2. Clear Storage
     try {
-        localStorage.clear();
-        sessionStorage.clear();
-        console.debug("[RESET] cleared storage");
+        if (keepAuth) {
+            // Only clear non-auth keys
+            const keysToKeep = Object.keys(localStorage).filter(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+            const authData: Record<string, string> = {};
+            keysToKeep.forEach(k => {
+                const val = localStorage.getItem(k);
+                if (val) authData[k] = val;
+            });
+
+            localStorage.clear();
+            sessionStorage.clear();
+
+            // Restore auth data
+            Object.entries(authData).forEach(([k, v]) => localStorage.setItem(k, v));
+            console.debug("[RESET] cleared storage (kept auth)");
+        } else {
+            localStorage.clear();
+            sessionStorage.clear();
+            console.debug("[RESET] cleared storage");
+        }
     } catch (e) {
         console.error("[RESET] storage clear error", e);
     }

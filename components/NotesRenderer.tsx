@@ -264,7 +264,8 @@ export const NotesRenderer: React.FC<NotesRendererProps> = React.memo(({ content
         (_, inner) => inner
     );
 
-    protectedContent = protectedContent.replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (match, innerFormula) => {
+    protectedContent = protectedContent.replace(/\\\[\s*([\s\S]*?)\s*\\\]|\$\$([\s\S]*?)\$\$/g, (match, p1, p2) => {
+        const innerFormula = p1 || p2;
         const html = processBlockMath(innerFormula, styleClass);
         blockMathStorage.push(html);
         return `__BLOCK_MATH_REF_${blockMathStorage.length - 1}__`;
@@ -295,8 +296,9 @@ export const NotesRenderer: React.FC<NotesRendererProps> = React.memo(({ content
             );
         }
 
-        const inlineMathRegex = /\\\((.*?)\\\)/gs;
-        processedText = processedText.replace(inlineMathRegex, (match, formula) => {
+        const inlineMathRegex = /\\\((.*?)\\\)|\$([\s\S]*?)\$/gs;
+        processedText = processedText.replace(inlineMathRegex, (match, p1, p2) => {
+            const formula = p1 || p2;
             try {
                 const decodedFormula = decodeMathEntities(formula);
                 const html = katex.renderToString(decodedFormula, { 

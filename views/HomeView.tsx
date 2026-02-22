@@ -172,7 +172,7 @@ const FlashCardDeck: React.FC<{
         const prompt = `Generate ${desiredCount} flashcards based on the provided notes. 
         IMPORTANT: Create a mix of questions covering different topics from the provided content if possible.
         The front should be a concept or question, the back should be the explanation.
-        Use LaTeX for all math expressions. ALWAYS wrap math in either $...$ for inline or $$...$$ for block math. Example: $E=mc^2$.
+        Use LaTeX for all math expressions (e.g., $E=mc^2$).
         ${avoidInstruction}
         
         Source Material:
@@ -349,46 +349,48 @@ const FlashCardDeck: React.FC<{
     const renderCardContent = (text: string) => {
         if (!text) return "";
         
-        // 1. Protect and render math blocks first to avoid markdown interference
-        const mathBlocks: string[] = [];
-        let processed = text;
-
-        // Support $$, $, \[, \(, and \begin{...}
-        const blockRegex = /\$\$(.*?)\$\$/gs;
-        const bracketRegex = /\\\[(.*?)\\\]/gs;
-        const inlineRegex = /\$(.*?)\$/g;
-        const parenRegex = /\\\((.*?)\\\)/g;
-        const envRegex = /(\\begin\{[a-z*]+\}[\s\S]*?\\end\{[a-z*]+\})/g;
-
-        const renderAndStore = (formula: string, displayMode: boolean) => {
+        // Support $$, \[ \] for block math and $, \( \) for inline math
+        const blockMathRegex = /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g;
+        const inlineMathRegex = /\$([\s\S]*?)\$|\\\(([\s\S]*?)\\\)/g;
+        let processedText = text;
+        const blockMatches: string[] = [];
+        
+        processedText = processedText.replace(blockMathRegex, (match, p1, p2) => {
+            const formula = p1 || p2;
             try {
-                const html = katex.renderToString(formula.trim(), { displayMode, throwOnError: false });
-                mathBlocks.push(html);
-                return `[[MATH_BLOCK_${mathBlocks.length - 1}]]`;
+                const html = katex.renderToString(formula, { displayMode: true, throwOnError: false });
+                blockMatches.push(html);
+                return `__BLOCK_MATH_${blockMatches.length - 1}__`;
             } catch (e) {
-                return formula;
+                return match;
             }
-        };
-
-        processed = processed.replace(blockRegex, (_, f) => renderAndStore(f, true));
-        processed = processed.replace(bracketRegex, (_, f) => renderAndStore(f, true));
-        processed = processed.replace(envRegex, (f) => renderAndStore(f, true));
-        processed = processed.replace(inlineRegex, (_, f) => renderAndStore(f, false));
-        processed = processed.replace(parenRegex, (_, f) => renderAndStore(f, false));
-
-        // 2. Apply Markdown-like formatting to the remaining text
-        processed = processed
+        });
+        
+        processedText = processedText.replace(inlineMathRegex, (match, p1, p2) => {
+            const formula = p1 || p2;
+            try {
+                const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
+                return html;
+            } catch (e) {
+                return match;
+            }
+        });
+        
+        blockMatches.forEach((html, index) => {
+            const wrapper = `<div>${html}</div>`;
+            processedText = processedText.replace(`__BLOCK_MATH_${index}__`, wrapper);
+        });
+        
+        processedText = processedText
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/_(.*?)_/g, '<em>$1</em>')
             .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-700 px-1 rounded font-mono text-sm text-red-500">$1</code>')
             .replace(/\n/g, '<br />');
-
-        // 3. Restore math blocks
-        mathBlocks.forEach((html, i) => {
-            processed = processed.replace(`[[MATH_BLOCK_${i}]]`, html);
+            
+        return DOMPurify.sanitize(processedText, {
+            ADD_TAGS: ['math', 'annotation', 'semantics', 'mtext', 'mn', 'mo', 'mi', 'msup', 'msub', 'mfrac', 'span', 'div', 'strong', 'em', 'code', 'br'],
+            ADD_ATTR: ['xmlns', 'display', 'mathvariant', 'class']
         });
-
-        return processed;
     };
 
     if (loading) {

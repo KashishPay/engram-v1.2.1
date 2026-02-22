@@ -114,40 +114,37 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
 
     const renderMathHtml = (text: string) => {
         if (!text) return "";
-        
-        // 1. Protect and render math blocks first to avoid markdown interference
-        const mathBlocks: string[] = [];
-        let processed = text;
+        // Support $$, \[ \] for block math and $, \( \) for inline math
+        const blockMathRegex = /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g;
+        const inlineMathRegex = /\$([\s\S]*?)\$|\\\(([\s\S]*?)\\\)/g;
+        let processedText = text;
 
-        // Support $$, $, \[, \(, and \begin{...}
-        const blockRegex = /\$\$(.*?)\$\$/gs;
-        const bracketRegex = /\\\[(.*?)\\\]/gs;
-        const inlineRegex = /\$(.*?)\$/g;
-        const parenRegex = /\\\((.*?)\\\)/g;
-        const envRegex = /(\\begin\{[a-z*]+\}[\s\S]*?\\end\{[a-z*]+\})/g;
-
-        const renderAndStore = (formula: string, displayMode: boolean) => {
+        const blockMatches: string[] = [];
+        processedText = processedText.replace(blockMathRegex, (match, p1, p2) => {
+            const formula = p1 || p2;
             try {
-                const html = katex.renderToString(formula.trim(), { displayMode, throwOnError: false });
-                mathBlocks.push(html);
-                return `[[MATH_BLOCK_${mathBlocks.length - 1}]]`;
-            } catch (e) {
-                return formula;
-            }
-        };
-
-        processed = processed.replace(blockRegex, (_, f) => renderAndStore(f, true));
-        processed = processed.replace(bracketRegex, (_, f) => renderAndStore(f, true));
-        processed = processed.replace(envRegex, (f) => renderAndStore(f, true));
-        processed = processed.replace(inlineRegex, (_, f) => renderAndStore(f, false));
-        processed = processed.replace(parenRegex, (_, f) => renderAndStore(f, false));
-
-        // 2. Restore math blocks
-        mathBlocks.forEach((html, i) => {
-            processed = processed.replace(`[[MATH_BLOCK_${i}]]`, html);
+                const html = katex.renderToString(formula, { displayMode: true, throwOnError: false });
+                blockMatches.push(html);
+                return `__BLOCK_MATH_${blockMatches.length - 1}__`;
+            } catch (e: any) { return match; }
         });
 
-        return DOMPurify.sanitize(processed);
+        processedText = processedText.replace(inlineMathRegex, (match, p1, p2) => {
+            const formula = p1 || p2;
+            try {
+                const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
+                return html;
+            } catch (e: any) { return match; }
+        });
+
+        blockMatches.forEach((html, index) => {
+            processedText = processedText.replace(`__BLOCK_MATH_${index}__`, html);
+        });
+
+        return DOMPurify.sanitize(processedText, {
+            ADD_TAGS: ['math', 'annotation', 'semantics', 'mtext', 'mn', 'mo', 'mi', 'msup', 'msub', 'mfrac', 'span', 'div', 'strong', 'em', 'code'],
+            ADD_ATTR: ['xmlns', 'display', 'mathvariant', 'class']
+        });
     };
 
     // --- Core Generation Logic ---

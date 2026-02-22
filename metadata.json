@@ -1,5 +1,5 @@
 {
-  "name": "Remix: Copy of Engram v1.2.1 before wrapping in capacitor",
+  "name": "engram-v1.2.1-main",
   "description": "Make neurons happier with spaced repetition. Capture notes, generate quizzes, and master your studies with AI.",
   "requestFramePermissions": [
     "camera"

@@ -312,7 +312,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
     const [showScript, setShowScript] = useState(false);
     
     // Library UI State
-    const [libraryTab, setLibraryTab] = useState<'topics' | 'subjects'>('topics');
+    const [libraryTab, setLibraryTab] = useState<'topics' | 'subjects' | 'downloads'>('topics');
     const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>('all');
     
     // Track local availability for subjects to show offline status without checking DB every render
@@ -367,13 +367,19 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                     name: topic.subject,
                     id: topic.subjectId,
                     count: 0,
-                    notes: [] as string[]
+                    notes: [] as string[],
+                    latestCreatedAt: topic.createdAt
                 };
             }
             acc[topic.subjectId].count++;
             acc[topic.subjectId].notes.push(`--- TOPIC: ${topic.topicName} ---\n${topic.shortNotes}`);
+            
+            if (new Date(topic.createdAt) > new Date(acc[topic.subjectId].latestCreatedAt)) {
+                acc[topic.subjectId].latestCreatedAt = topic.createdAt;
+            }
+            
             return acc;
-        }, {} as Record<string, {name: string, id: string, count: number, notes: string[]}>);
+        }, {} as Record<string, {name: string, id: string, count: number, notes: string[], latestCreatedAt: string}>);
     }, [studyLog]);
 
     const availableSubjectNames = useMemo(() => {
@@ -397,12 +403,36 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
     }, [subjectsMap, state.downloadingIds]);
 
     const filteredTopics = useMemo(() => {
-        return studyLog.filter(t => {
-            const hasNotes = (t.shortNotes || '').length > 50;
-            const matchesSubject = selectedSubjectFilter === 'all' || t.subject === selectedSubjectFilter;
-            return hasNotes && matchesSubject;
-        });
+        return studyLog
+            .filter(t => {
+                const hasNotes = (t.shortNotes || '').length > 50;
+                const matchesSubject = selectedSubjectFilter === 'all' || t.subject === selectedSubjectFilter;
+                return hasNotes && matchesSubject;
+            })
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [studyLog, selectedSubjectFilter]);
+
+    const downloadedItems = useMemo(() => {
+        const topics = studyLog
+            .filter(t => t.hasSavedAudio)
+            .map(t => ({ ...t, sortDate: t.createdAt }));
+
+        const subjects = Object.values(subjectsMap)
+            .filter(s => availableSubjects.has(s.id))
+            .map(s => ({
+                id: `subject-recap-${s.id}`,
+                topicName: `${s.name} (Full Recap)`,
+                subject: s.name,
+                isSubject: true,
+                subjectId: s.id,
+                shortNotes: s.notes.join('\n\n'),
+                sortDate: s.latestCreatedAt
+            }));
+
+        return [...topics, ...subjects].sort((a, b) => 
+            new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
+        );
+    }, [studyLog, subjectsMap, availableSubjects]);
 
     const handlePlaySubject = (subjectId: string) => {
         ensureAudioContext(); // Prime context on user gesture
@@ -730,7 +760,17 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
                                 }`}
                             >
-                                Whole Subject
+                                Subjects
+                            </button>
+                            <button 
+                                onClick={() => setLibraryTab('downloads')}
+                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                                    libraryTab === 'downloads' 
+                                    ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-800 dark:text-white' 
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                                }`}
+                            >
+                                Downloads
                             </button>
                         </div>
                     </div>
@@ -738,13 +778,17 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                     <div className="p-4 overflow-y-auto">
                         <div className="mb-6 text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-3xl">
                             <div className={`w-20 h-20 mx-auto bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center text-green-500 mb-4`}>
-                                <Mic2 size={32} />
+                                {libraryTab === 'downloads' ? <Download size={32} /> : <Mic2 size={32} />}
                             </div>
-                            <h3 className="text-lg font-bold text-gray-800 dark:text-white">AI Deep Dive</h3>
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-white">
+                                {libraryTab === 'downloads' ? 'Offline Library' : 'AI Deep Dive'}
+                            </h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400 px-8 mt-2">
                                 {libraryTab === 'topics' 
                                     ? "Select a topic for a deep dive conversation." 
-                                    : "Select a subject for a full comprehensive recap (10-15 min)."}
+                                    : libraryTab === 'subjects'
+                                    ? "Select a subject for a full comprehensive recap (10-15 min)."
+                                    : "Listen to your saved podcasts even without internet."}
                             </p>
                         </div>
 
@@ -806,7 +850,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                                 <div className="flex items-center space-x-2">
                                                     <p className="font-bold text-gray-800 dark:text-white truncate">{topic.topicName}</p>
                                                 </div>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{topic.subject} • Full Recap</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{topic.subject} • Deep Dive</p>
                                             </div>
                                             <button 
                                                 onClick={(e) => {
@@ -833,11 +877,13 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                         </div>
                                     );
                                 })
-                            ) : (
-                                Object.values(subjectsMap).map((subject: any) => {
-                                    const mockTopicId = `subject-recap-${subject.id}`;
-                                    const isDownloading = state.downloadingIds.includes(mockTopicId);
-                                    const hasAudio = availableSubjects.has(subject.id);
+                            ) : libraryTab === 'subjects' ? (
+                                Object.values(subjectsMap)
+                                    .sort((a, b) => new Date(b.latestCreatedAt).getTime() - new Date(a.latestCreatedAt).getTime())
+                                    .map((subject: any) => {
+                                        const mockTopicId = `subject-recap-${subject.id}`;
+                                        const isDownloading = state.downloadingIds.includes(mockTopicId);
+                                        const hasAudio = availableSubjects.has(subject.id);
 
                                     return (
                                         <div
@@ -847,11 +893,11 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                         >
                                             {/* Dynamic Theme Color Icon Pill */}
                                             <div className={`w-12 h-12 rounded-xl bg-${themeColor}-50 dark:bg-${themeColor}-900/30 flex items-center justify-center text-${themeColor}-600 mr-4 shrink-0`}>
-                                                {state.loading && state.currentTopic?.subjectId === subject.id ? <Loader size={20} className="animate-spin" /> : <Play size={20} fill="currentColor" />}
+                                                {state.loading && state.currentTopic?.id === mockTopicId ? <Loader size={20} className="animate-spin" /> : <Play size={20} fill="currentColor" />}
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="font-bold text-gray-800 dark:text-white truncate">{subject.name}</p>
-                                                <p className="text-xs text-gray-500">{subject.count} Topics • Full Recap</p>
+                                                <p className="font-bold text-gray-800 dark:text-white truncate">{subject.name} Recap</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{subject.count} topics • Full Recap</p>
                                             </div>
                                             <button 
                                                 onClick={(e) => {
@@ -870,7 +916,6 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                                         handleDownload(mockSubjectTopic, true, e);
                                                     }
                                                 }}
-                                                // Dynamic Theme Hover States for Action Button
                                                 className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full transition ${
                                                     isDownloading ? '' :
                                                     hasAudio ? 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30' :
@@ -880,7 +925,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                                 title={hasAudio ? "Delete Download" : "Download for Offline"}
                                             >
                                                 {isDownloading ? (
-                                                    <div className={`w-8 h-8 border-2 border-${themeColor}-200 border-t-${themeColor}-500 rounded-lg animate-spin`}></div>
+                                                    <div className={`w-10 h-10 border-4 border-${themeColor}-200 border-t-${themeColor}-500 rounded-lg animate-spin`}></div>
                                                 ) : hasAudio ? (
                                                     <Trash2 size={18} />
                                                 ) : (
@@ -888,17 +933,58 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                                 )}
                                             </button>
                                         </div>
-                                    )
+                                    );
                                 })
-                            )}
-
-                            {libraryTab === 'topics' && filteredTopics.length === 0 && (
-                                <p className="text-center text-sm text-gray-400 italic py-4">No topics found.</p>
-                            )}
-                            {libraryTab === 'subjects' && Object.keys(subjectsMap).length === 0 && (
-                                <p className="text-center text-sm text-gray-400 italic py-4">No subjects found.</p>
+                            ) : (
+                                // Downloads Tab
+                                downloadedItems.length === 0 ? (
+                                    <div className="text-center py-10">
+                                        <p className="text-gray-400 text-sm">No downloaded podcasts yet.</p>
+                                    </div>
+                                ) : (
+                                    downloadedItems.map((item: any) => {
+                                        const isSubject = !!item.isSubject;
+                                        
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                className="w-full flex items-center p-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-left group relative pr-14 cursor-pointer"
+                                                onClick={() => {
+                                                    if (isSubject) handlePlaySubject(item.subjectId);
+                                                    else controls.playTopic(item, onUpdateTopic);
+                                                }}
+                                            >
+                                                <div className={`w-12 h-12 rounded-xl bg-${themeColor}-50 dark:bg-${themeColor}-900/30 flex items-center justify-center text-${themeColor}-600 mr-4 shrink-0`}>
+                                                    {state.loading && state.currentTopic?.id === item.id ? <Loader size={20} className="animate-spin" /> : <Play size={20} fill="currentColor" />}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-bold text-gray-800 dark:text-white truncate">{item.topicName}</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                        {item.subject} • {isSubject ? 'Subject Recap' : 'Deep Dive'}
+                                                    </p>
+                                                </div>
+                                                <button 
+                                                    onClick={(e) => {
+                                                        if (isSubject) handleDeleteSubject(item.subjectId, e);
+                                                        else handleDelete(item, e);
+                                                    }}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition"
+                                                    title="Delete Download"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })
+                                )
                             )}
                         </div>
+                        {libraryTab === 'topics' && filteredTopics.length === 0 && (
+                            <p className="text-center text-sm text-gray-400 italic py-4">No topics found.</p>
+                        )}
+                        {libraryTab === 'subjects' && Object.keys(subjectsMap).length === 0 && (
+                            <p className="text-center text-sm text-gray-400 italic py-4">No subjects found.</p>
+                        )}
                     </div>
                 </div>
             )}

@@ -300,7 +300,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setIsResetting(true);
         setResetMessage("Processing...");
         try {
-            await performDeviceReset();
+            // Keep auth if not a guest (guests don't have auth to keep)
+            await performDeviceReset(!isGuest);
             setResetMessage("Device data cleared. Reloading...");
             setTimeout(() => {
                 window.location.href = window.location.origin + "/#/";
@@ -571,7 +572,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                         <RefreshCw size={18} className="mr-2"/>
                                         <div className="text-left">
                                             <span className="font-medium text-sm block">Clear my device data</span>
-                                            <span className="text-[10px] opacity-80 block">Resets this device. You'll be signed out.</span>
+                                            <span className="text-[10px] opacity-80 block">Resets this device. You'll stay signed in.</span>
                                         </div>
                                     </div>
                                     <ChevronRight size={16} />
@@ -579,7 +580,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             ) : (
                                 <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/30 animate-in fade-in mb-3">
                                     <p className="text-sm font-bold text-red-700 dark:text-red-300 mb-2">Are you sure?</p>
-                                    <p className="text-xs text-red-600 dark:text-red-400 mb-4">This will sign you out and wipe all local data. This cannot be undone.</p>
+                                    <p className="text-xs text-red-600 dark:text-red-400 mb-4">This will wipe all local data. You will stay signed in. This cannot be undone.</p>
                                     
                                     {resetMessage ? (
                                         <div className="text-center font-bold text-sm text-green-600 dark:text-green-400 py-2 animate-pulse">

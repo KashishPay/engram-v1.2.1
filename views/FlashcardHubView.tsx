@@ -180,7 +180,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, us
             2. If the answer is present in the image, use it.
             3. If the answer is NOT present, solve the question or provide a concise, accurate explanation/answer.
             4. Format as flashcards: 'front' = Question, 'back' = Answer/Explanation.
-            5. Use LaTeX for all math expressions. ALWAYS wrap math in either $...$ for inline or $$...$$ for block math. Example: $E=mc^2$.
+            5. Use LaTeX for math expressions (e.g. $E=mc^2$).
             
             Return JSON with a 'flashcards' array. Ensure the response captures all items.`;
 
@@ -252,7 +252,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, us
             1. Keep the same core concept/answer.
             2. Rewrite the "Front" to be more engaging, precise, or context-rich.
             3. Rewrite the "Back" to be clearer and better explained.
-            4. Use LaTeX for all math expressions. ALWAYS wrap math in either $...$ for inline or $$...$$ for block math. Example: $E=mc^2$.
+            4. Use LaTeX for math ($...$).
             
             Input Cards:
             ${cardsContent}
@@ -305,43 +305,16 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, us
     // --- Render Helpers ---
     const renderMath = (text: string) => {
         if (!text) return null;
-
-        // 1. Protect and render math blocks first to avoid markdown interference
-        const mathBlocks: string[] = [];
-        let processed = text;
-
-        // Support $$, $, \[, \(, and \begin{...}
-        const blockRegex = /\$\$(.*?)\$\$/gs;
-        const bracketRegex = /\\\[(.*?)\\\]/gs;
-        const inlineRegex = /\$(.*?)\$/g;
-        const parenRegex = /\\\((.*?)\\\)/g;
-        const envRegex = /(\\begin\{[a-z*]+\}[\s\S]*?\\end\{[a-z*]+\})/g;
-
-        const renderAndStore = (formula: string, displayMode: boolean) => {
-            try {
-                const html = katex.renderToString(formula.trim(), { displayMode, throwOnError: false });
-                mathBlocks.push(html);
-                return `[[MATH_BLOCK_${mathBlocks.length - 1}]]`;
-            } catch (e) {
-                return formula;
-            }
-        };
-
-        processed = processed.replace(blockRegex, (_, f) => renderAndStore(f, true));
-        processed = processed.replace(bracketRegex, (_, f) => renderAndStore(f, true));
-        processed = processed.replace(envRegex, (f) => renderAndStore(f, true));
-        processed = processed.replace(inlineRegex, (_, f) => renderAndStore(f, false));
-        processed = processed.replace(parenRegex, (_, f) => renderAndStore(f, false));
-
-        // 2. Apply basic formatting
-        processed = processed.replace(/\n/g, '<br/>');
-
-        // 3. Restore math blocks
-        mathBlocks.forEach((html, i) => {
-            processed = processed.replace(`[[MATH_BLOCK_${i}]]`, html);
-        });
-
-        return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processed) }} />;
+        // Support $$, \[ \] for block math and $, \( \) for inline math
+        const html = text
+            .replace(/\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g, (_, p1, p2) => katex.renderToString(p1 || p2, { displayMode: true, throwOnError: false }))
+            .replace(/\$([\s\S]*?)\$|\\\(([\s\S]*?)\\\)/g, (_, p1, p2) => katex.renderToString(p1 || p2, { throwOnError: false }))
+            .replace(/\n/g, '<br/>');
+            
+        return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html, {
+            ADD_TAGS: ['math', 'annotation', 'semantics', 'mtext', 'mn', 'mo', 'mi', 'msup', 'msub', 'mfrac', 'span', 'div', 'br'],
+            ADD_ATTR: ['xmlns', 'display', 'mathvariant', 'class']
+        }) }} />;
     };
 
     // --- Main View ---
