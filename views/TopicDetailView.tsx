@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { BookOpenText, Upload, RotateCw, XCircle, Eye, Zap, History, MessageCircle, FileText, Clock, File, Image as ImageIcon, Edit2, Check, Sparkles, BrainCircuit, CheckCircle, Layers, AlertTriangle, Camera } from 'lucide-react';
+import { BookOpenText, Upload, RotateCw, XCircle, Zap, MessageCircle, FileText, Edit2, Check, Sparkles, BrainCircuit, CheckCircle, Layers, AlertTriangle, Camera } from 'lucide-react';
 import { Card } from '../components/Card';
 import { PomodoroTimer } from '../components/PomodoroTimer';
 import { NotesRenderer, InteractiveNoteEditor } from '../components/NotesRenderer';
 import { SourceViewerModal } from '../components/Modals';
 import { Topic, FocusSession } from '../types';
-import { saveImageToIDB, getTopicBodyFromIDB, saveTopicBodyToIDB } from '../services/storage';
+import { getTopicBodyFromIDB, saveTopicBodyToIDB } from '../services/storage';
 import { useProcessing } from '../context/ProcessingContext';
 import { AnalyticsService } from '../services/analytics';
 import { logTopicSession, getLocalISODate } from '../utils/sessionLog';
@@ -15,7 +15,7 @@ import { ErrorCard } from '../components/ErrorCard';
 interface TopicDetailViewProps {
     topic: Topic | null;
     userId: string;
-    navigateTo: (view: string, data?: any) => void;
+    navigateTo: (view: string, data?: unknown) => void;
     onUpdateTopic: (topic: Topic) => void;
     themeColor: string;
     defaultLanguage?: 'English' | 'Hinglish';
@@ -224,8 +224,62 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
     const pomodoroTime = topic.pomodoroTimeMinutes || 0;
     const hasOriginals = (topic.sourcePageCount || 0) > 0;
 
+    // Smart Top Bar Logic
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [showTopBar, setShowTopBar] = useState(true);
+    const lastScrollY = useRef(0);
+    const scrollRestorationRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        const handleScroll = () => {
+            const container = scrollContainerRef.current;
+            if (!container) return;
+            
+            const currentScrollY = container.scrollTop;
+            const diff = currentScrollY - lastScrollY.current;
+            
+            // Logic:
+            // 1. Always show if near top
+            // 2. Hide if scrolling down (> 10px delta)
+            // 3. Show if scrolling up (< -10px delta)
+            if (currentScrollY < 60) {
+                setShowTopBar(true);
+            } else if (diff > 10) {
+                setShowTopBar(false);
+            } else if (diff < -10) {
+                setShowTopBar(true);
+            }
+            
+            lastScrollY.current = currentScrollY;
+        };
+
+        container.addEventListener('scroll', handleScroll);
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // Preserve scroll position when toggling edit mode
+    const handleToggleEdit = () => {
+        if (scrollContainerRef.current) {
+            scrollRestorationRef.current = scrollContainerRef.current.scrollTop;
+        }
+        setIsEditing(!isEditing);
+    };
+
+    // Restore scroll position after edit mode toggle
+    React.useLayoutEffect(() => {
+        if (scrollRestorationRef.current !== null && scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = scrollRestorationRef.current;
+            // We don't clear it immediately to ensure it sticks during potential re-renders, 
+            // but for this simple toggle, it's fine.
+            scrollRestorationRef.current = null;
+        }
+    }, [isEditing]);
+
     return (
-        <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900 overflow-y-auto no-scrollbar">
+        <div ref={scrollContainerRef} className="flex flex-col h-full bg-gray-100 dark:bg-gray-900 overflow-y-auto no-scrollbar relative scroll-smooth">
             {showSourceModal && (
                 <SourceViewerModal 
                     topicId={topic.id} 
@@ -426,7 +480,10 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
 
             {/* Notebook Section - Full Width, Edge to Edge */}
             <div className="flex-1 flex flex-col mt-4 bg-white dark:bg-gray-800 rounded-t-3xl shadow-[0_-4px_12px_-2px_rgba(0,0,0,0.08)] border-t border-gray-100 dark:border-gray-700 min-h-[500px]">
-                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800 rounded-t-3xl sticky top-0 z-10">
+                <div 
+                    className={`px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800 rounded-t-3xl sticky z-10 transition-[top] duration-300 ease-in-out`}
+                    style={{ top: showTopBar ? '0' : '-80px' }}
+                >
                     <div className="flex items-center space-x-3">
                         <div className={`p-2 rounded-lg bg-${themeColor}-50 dark:bg-${themeColor}-900/30 text-${themeColor}-600 dark:text-${themeColor}-400`}>
                             <FileText size={18} />
@@ -448,7 +505,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                             </button>
                         )}
                         <button 
-                            onClick={() => setIsEditing(!isEditing)}
+                            onClick={handleToggleEdit}
                             className={`px-3 py-1.5 rounded-lg transition text-xs font-bold flex items-center border ${isEditing ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800' : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-100'}`}
                         >
                             {isEditing ? <Check size={14} className="mr-1.5"/> : <Edit2 size={14} className="mr-1.5"/>}
@@ -472,7 +529,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                     ) : notes.length > 0 ? (
                         <div 
                             className="p-4 md:p-8 cursor-text min-h-full w-full break-words overflow-x-hidden touch-pan-y"
-                            onClick={() => setIsEditing(true)}
+                            onClick={handleToggleEdit}
                         >
                             <NotesRenderer 
                                 content={notes} 
@@ -486,6 +543,59 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                             <p className="text-xs mt-1 opacity-70">Scan a document or tap edit to start typing</p>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Floating Action Bar (FAB) */}
+            <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end space-y-3 pointer-events-none">
+                {/* Save Status Indicator */}
+                {saveStatus !== 'saved' && (
+                    <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow-lg border border-gray-100 dark:border-gray-700 flex items-center animate-in fade-in slide-in-from-bottom-2 pointer-events-auto">
+                        {saveStatus === 'saving' ? (
+                            <>
+                                <RotateCw size={12} className="animate-spin text-blue-500 mr-2" />
+                                <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300">Saving...</span>
+                            </>
+                        ) : (
+                            <>
+                                <AlertTriangle size={12} className="text-amber-500 mr-2" />
+                                <span className="text-[10px] font-bold text-gray-600 dark:text-gray-300">Unsaved</span>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {/* Main FAB Pill */}
+                <div className="flex items-center bg-white dark:bg-gray-800 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 dark:border-gray-700 p-1.5 pointer-events-auto">
+                    {(hasOriginals || renderError) && !isEditing && (
+                        <button
+                            onClick={handleViewOriginal}
+                            className={`p-3 rounded-full transition text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 mr-1 ${renderError ? 'animate-pulse' : ''}`}
+                            title="View Original"
+                        >
+                            <Layers size={20} />
+                        </button>
+                    )}
+                    <button 
+                        onClick={handleToggleEdit}
+                        className={`flex items-center px-6 py-3 rounded-full transition font-bold text-sm shadow-sm ${
+                            isEditing 
+                                ? 'bg-green-500 text-white hover:bg-green-600' 
+                                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 hover:bg-gray-50'
+                        }`}
+                    >
+                        {isEditing ? (
+                            <>
+                                <Check size={18} className="mr-2" />
+                                <span>Done</span>
+                            </>
+                        ) : (
+                            <>
+                                <Edit2 size={18} className="mr-2" />
+                                <span>Edit</span>
+                            </>
+                        )}
+                    </button>
                 </div>
             </div>
         </div>

@@ -1,135 +1,26 @@
 
 import React, { useState } from 'react';
-import { Loader2, AlertCircle, ExternalLink, Zap } from 'lucide-react';
-import { supabase } from '../services/supabase';
+import { Loader2, AlertCircle, Zap } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export const GoogleSignInCard: React.FC = () => {
+    const { signInWithGoogle } = useAuth();
     const [launching, setLaunching] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [showProductionGuard, setShowProductionGuard] = useState(false);
-
-    const isPreviewOrigin = () => {
-        const o = window.location.origin;
-        return (
-            o.startsWith('blob:') ||
-            o.includes('aistudio.google.com') ||
-            o.includes('googleusercontent.com') ||
-            o.includes('scf.usercontent.goog') ||
-            window.self !== window.top
-        );
-    };
 
     const handleGoogleSignIn = async () => {
         setError(null);
-
-        // [POPUP FLOW] For preview environments, we use a popup to bypass iframe restrictions
-        if (isPreviewOrigin()) {
-            setLaunching(true);
-            try {
-                // 1. Compute the production callback URL (which is whitelisted in Google Console)
-                const redirectTo = "https://engram-space.vercel.app/auth/callback";
-                
-                // 2. Get the authorization URL from Supabase without redirecting the main window
-                const { data, error } = await supabase.auth.signInWithOAuth({
-                    provider: 'google',
-                    options: {
-                        redirectTo,
-                        skipBrowserRedirect: true,
-                        scopes: 'openid https://www.googleapis.com/auth/userinfo.email',
-                        queryParams: {
-                            access_type: 'offline',
-                            prompt: 'select_account',
-                        },
-                    }
-                });
-
-                if (error) throw error;
-
-                if (data?.url) {
-                    // 3. Open the popup
-                    const width = 500;
-                    const height = 600;
-                    const left = window.screenX + (window.outerWidth - width) / 2;
-                    const top = window.screenY + (window.outerHeight - height) / 2;
-                    
-                    const popup = window.open(
-                        data.url,
-                        'engram_oauth_popup',
-                        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
-                    );
-
-                    if (!popup) {
-                        throw new Error("Popup blocked. Please allow popups for this site.");
-                    }
-
-                    // 4. Monitor the popup
-                    const timer = setInterval(() => {
-                        if (popup.closed) {
-                            clearInterval(timer);
-                            setLaunching(false);
-                        }
-                    }, 1000);
-                }
-            } catch (err: any) {
-                console.error("[OAuth] Popup Start Failed:", err);
-                setError(err.message || "Couldn’t start Google sign-in.");
-                setLaunching(false);
-            }
-            return;
-        }
-
         setLaunching(true);
         try {
-            // Construct redirect URL dynamically
-            const redirectTo = `${window.location.origin}/#/auth/callback`;
-            console.debug("[OAuth] Launching Google Sign In", { redirectTo });
-
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo,
-                    scopes: 'openid https://www.googleapis.com/auth/userinfo.email',
-                    queryParams: {
-                        access_type: 'offline',
-                        prompt: 'select_account',
-                    },
-                }
-            });
-
-            if (error) throw error;
-            // Successful init redirects the browser
-        } catch (err: any) {
-            console.error("[OAuth] Start Failed:", err);
-            setError("Couldn’t start Google sign-in.");
+            await signInWithGoogle();
+        } catch (err: unknown) {
+            const error = err as Error;
+            console.error("[OAuth] Start Failed:", error);
+            setError(error.message || "Couldn’t start Google sign-in.");
+        } finally {
             setLaunching(false);
         }
     };
-
-    if (showProductionGuard) {
-        return (
-            <div className="w-full bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 text-center animate-in fade-in zoom-in-95">
-                <div className="mb-2 text-amber-600 dark:text-amber-400 font-bold flex items-center justify-center text-sm">
-                    <AlertCircle size={18} className="mr-2" />
-                    Security Check
-                </div>
-                <p className="text-xs text-gray-600 dark:text-gray-300 mb-5 leading-relaxed px-2">
-                    Google Sign-In is disabled in this preview environment. Please use the secure production site.
-                </p>
-                <button
-                    onClick={() => window.open('https://engram-space.vercel.app/#/login', '_blank', 'noopener,noreferrer')}
-                    className="w-full py-3 bg-amber-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-amber-700 transition flex items-center justify-center transform active:scale-95"
-                >
-                    Open Production App <ExternalLink size={14} className="ml-2" />
-                </button>
-                <button
-                    onClick={() => setShowProductionGuard(false)}
-                    className="mt-4 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline"
-                >
-                    Cancel
-                </button>
-            </div>
-        );
-    }
 
     return (
         <div className="w-full bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 flex flex-col items-center text-center">

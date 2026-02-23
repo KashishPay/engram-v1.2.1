@@ -3,6 +3,7 @@ import { supabase } from '../services/supabase';
 import { getOAuthAppOrigin, isPreviewEnv } from '../utils/authEnv';
 import { initGuestClock } from '../utils/guestLimit';
 import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 // Minimal User Shim to replace Firebase User interface
 export interface User {
@@ -95,7 +96,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signInWithGoogle = async () => {
     if (!supabase) return;
     
-    // [POPUP FLOW] For preview environments, we use a popup to bypass iframe restrictions
+    // 1) Handle Native Platform (Android/iOS)
+    if (Capacitor.isNativePlatform()) {
+        console.debug("[AUTH] Native platform detected. Using Native Google Sign-In.");
+        try {
+            // Initialize GoogleAuth if not already done (plugin handles this mostly)
+            const googleUser = await GoogleAuth.signIn();
+            
+            if (googleUser && googleUser.authentication.idToken) {
+                console.debug("[AUTH] Native Google Sign-In success. Authenticating with Supabase...");
+                const { data, error } = await supabase.auth.signInWithIdToken({
+                    provider: 'google',
+                    token: googleUser.authentication.idToken,
+                    nonce: undefined // Nonce is optional unless configured in Google Console
+                });
+                
+                if (error) throw error;
+                console.debug("[AUTH] Supabase session established via ID Token", { userId: data.user?.id });
+            } else {
+                throw new Error("No ID Token received from Google Auth.");
+            }
+        } catch (err: any) {
+            console.error("[AUTH] Native Google Sign-In Failed:", err);
+            // If user cancelled, don't show alert
+            if (err.message !== "User cancelled login") {
+                alert("Native Login Error: " + err.message);
+            }
+        }
+        return;
+    }
+
+    // 2) Handle Preview Environment (AI Studio)
     if (isPreviewEnv()) {
         console.debug("[AUTH] Preview environment detected. Using popup flow.");
         
@@ -132,7 +163,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // 2) Compute safe redirect URL
     // Defaulting to standard web URL for compatibility across all devices
-    let redirectTo = `${getOAuthAppOrigin()}/auth/callback`;
+    const redirectTo = `${getOAuthAppOrigin()}/auth/callback`;
     
     console.debug("[AUTH] signInWithOAuth start", { 
         redirectTo, 

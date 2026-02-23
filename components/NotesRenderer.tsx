@@ -472,43 +472,61 @@ const AutoTextArea: React.FC<{
 };
 
 export const InteractiveNoteEditor: React.FC<InteractiveNoteEditorProps> = ({ content, onChange }) => {
-    const [blocks, setBlocks] = useState<string[]>([]);
-    const [editIndex, setEditIndex] = useState<number | null>(null);
-    const [styleClass, setStyleClass] = useState<string>('');
-    const [header, setHeader] = useState<string>('');
-
-    // Initialization: Split content
-    useEffect(() => {
-        // Extract style tag if present
-        let clean = content;
-        const styleMatch = content.match(/^\[STYLE: math=([a-z-]+)\]/);
+    // Helper to parse content synchronously
+    const parseContent = (text: string) => {
+        let clean = text;
+        const styleMatch = text.match(/^\[STYLE: math=([a-z-]+)\]/);
         let extractedStyle = '';
         let extractedHeader = '';
         
         if (styleMatch) {
             extractedStyle = `theme-math-${styleMatch[1]}`;
             extractedHeader = styleMatch[0] + '\n\n';
-            clean = content.replace(/^\[STYLE: math=[a-z-]+\]\s*/, '');
+            clean = text.replace(/^\[STYLE: math=[a-z-]+\]\s*/, '');
         }
-        
-        setStyleClass(extractedStyle);
-        setHeader(extractedHeader);
-        setBlocks(splitRawContent(clean));
+        return {
+            blocks: splitRawContent(clean),
+            styleClass: extractedStyle,
+            header: extractedHeader
+        };
+    };
+
+    // Initialize state lazily but synchronously on first render
+    const [state, setState] = useState(() => parseContent(content));
+    
+    // Destructure for easier usage, but keep them in sync
+    const { blocks, styleClass } = state;
+
+    const [editIndex, setEditIndex] = useState<number | null>(null);
+
+    // Sync with external content changes (e.g. if parent updates)
+    // We use a ref to avoid infinite loops if onChange triggers this
+    const lastContentRef = useRef(content);
+    
+    useEffect(() => {
+        if (content !== lastContentRef.current) {
+            lastContentRef.current = content;
+            setState(parseContent(content));
+        }
     }, [content]);
 
     const handleBlockUpdate = (index: number, newVal: string) => {
         const newBlocks = [...blocks];
         newBlocks[index] = newVal;
-        setBlocks(newBlocks);
+        
+        const newState = { ...state, blocks: newBlocks };
+        setState(newState);
+        
         // Sync to parent immediately
-        onChange(header + newBlocks.join('\n'));
+        onChange(newState.header + newBlocks.join('\n'));
     };
 
     const handleAddBlock = () => {
         const newBlocks = [...blocks, ''];
-        setBlocks(newBlocks);
+        const newState = { ...state, blocks: newBlocks };
+        setState(newState);
         setEditIndex(newBlocks.length - 1);
-        onChange(header + newBlocks.join('\n'));
+        onChange(newState.header + newBlocks.join('\n'));
     };
 
     return (
@@ -523,7 +541,10 @@ export const InteractiveNoteEditor: React.FC<InteractiveNoteEditorProps> = ({ co
                         />
                     ) : (
                         <div 
-                            onClick={() => setEditIndex(idx)}
+                            onClick={(e) => {
+                                setEditIndex(idx);
+                                e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }}
                             className="p-1 -ml-1 rounded-lg border border-transparent hover:border-gray-200 dark:hover:border-gray-700 cursor-text transition-colors"
                         >
                             {/* If block is empty, show a placeholder space to maintain clickability */}
