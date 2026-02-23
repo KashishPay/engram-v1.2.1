@@ -1,15 +1,22 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { 
-    Star, Award, ChevronRight, LayoutGrid, Palette, Clock, Bell, Layout, 
-    Headphones, Info, MessageSquarePlus, Download, Upload, Sun, Moon, 
-    Smartphone, LogOut, PartyPopper, Key, Trash2, Check, ShieldCheck, ExternalLink, RefreshCw, X, AlertTriangle, Loader2, RotateCw, Zap, Sparkles, Lock,
-    Layers, UserX
+    Award, ChevronRight, Palette, Clock, Bell, Layout, 
+    Info, Download, Upload, Sun, Moon, 
+    Smartphone, LogOut, Key, Trash2, ShieldCheck, ExternalLink, AlertTriangle, RotateCw, Zap, Sparkles,
+    Check, Loader2, LayoutGrid, Layers, Headphones, MessageSquarePlus, Star, PartyPopper
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { validateApiKey, getUsageStats } from '../services/gemini';
 import { performDeviceReset } from '../utils/deviceReset';
 import { deleteUserAccount } from '../services/supabase';
+
+interface UsageStats {
+    source?: string;
+    count: number;
+    limit: number;
+    month?: number;
+}
 
 interface SettingsViewProps {
     userProfile: UserProfile;
@@ -29,12 +36,15 @@ interface SettingsViewProps {
     streak?: number;
 }
 
-const SettingsItem: React.FC<{ icon: any, label: string, color: string, onClick?: () => void, rightElement?: React.ReactNode }> = ({ icon: Icon, label, color, onClick, rightElement }) => (
-    <button onClick={onClick} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition border-b last:border-b-0 border-gray-100 dark:border-gray-800">
-        <div className="flex items-center space-x-3"><Icon size={20} className={color} /><span className="font-medium text-gray-700 dark:text-gray-200">{label}</span></div>
-        {rightElement || <ChevronRight className="text-gray-300 dark:text-gray-600" size={20} />}
-    </button>
-);
+const SettingsItem: React.FC<{ icon: unknown, label: string, color: string, onClick?: () => void, rightElement?: React.ReactNode }> = ({ icon, label, color, onClick, rightElement }) => {
+    const Icon = icon as React.ElementType;
+    return (
+        <button onClick={onClick} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition border-b last:border-b-0 border-gray-100 dark:border-gray-800">
+            <div className="flex items-center space-x-3">{Icon && <Icon size={20} className={color} />}<span className="font-medium text-gray-700 dark:text-gray-200">{label}</span></div>
+            {rightElement || <ChevronRight className="text-gray-300 dark:text-gray-600" size={20} />}
+        </button>
+    );
+};
 
 const CelebrationOverlay: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -57,7 +67,7 @@ const CelebrationOverlay: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         setCanvasSize();
         window.addEventListener('resize', setCanvasSize);
 
-        const particles: any[] = [];
+        const particles: unknown[] = [];
         const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
         
         for (let i = 0; i < 200; i++) {
@@ -159,11 +169,11 @@ const CelebrationOverlay: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 };
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
-    userProfile, userId, userEmail, isGuest, currentTheme, navigateTo, setShowFeedbackModal, 
+    userProfile, userId, userEmail, isGuest, currentTheme, navigateTo, 
     handleExportData, handleImportData, appMode, setAppMode, onSignOut, level, badgeCount, streak = 0 
 }) => {
     const [showCelebration, setShowCelebration] = useState(false);
-    const [usageStats, setUsageStats] = useState<any>(null);
+    const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
     
     // BYOK State
     const [showKeyInput, setShowKeyInput] = useState(false);
@@ -330,9 +340,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             await performDeviceReset();
             
             window.location.reload();
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("Account deletion failed", e);
-            alert("Failed to delete account: " + (e.message || "Unknown error"));
+            alert("Failed to delete account: " + ((e as Error).message || "Unknown error"));
             setIsDeleting(false);
             setShowDeleteConfirm(false);
         }
@@ -445,7 +455,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             }
                         />
                         {showKeyInput && (
-                            <div className="p-5 bg-blue-50 dark:bg-gray-900/50 animate-in slide-in-from-top-2 border-t border-blue-100 dark:border-blue-900/30">
+                            <div className="p-5 bg-white dark:bg-gray-800 animate-in slide-in-from-top-2 border-t border-blue-100 dark:border-blue-900/30">
                                 {/* ... (BYOK Content) ... */}
                                 <div className={`mb-4 p-3 rounded-xl border flex items-center ${hasKey ? 'bg-green-50 border-green-200 text-green-800' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
                                     <div className={`p-2 rounded-full mr-3 ${hasKey ? 'bg-green-200 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
@@ -540,7 +550,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 </button>
                                 {isGuest ? (
                                     <button 
-                                        onClick={() => handleImportData({ target: { value: '' } } as any)} 
+                                        onClick={() => handleImportData({ target: { value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)} 
                                         className="flex items-center justify-center p-3 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 rounded-xl font-medium text-sm border border-gray-200 dark:border-gray-700 transition"
                                     >
                                         <Lock size={14} className="mr-2" /> Import (Sign In)

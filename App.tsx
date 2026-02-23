@@ -31,7 +31,7 @@ export const App: React.FC = () => {
         console.debug("======================================================");
 
         // DEV: Upload Refresh Diagnosis
-        window.addEventListener("beforeunload", e => console.debug("[UPLOAD] beforeunload fired"));
+        window.addEventListener("beforeunload", () => console.debug("[UPLOAD] beforeunload fired"));
         window.addEventListener("pageshow", e => console.debug("[UPLOAD] pageshow", { persisted: e.persisted }));
         document.addEventListener("visibilitychange", () => console.debug("[UPLOAD] visibilitychange", document.visibilityState));
     }, []);
@@ -394,11 +394,12 @@ export const App: React.FC = () => {
         setIsOnboarded(true);
     };
 
-    const handleOnboardingComplete = (profile: any) => {
+    const handleOnboardingComplete = (profile: unknown) => {
+        const p = profile as { full_name: string; avatar_url?: string; username: string };
         setUserProfile({
-            name: profile.full_name,
-            avatar: profile.avatar_url || user?.photoURL,
-            username: profile.username
+            name: p.full_name,
+            avatar: p.avatar_url || user?.photoURL,
+            username: p.username
         });
         setIsOnboarded(true);
         window.location.hash = '#/home';
@@ -417,7 +418,7 @@ export const App: React.FC = () => {
 
     const handleAllowPermissions = async () => {
         if (navigator.storage && navigator.storage.persist) {
-            try { await navigator.storage.persist(); } catch (e) {}
+            try { await navigator.storage.persist(); } catch { }
         }
         
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {

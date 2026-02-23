@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { ArrowLeft, Headphones, Play, Pause, Rewind, FastForward, X, Minimize2, Loader, Mic2, ChevronDown, FileText, Download, FolderOpen, Bookmark, Trash2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Headphones, Play, Pause, Rewind, FastForward, X, Minimize2, Loader, Mic2, ChevronDown, FileText, Download, FolderOpen, Bookmark, Trash2, AlertTriangle, RefreshCw, Plus, Minus } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic } from '../types';
 import { getAudioFromIDB, deleteAudioFromIDB, getAllAudioKeys } from '../services/storage';
@@ -672,23 +672,47 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                     </div>
 
                     {/* Main Controls */}
-                    <div className="flex items-center justify-between mb-10 px-2 shrink-0">
-                        <button onClick={() => controls.skip(-10)} className="flex flex-col items-center p-3 text-gray-400 hover:text-gray-700 dark:hover:text-white transition rounded-full hover:bg-black/5 dark:hover:bg-white/5">
-                            <Rewind size={28} />
-                            <span className="text-[10px] font-bold mt-1">-10s</span>
-                        </button>
-                        
-                        <button 
-                           onClick={controls.togglePlay}
-                           className={`w-20 h-20 bg-${themeColor}-600 rounded-[24px] text-white flex items-center justify-center shadow-xl hover:scale-105 transition active:scale-95`}
-                        >
-                           {state.isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
-                        </button>
+                    <div className="flex flex-col items-center mb-10 shrink-0 space-y-6">
+                        <div className="flex items-center justify-between w-full px-2">
+                            <button onClick={() => controls.skip(-10)} className="flex flex-col items-center p-3 text-gray-400 hover:text-gray-700 dark:hover:text-white transition rounded-full hover:bg-black/5 dark:hover:bg-white/5">
+                                <Rewind size={28} />
+                                <span className="text-[10px] font-bold mt-1">-10s</span>
+                            </button>
+                            
+                            <button 
+                               onClick={controls.togglePlay}
+                               className={`w-20 h-20 bg-${themeColor}-600 rounded-[24px] text-white flex items-center justify-center shadow-xl hover:scale-105 transition active:scale-95`}
+                            >
+                               {state.isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
+                            </button>
 
-                        <button onClick={() => controls.skip(10)} className="flex flex-col items-center p-3 text-gray-400 hover:text-gray-700 dark:hover:text-white transition rounded-full hover:bg-black/5 dark:hover:bg-white/5">
-                            <FastForward size={28} />
-                            <span className="text-[10px] font-bold mt-1">+10s</span>
-                        </button>
+                            <button onClick={() => controls.skip(10)} className="flex flex-col items-center p-3 text-gray-400 hover:text-gray-700 dark:hover:text-white transition rounded-full hover:bg-black/5 dark:hover:bg-white/5">
+                                <FastForward size={28} />
+                                <span className="text-[10px] font-bold mt-1">+10s</span>
+                            </button>
+                        </div>
+
+                        {/* Speed Controls */}
+                        <div className="flex items-center bg-black/5 dark:bg-white/5 rounded-full px-4 py-1.5 space-x-4">
+                            <button 
+                                onClick={() => controls.setPlaybackRate(state.playbackRate - 0.25)}
+                                className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-white transition rounded-full hover:bg-black/10"
+                                title="Decrease Speed"
+                            >
+                                <Minus size={18} />
+                            </button>
+                            <div className="flex flex-col items-center min-w-[60px]">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Speed</span>
+                                <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{state.playbackRate.toFixed(2)}x</span>
+                            </div>
+                            <button 
+                                onClick={() => controls.setPlaybackRate(state.playbackRate + 0.25)}
+                                className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-white transition rounded-full hover:bg-black/10"
+                                title="Increase Speed"
+                            >
+                                <Plus size={18} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Bottom Actions */}

@@ -191,7 +191,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, us
                 images, // Send array of images
                 null,
                 2,
-                'gemini-3-flash-preview', 
+                'gemini-2.5-flash', 
                 'flashcards'
             );
 
@@ -268,7 +268,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, us
                 null,
                 null,
                 2,
-                'gemini-3-flash-preview',
+                'gemini-2.5-flash',
                 'flashcards'
             );
 

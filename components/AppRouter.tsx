@@ -9,7 +9,6 @@ import { AnalyticsService } from '../services/analytics';
 import { 
     batchGetTopicBodies, 
     batchGetImages, 
-    batchSaveTopicBodies, 
     batchSaveImages, 
     batchGetOriginalImages,
     batchGetChatHistories,
@@ -17,7 +16,7 @@ import {
 } from '../services/storage';
 import { logGlobalSession, getPomodoroLogs, savePomodoroLogs, getLocalISODate } from '../utils/sessionLog';
 import { ObservationsService } from '../services/observations';
-import { ENABLE_GOOGLE_OAUTH, ENABLE_PASSWORD_RECOVERY } from '../config/auth';
+import { ENABLE_PASSWORD_RECOVERY } from '../config/auth';
 import { normalizeDoubleHashToQuery } from '../utils/urlSanitizer';
 import { checkGuestStatus, getGuestStartTimestamp } from '../utils/guestLimit';
 import { ErrorCard } from './ErrorCard';
@@ -56,7 +55,7 @@ import { PomoHistoryView } from '../views/PomoHistoryView';
 import { FlashcardHubView } from '../views/FlashcardHubView';
 
 interface AppRouterProps {
-    user: any;
+    user: unknown;
     isGuest: boolean;
     userId: string;
     authLoading: boolean;
@@ -65,9 +64,9 @@ interface AppRouterProps {
     isOnboarded: boolean;
     setIsOnboarded: (isOnboarded: boolean) => void;
     checkingProfile: boolean;
-    profiles: any[];
+    profiles: { id: string; name: string; avatar: string | null }[];
     onLoginComplete: (name: string, avatar: string | null) => void;
-    onOnboardingComplete: (profile: any) => void;
+    onOnboardingComplete: (profile: unknown) => void;
     onSignOut: () => void;
     onSwitchProfile: (id: string) => void;
     onAddProfile: () => void;
@@ -84,7 +83,7 @@ interface AppRouterProps {
     handleDeleteSubject: (id: string) => void;
     importStudyLog: (data: Topic[], subjects?: Subject[]) => Promise<void>;
 
-    earnedBadges: any[];
+    earnedBadges: { id: string }[];
     currentStreak: number;
 
     dateTimeSettings: DateTimeSettings;
@@ -104,8 +103,8 @@ interface AppRouterProps {
 
     podcastConfig: { language: 'English' | 'Hinglish' };
     setPodcastConfig: (config: { language: 'English' | 'Hinglish' }) => void;
-    podcast: any;
-    focusState: any;
+    podcast: unknown;
+    focusState: unknown;
 }
 
 // Helper for safe JSON reading
@@ -149,16 +148,16 @@ const mergeHabits = (local: Habit[], imported: Habit[]): Habit[] => {
     return Array.from(mergedMap.values());
 };
 
-const mergeObservations = (local: any[], imported: any[]): any[] => {
+const mergeObservations = (local: unknown[], imported: unknown[]): any[] => {
     const map = new Map<string, any>();
-    local.forEach(o => map.set(o.dateISO, o));
+    (local as any[]).forEach(o => map.set(o.dateISO, o));
     
-    imported.forEach(imp => {
+    (imported as any[]).forEach(imp => {
         const existing = map.get(imp.dateISO);
         if (existing) {
             // Conflict: Use Last Write Wins based on updatedAt
-            const impTime = imp.updatedAt || 0;
-            const locTime = existing.updatedAt || 0;
+            const impTime = (imp as { updatedAt?: number }).updatedAt || 0;
+            const locTime = (existing as { updatedAt?: number }).updatedAt || 0;
             if (impTime >= locTime) {
                 map.set(imp.dateISO, imp);
             }
@@ -169,16 +168,16 @@ const mergeObservations = (local: any[], imported: any[]): any[] => {
     return Array.from(map.values());
 };
 
-const mergeTasksSmart = (local: any[], imported: any[], textKey: string = 'text'): any[] => {
+const mergeTasksSmart = (local: unknown[], imported: unknown[], textKey: string = 'text'): any[] => {
     const map = new Map<string, any>();
     const texts = new Set<string>();
     
-    local.forEach(t => {
+    (local as any[]).forEach(t => {
         map.set(t.id, t);
         if (t[textKey]) texts.add(t[textKey]);
     });
     
-    imported.forEach(t => {
+    (imported as any[]).forEach(t => {
         if (map.has(t.id)) {
             // ID Conflict: Backup wins (Overwrite)
             map.set(t.id, t);
@@ -192,10 +191,10 @@ const mergeTasksSmart = (local: any[], imported: any[], textKey: string = 'text'
     return Array.from(map.values());
 };
 
-const mergeFlashcards = (local: any[], imported: any[]): any[] => {
+const mergeFlashcards = (local: unknown[], imported: unknown[]): any[] => {
     const map = new Map<string, any>();
-    local.forEach(item => map.set(item.id, item));
-    imported.forEach(item => map.set(item.id, item));
+    (local as any[]).forEach(item => map.set(item.id, item));
+    (imported as any[]).forEach(item => map.set(item.id, item));
     return Array.from(map.values());
 };
 
@@ -215,7 +214,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
     const [topicListData, setTopicListData] = useState<{ title: string; topics: Topic[] }>({ title: '', topics: [] });
     
     // Quiz Hydration State
-    const [selectedQuizReviewData, setSelectedQuizReviewData] = useState<{ topic: Topic, quizAttempt: any, repetitionNumber: number } | null>(null);
+    const [selectedQuizReviewData, setSelectedQuizReviewData] = useState<{ topic: Topic, quizAttempt: QuizAttempt, repetitionNumber: number } | null>(null);
     const [isHydratingQuizReview, setIsHydratingQuizReview] = useState(false);
 
     const [isPodcastOverlayOpen, setIsPodcastOverlayOpen] = useState(false);
@@ -235,7 +234,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
     const lastHashRef = useRef<string>(window.location.hash);
     
     // Payload Stash for Navigation Transitions
-    const pendingNavPayloadRef = useRef<any>(null);
+    const pendingNavPayloadRef = useRef<unknown>(null);
 
     // Modal State Ref for Event Listener
     const modalsRef = useRef({
@@ -269,7 +268,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
         
         const cleanHash = hash.replace(/^#\/?/, '');
         const [pathPart, queryPart] = cleanHash.split('?');
-        const params: any = {};
+        const params: Record<string, string> = {};
         
         if (queryPart) {
             new URLSearchParams(queryPart).forEach((value, key) => {
@@ -288,7 +287,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
     }, []);
 
     // Core Hash Change Logic
-    const handleHashChangeCore = useCallback((targetHash: string, source: string, directPayload?: any) => {
+    const handleHashChangeCore = useCallback((targetHash: string, source: string, directPayload?: unknown) => {
         // Sanitize first to fix double hashes
         normalizeDoubleHashToQuery();
 
@@ -302,7 +301,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                  const canonicalHash = `#/list/${type}`;
                  try {
                     window.history.replaceState(null, '', canonicalHash);
-                 } catch(e) { /* Safe fail in blob */ }
+                 } catch { /* Safe fail in blob */ }
                  rawHash = canonicalHash;
              }
         }
@@ -434,7 +433,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
     }, [fromHash]);
 
     // Navigation Handler (Updates Hash)
-    const navigateTo = useCallback((view: string, data?: any, options?: { replace?: boolean }) => {
+    const navigateTo = useCallback((view: string, data?: unknown, options?: { replace?: boolean }) => {
         let hash = `#/${view}`;
         const params = new URLSearchParams();
 
@@ -562,7 +561,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
         window.addEventListener('hashchange', onHashChange);
 
         // SAFE Polling for Local Development only
-        let pollInterval: any = null;
+        let pollInterval: ReturnType<typeof setInterval> | null = null;
         const isLocalhost = 
             window.location.hostname === 'localhost' || 
             window.location.hostname === '127.0.0.1';
@@ -825,9 +824,10 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 }
                 
                 setShowImportSuccessModal(true);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("Import failed:", err);
-                setRouterError(new Error(err.message || "Failed to parse backup file."));
+                const message = err instanceof Error ? err.message : "Failed to parse backup file.";
+                setRouterError(new Error(message));
             }
         };
         reader.readAsText(file);
@@ -872,7 +872,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             try {
                 const raw = localStorage.getItem('engram_ai_preferences');
                 if (raw) aiPrefs = JSON.parse(raw);
-            } catch {}
+            } catch { }
 
             const backupBundle = {
                 schemaVersion: "1.0.0",
@@ -928,9 +928,10 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                         url: fileResult.uri,
                         dialogTitle: 'Save Backup File',
                     });
-                } catch (nativeErr: any) {
+                } catch (nativeErr: unknown) {
                     console.error("Native export failed:", nativeErr);
-                    setRouterError(new Error("Failed to share backup file: " + nativeErr.message));
+                    const message = nativeErr instanceof Error ? nativeErr.message : String(nativeErr);
+                    setRouterError(new Error("Failed to share backup file: " + message));
                 }
             } else {
                 // Web: Download Blob
@@ -994,7 +995,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 isHydratingQuizReview 
                 ? <div className="p-10 text-center text-gray-500 animate-pulse">Analyzing Results...</div>
                 : selectedQuizReviewData 
-                    ? <QuizReview topic={selectedQuizReviewData.topic} quizData={selectedQuizReviewData.quizAttempt.questions} answers={selectedQuizReviewData.quizAttempt.questions.map((q: any, i: number) => ({ qIndex: i, selected: q.userSelected, correct: q.correct_answer_letter }))} timeTaken={selectedQuizReviewData.quizAttempt.timeTakenSeconds} navigateTo={navigateTo} repetitionNumber={selectedQuizReviewData.repetitionNumber} themeColor={props.currentTheme} />
+                    ? <QuizReview topic={selectedQuizReviewData.topic} quizData={selectedQuizReviewData.quizAttempt.questions} answers={selectedQuizReviewData.quizAttempt.questions.map((q, i) => ({ qIndex: i, selected: q.userSelected, correct: q.correct_answer_letter }))} timeTaken={selectedQuizReviewData.quizAttempt.timeTakenSeconds} navigateTo={navigateTo} repetitionNumber={selectedQuizReviewData.repetitionNumber} themeColor={props.currentTheme} />
                     : <ErrorCard error={new Error("Failed to load quiz results.")} resetErrorBoundary={() => navigateTo('home')} />
             )}
             {currentView === 'chat' && <ChatView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} />}

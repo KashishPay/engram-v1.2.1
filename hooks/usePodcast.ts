@@ -21,6 +21,7 @@ export interface PodcastState {
     downloadingIds: string[];
     error: string | null; // Added Error State
     generationStartTime: number | null; // Added for robust timer
+    playbackRate: number;
 }
 
 export interface PodcastControls {
@@ -29,6 +30,7 @@ export interface PodcastControls {
     seek: (time: number) => void;
     skip: (seconds: number) => void;
     reset: () => void;
+    setPlaybackRate: (rate: number) => void;
     downloadTopic: (topic: Topic, context: string, duration: number, language: string, onSuccess?: (audioData: Blob | string, script: string) => void) => Promise<void>;
 }
 
@@ -45,6 +47,7 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
     const [generationStartTime, setGenerationStartTime] = useState<number | null>(null); // State for timer persistence
     const [downloadingIds, setDownloadingIds] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [playbackRate, setPlaybackRateState] = useState(1);
     
     const audioRef = useRef<HTMLAudioElement | null>(null);
     
@@ -65,6 +68,7 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
         setEstimatedDuration(null);
         setGenerationStartTime(null);
         setError(null);
+        setPlaybackRateState(1);
         shouldAutoPlayRef.current = false;
         releaseWakeLock(); // Release lock on reset
     }, []);
@@ -98,6 +102,14 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
     const skip = useCallback((seconds: number) => {
         if (audioRef.current) {
             audioRef.current.currentTime += seconds;
+        }
+    }, []);
+
+    const setPlaybackRate = useCallback((rate: number) => {
+        const newRate = Math.min(2, Math.max(0.5, rate));
+        setPlaybackRateState(newRate);
+        if (audioRef.current) {
+            audioRef.current.playbackRate = newRate;
         }
     }, []);
 
@@ -318,6 +330,7 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
     useEffect(() => {
         if (audioSrc && shouldAutoPlayRef.current && audioRef.current) {
             console.debug("[Podcast] Auto-playing generated/loaded content...");
+            audioRef.current.playbackRate = playbackRate;
             const playPromise = audioRef.current.play();
             if (playPromise !== undefined) {
                 playPromise
@@ -407,8 +420,8 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
     }, []);
 
     return {
-        state: { currentTopic, isPlaying, audioSrc, loading, status, currentTime, duration, generatedScript, estimatedDuration, downloadingIds, error, generationStartTime },
-        controls: { playTopic, togglePlay, seek, skip, reset, downloadTopic },
+        state: { currentTopic, isPlaying, audioSrc, loading, status, currentTime, duration, generatedScript, estimatedDuration, downloadingIds, error, generationStartTime, playbackRate },
+        controls: { playTopic, togglePlay, seek, skip, reset, setPlaybackRate, downloadTopic },
         audioRef,
         audioProps: {
             onTimeUpdate,

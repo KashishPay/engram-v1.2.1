@@ -7,7 +7,7 @@ import { PodcastMiniPlayer } from '../views/PodcastView';
 import { OfflineBanner } from './OfflineBanner';
 import { PermissionModal, FeedbackModal } from './Modals';
 import { TAB_ITEMS } from '../constants';
-import { UserProfile, Topic } from '../types';
+import { Topic } from '../types';
 import { checkGuestStatus } from '../utils/guestLimit';
 import { GlobalNotificationService, GlobalNotification } from '../services/globalNotifications';
 import { triggerHaptic } from '../utils/haptics';
@@ -19,8 +19,6 @@ interface AppShellProps {
     currentView: string;
     themeColor: string;
     themeIntensity: string;
-    appMode: string;
-    userProfile: UserProfile;
     navigateTo: (view: string, data?: any) => void;
     enabledTabs: string[];
     showFeedbackModal: boolean;
@@ -46,8 +44,6 @@ export const AppShell: React.FC<AppShellProps> = ({
     currentView,
     themeColor,
     themeIntensity,
-    appMode,
-    userProfile,
     navigateTo,
     enabledTabs,
     showFeedbackModal,
@@ -75,7 +71,6 @@ export const AppShell: React.FC<AppShellProps> = ({
     const mainBgClass = `bg-${themeColor}-${themeIntensity} dark:bg-gray-900`;
     const isLoggedIn = !!(user || isGuest);
 
-    const isImmersiveView = ['quiz', 'chat'].includes(currentView);
     const showTabBar = isLoggedIn && currentView !== 'onboarding' && currentView !== 'chat';
 
     // Guest Status Check
@@ -99,7 +94,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     const mainClasses = `flex-1 flex flex-col min-h-0 no-scrollbar ${
         isEdgeToEdge 
             ? 'bg-white dark:bg-gray-900 p-0 overflow-hidden' 
-            : `${['subjects', 'home', 'topicList', 'settings', 'podcastSettings', 'appearance', 'tabBarSettings', 'dateTimeSettings', 'soundsNotifications', 'widgets', 'about', 'profile', 'aiFeatures', 'flashcardHub'].includes(currentView) ? 'px-1.5' : 'px-4'} pt-4 overflow-y-auto`
+            : `${['subjects', 'home', 'topicList', 'settings', 'podcastSettings', 'appearance', 'tabBarSettings', 'dateTimeSettings', 'soundsNotifications', 'widgets', 'about', 'profile', 'aiFeatures', 'flashcardHub'].includes(currentView) ? 'px-1.5' : 'px-4'} ${currentView === 'settings' ? 'pt-0' : 'pt-4'} overflow-y-auto`
     }`;
 
     // --- Global Notifications Logic ---
@@ -316,7 +311,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                     </header>
                 )}
                 {isLoggedIn && !isPodcastOpen && ['settings', 'tabBarSettings', 'dateTimeSettings', 'soundsNotifications', 'widgets'].includes(currentView) && currentView !== 'appearance' && (
-                    <header className={`bg-${themeColor}-50 dark:bg-gray-900 px-4 py-3 text-${themeColor}-900 dark:text-${themeColor}-100 flex justify-between items-center shrink-0 z-10 shadow-sm`}>
+                    <header className={`bg-${themeColor}-50 dark:bg-gray-900 px-4 py-3 text-${themeColor}-900 dark:text-${themeColor}-100 flex justify-between items-center shrink-0 z-10`}>
                         <h1 className="text-xl font-bold pl-1">{currentView === 'settings' ? 'Settings' : ' '}</h1>
                     </header>
                 )}

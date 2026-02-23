@@ -82,7 +82,7 @@ export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, 
                                     key={m}
                                     onClick={() => updatePref('model', m)}
                                     className={`flex-1 py-2 text-sm font-bold rounded-lg transition capitalize ${
-                                        (prefs.model === 'flash' || prefs.model === 'pro' ? prefs.model : (prefs.model?.includes('flash') ? 'flash' : 'pro')) === m 
+                                        (prefs.model === 'flash' || prefs.model === 'pro' ? prefs.model : (prefs.model?.includes('flash') || !prefs.model ? 'flash' : 'pro')) === m 
                                         ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' 
                                         : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                                     }`}
