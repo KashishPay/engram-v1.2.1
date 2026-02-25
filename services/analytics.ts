@@ -68,7 +68,7 @@ export const AnalyticsService = {
         AnalyticsService.saveAggregates(userId, agg);
     },
 
-    trackEvent: (userId: string, event: string, payload?: any) => {
+    trackEvent: (userId: string, event: string, payload?: Record<string, unknown>) => {
         // Minimal telemetry hook - prints to debug for now
         // Can be extended to send to an analytics endpoint
         if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {

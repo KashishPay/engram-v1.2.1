@@ -1,8 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Topic, Subject } from '../types';
-import { INITIAL_SUBJECTS } from '../constants';
-import { saveAudioToIDB, saveTopicBodyToIDB, getAllAudioKeys } from '../services/storage';
+import { saveAudioToIDB, saveTopicBodyToIDB, getAllAudioKeys, getAllTopicBodyKeys } from '../services/storage';
 
 export const useStudyData = (userId: string) => {
     const [studyLog, setStudyLog] = useState<Topic[]>([]);
@@ -12,7 +11,6 @@ export const useStudyData = (userId: string) => {
     // Initial Load & Migration Logic
     useEffect(() => {
         setLoadingData(true);
-        const bootStart = performance.now();
         performance.mark('boot_start');
 
         // Async hydration wrapped in a timeout to yield to main thread immediately
@@ -43,7 +41,7 @@ export const useStudyData = (userId: string) => {
                     if (!isMigrated && parsedData.length > 0) {
                         console.log("%c [Migration] Starting V2 Storage Migration...", 'color: orange');
                         localStorage.setItem(`${dataKey}_backup_v1`, storedData);
-                        const migrationPromises = parsedData.map(async (topic: any) => {
+                        const migrationPromises = parsedData.map(async (topic: Topic) => {
                             if (topic.shortNotes && topic.shortNotes.length > 0) {
                                 await saveTopicBodyToIDB(userId, topic.id, topic.shortNotes);
                             }
@@ -65,7 +63,7 @@ export const useStudyData = (userId: string) => {
                         const audioSet = new Set(audioKeys);
                         const noteSet = new Set(noteKeys);
                         
-                        parsedData = parsedData.map((t: any) => ({
+                        parsedData = parsedData.map((t: Topic) => ({
                             ...t,
                             hasSavedAudio: audioSet.has(t.id) || t.hasSavedAudio,
                             hasNotes: noteSet.has(t.id) || (t.shortNotes && t.shortNotes.length > 50)
@@ -74,7 +72,7 @@ export const useStudyData = (userId: string) => {
                         console.warn("[Boot] State reconciliation failed", e);
                     }
 
-                    finalTopics = parsedData.map((t: any) => ({
+                    finalTopics = parsedData.map((t: Topic) => ({
                         ...t,
                         id: t.id || `topic-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                         repetitions: Array.isArray(t.repetitions) ? t.repetitions : [],
@@ -140,7 +138,9 @@ export const useStudyData = (userId: string) => {
         if (!loadingData && userId) {
             // Strip heavy audio AND body text before saving to localStorage index
             const indexLog = studyLog.map(topic => {
-                const { podcastAudio, shortNotes, ...rest } = topic;
+                const rest = { ...topic };
+                delete rest.podcastAudio;
+                delete rest.shortNotes;
                 // We keep shortNotes field but empty to satisfy type, 
                 // actual content is in IDB (handled by handleUpdateTopic or TopicDetailView)
                 return { ...rest, shortNotes: "" };
@@ -161,7 +161,7 @@ export const useStudyData = (userId: string) => {
 
     // Handlers
     const handleUpdateTopic = useCallback(async (updatedTopic: Topic) => {
-        let topicToState = { ...updatedTopic };
+        const topicToState = { ...updatedTopic };
 
         // 1. Offload Audio
         if (updatedTopic.podcastAudio) {

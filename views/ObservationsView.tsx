@@ -52,7 +52,7 @@ const ImageThumbnail: React.FC<{
     );
 };
 
-export const ObservationsView: React.FC<ObservationsViewProps> = ({ userId, themeColor, navigateTo }) => {
+export const ObservationsView: React.FC<ObservationsViewProps> = ({ userId, themeColor }) => {
     const today = new Date();
     const todayISO = today.toISOString().split('T')[0];
 

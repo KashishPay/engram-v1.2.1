@@ -74,9 +74,10 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ classNam
                         }
                     }, 1000);
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("[OAuth] Popup Start Failed:", err);
-                setError(err.message || "Couldn’t start Google sign-in.");
+                const message = err instanceof Error ? err.message : "Couldn’t start Google sign-in.";
+                setError(message);
                 setLaunching(false);
             }
             return;
@@ -104,7 +105,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ classNam
 
             if (error) throw error;
             // Successful init redirects the browser, so we remain in 'launching' state
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("[OAuth] Start Failed:", err);
             setError("Couldn’t start Google sign-in. Please try again.");
             setLaunching(false);

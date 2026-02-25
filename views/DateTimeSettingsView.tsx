@@ -4,16 +4,16 @@ import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { goBackOrFallback } from '../utils/navigation';
 
 interface DateTimeSettingsViewProps {
-    settings: any; // Using any for brevity in prop passing, strictly typed in usage
-    onUpdateSettings: (newSettings: any) => void;
+    settings: Record<string, unknown>; // Using any for brevity in prop passing, strictly typed in usage
+    onUpdateSettings: (newSettings: Record<string, unknown>) => void;
     navigateTo: (view: string) => void;
     goBack: () => void;
     themeColor: string;
 }
 
-export const DateTimeSettingsView: React.FC<DateTimeSettingsViewProps> = ({ settings, onUpdateSettings, navigateTo, goBack, themeColor }) => {
+export const DateTimeSettingsView: React.FC<DateTimeSettingsViewProps> = ({ settings, onUpdateSettings, themeColor }) => {
     
-    const handleChange = (key: string, value: any) => {
+    const handleChange = (key: string, value: unknown) => {
         onUpdateSettings({ ...settings, [key]: value });
     };
 
@@ -43,7 +43,7 @@ export const DateTimeSettingsView: React.FC<DateTimeSettingsViewProps> = ({ sett
                     </div>
                     <div className="relative">
                         <select 
-                            value={settings.timeFormat}
+                            value={settings.timeFormat as string}
                             onChange={(e) => handleChange('timeFormat', e.target.value)}
                             className="appearance-none bg-transparent text-gray-500 dark:text-gray-300 text-right outline-none cursor-pointer pr-6 z-10 relative"
                         >
@@ -62,7 +62,7 @@ export const DateTimeSettingsView: React.FC<DateTimeSettingsViewProps> = ({ sett
                     </div>
                     <div className="relative">
                         <select 
-                            value={settings.startDayOfWeek}
+                            value={settings.startDayOfWeek as string}
                             onChange={(e) => handleChange('startDayOfWeek', e.target.value)}
                             className="appearance-none bg-transparent text-gray-500 dark:text-gray-300 text-right outline-none cursor-pointer opacity-0 absolute right-0 w-full h-full z-10"
                         >
@@ -71,7 +71,7 @@ export const DateTimeSettingsView: React.FC<DateTimeSettingsViewProps> = ({ sett
                             <option value="saturday">Saturday</option>
                         </select>
                         <div className="flex items-center text-gray-500 dark:text-gray-300">
-                             <span className="capitalize mr-2 text-sm">{settings.startDayOfWeek}</span>
+                             <span className="capitalize mr-2 text-sm">{settings.startDayOfWeek as string}</span>
                              <ChevronRight size={16} className="text-gray-300 dark:text-gray-500" />
                         </div>
                     </div>
@@ -81,17 +81,17 @@ export const DateTimeSettingsView: React.FC<DateTimeSettingsViewProps> = ({ sett
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-transparent dark:border-gray-700">
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                     <span className="text-gray-800 dark:text-gray-200 font-medium">Show Week Numbers(W)</span>
-                    <Toggle checked={settings.showWeekNumbers} onChange={(val) => handleChange('showWeekNumbers', val)} />
+                    <Toggle checked={settings.showWeekNumbers as boolean} onChange={(val) => handleChange('showWeekNumbers', val)} />
                 </div>
 
                 <div className="p-4 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                     <div className="flex flex-col">
                         <span className="text-gray-800 dark:text-gray-200 font-medium">Week 1 is</span>
-                        <span className="text-xs text-gray-400 capitalize">{settings.week1Definition}</span>
+                        <span className="text-xs text-gray-400 capitalize">{settings.week1Definition as string}</span>
                     </div>
                     <div className="relative">
                          <select 
-                            value={settings.week1Definition}
+                            value={settings.week1Definition as string}
                             onChange={(e) => handleChange('week1Definition', e.target.value)}
                              className="appearance-none bg-transparent text-gray-500 dark:text-gray-300 text-right outline-none cursor-pointer opacity-0 absolute right-0 w-full h-full z-10"
                         >
@@ -100,7 +100,7 @@ export const DateTimeSettingsView: React.FC<DateTimeSettingsViewProps> = ({ sett
                             <option value="firstFullWeek">First full week</option>
                         </select>
                         <div className="flex items-center text-gray-500 dark:text-gray-300">
-                             <span className="capitalize mr-2 text-sm">{settings.week1Definition}</span>
+                             <span className="capitalize mr-2 text-sm">{settings.week1Definition as string}</span>
                              <ChevronRight size={16} className="text-gray-300 dark:text-gray-500" />
                         </div>
                     </div>
@@ -116,7 +116,7 @@ export const DateTimeSettingsView: React.FC<DateTimeSettingsViewProps> = ({ sett
                         </span>
                     </div>
                     <div className="mt-1">
-                        <Toggle checked={settings.countdownMode} onChange={(val) => handleChange('countdownMode', val)} />
+                        <Toggle checked={settings.countdownMode as boolean} onChange={(val) => handleChange('countdownMode', val)} />
                     </div>
                 </div>
             </div>

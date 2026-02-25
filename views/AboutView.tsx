@@ -10,7 +10,7 @@ interface AboutViewProps {
     themeColor: string;
 }
 
-export const AboutView: React.FC<AboutViewProps> = ({ navigateTo, goBack, themeColor }) => (
+export const AboutView: React.FC<AboutViewProps> = ({ navigateTo, themeColor }) => (
     <div className="px-0 py-4 space-y-6">
         <div className="flex items-center space-x-2 mb-4">
             <button onClick={() => goBackOrFallback('#/settings')} className={`p-2 rounded-full hover:bg-${themeColor}-100 text-${themeColor}-600 dark:text-${themeColor}-400 dark:hover:bg-gray-800`}>

@@ -1,13 +1,13 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { ArrowLeft, MoreVertical, ChevronRight, Edit2, Plus, Check, X, Camera, Flame, LogOut, UserPlus, Users, Lock, Info, RotateCw, Calendar as CalendarIcon, AlertTriangle, Sparkles } from 'lucide-react';
+import { ArrowLeft, MoreVertical, ChevronRight, Edit2, Check, X, Camera, Flame, LogOut, UserPlus, Users, Lock, RotateCw, Sparkles } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, UserProfile, Habit } from '../types';
 import { generateScoreAnalysis } from '../services/gemini';
 import { goBackOrFallback } from '../utils/navigation';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
-import { getHabitColor, dotClassesFor, ringDotClassesFor, polarStyle, ringConfig } from '../utils/habitUtils';
+import { getHabitColor, ringDotClassesFor, polarStyle, ringConfig } from '../utils/habitUtils';
 import { getThemeDetails } from '../constants';
 
 interface ProfileViewProps {
@@ -17,7 +17,7 @@ interface ProfileViewProps {
     onUpdateProfile: (profile: UserProfile) => void;
     habits: Habit[];
     onUpdateHabits: (habits: Habit[]) => void;
-    navigateTo: (view: string, data?: any) => void;
+    navigateTo: (view: string, data?: unknown) => void;
     goBack: () => void;
     themeColor: string;
     availableProfiles: {id: string, name: string, avatar: string | null}[];
@@ -273,8 +273,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 setNewPwd("");
                 setConfirmPwd("");
             }, 1500);
-        } catch (e: any) {
-            setPwdMsg({ type: 'error', text: e.message || "Failed to update." });
+        } catch (e: unknown) {
+            setPwdMsg({ type: 'error', text: (e as Error).message || "Failed to update." });
         } finally {
             setPwdBusy(false);
         }

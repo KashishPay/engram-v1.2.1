@@ -418,7 +418,9 @@ export const App: React.FC = () => {
 
     const handleAllowPermissions = async () => {
         if (navigator.storage && navigator.storage.persist) {
-            try { await navigator.storage.persist(); } catch { }
+            try { await navigator.storage.persist(); } catch (e) {
+                console.warn('Storage persistence request failed', e);
+            }
         }
         
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Timer, RotateCw, ArrowLeft, XCircle, ChevronLeft, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Timer, RotateCw, XCircle, ChevronLeft, AlertTriangle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, QuizQuestion, Repetition } from '../types';
 import { callGeminiApiWithRetry } from '../services/gemini';

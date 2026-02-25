@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Image as ImageIcon, Loader, Layers, Plus } from 'lucide-react';
 import { getImageFromIDB } from '../services/storage';
 import { ImageViewer } from './ImageViewer';
@@ -147,7 +147,7 @@ function repairArrayColspec(block: string): string {
   }
 
   const isAlign = (x: string) => x === 'l' || x === 'c' || x === 'r';
-  let alignCount = tokens.filter(isAlign).length;
+  const alignCount = tokens.filter(isAlign).length;
 
   if (alignCount < colCount) {
     const pad = colCount - alignCount;
@@ -223,8 +223,9 @@ function processBlockMath(latex: string, styleClass: string): string {
     });
     const sanitized = DOMPurify.sanitize(html, sanitizeConfig);
     return `<div class="overflow-x-auto w-full pb-2 mb-2 touch-pan-x ${styleClass}">${sanitized}</div>`;
-  } catch (e: any) {
-    return `<div class="p-2 border border-red-200 bg-red-50 text-red-600 text-xs font-mono rounded overflow-x-auto" data-render-error="true"><div class="font-bold flex items-center mb-1"><span style="font-size:1.2em; margin-right:4px;">⚠️</span> LaTeX Error</div>${e.message}</div>`;
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return `<div class="p-2 border border-red-200 bg-red-50 text-red-600 text-xs font-mono rounded overflow-x-auto" data-render-error="true"><div class="font-bold flex items-center mb-1"><span style="font-size:1.2em; margin-right:4px;">⚠️</span> LaTeX Error</div>${message}</div>`;
   }
 }
 
@@ -309,8 +310,9 @@ export const NotesRenderer: React.FC<NotesRendererProps> = React.memo(({ content
                 const wrapper = styleClass ? `<span class="${styleClass}">` : '';
                 const endWrapper = styleClass ? `</span>` : '';
                 return `${wrapper}${html}${endWrapper}`;
-            } catch (e: any) {
-                return `<span class="text-red-500 font-mono text-[10px] border-b border-red-300" title="${e.message}" data-render-error="true">[Math Error]</span>`;
+            } catch (e: unknown) {
+                const message = e instanceof Error ? e.message : String(e);
+                return `<span class="text-red-500 font-mono text-[10px] border-b border-red-300" title="${message}" data-render-error="true">[Math Error]</span>`;
             }
         });
 
@@ -351,10 +353,10 @@ export const NotesRenderer: React.FC<NotesRendererProps> = React.memo(({ content
     };
 
     lines.forEach((line, index) => {
-        let currentLine = line;
+        const currentLine = line;
         const trimmed = currentLine.trim();
 
-        const listMatch = currentLine.match(/^\s*([-\*]|\d+\.)\s+(.*)/);
+        const listMatch = currentLine.match(/^\s*([-*]|\d+\.)\s+(.*)/);
         if (listMatch) {
             const marker = listMatch[1];
             const content = listMatch[2];
@@ -427,7 +429,7 @@ interface InteractiveNoteEditorProps {
 
 // Split content robustly preserving atomic math/code blocks
 function splitRawContent(text: string): string[] {
-    const atomPattern = /```[\s\S]*?```|\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\begin\{([a-zA-Z0-9\*]+)\}[\s\S]*?\\end\{\1\}/g;
+    const atomPattern = /```[\s\S]*?```|\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\begin\{([a-zA-Z0-9*]+)\}[\s\S]*?\\end\{\1\}/g;
     const atoms: string[] = [];
     const protectedText = text.replace(atomPattern, (match) => {
         atoms.push(match);

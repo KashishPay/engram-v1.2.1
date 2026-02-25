@@ -46,7 +46,7 @@ export const PodcastSettingsView: React.FC<{
                         {['English', 'Hinglish'].map((lang) => (
                             <button
                                 key={lang}
-                                onClick={() => onUpdate({ ...config, language: lang as any })}
+                                onClick={() => onUpdate({ ...config, language: lang as 'English' | 'Hinglish' })}
                                 className={`flex-1 py-3 rounded-xl font-bold transition border-2 ${
                                     config.language === lang 
                                         ? `border-${themeColor}-500 bg-${themeColor}-50 text-${themeColor}-700 dark:bg-${themeColor}-900/30 dark:text-${themeColor}-300` 
@@ -904,35 +904,35 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                             ) : libraryTab === 'subjects' ? (
                                 Object.values(subjectsMap)
                                     .sort((a, b) => new Date(b.latestCreatedAt).getTime() - new Date(a.latestCreatedAt).getTime())
-                                    .map((subject: any) => {
+                                    .map((subject: Record<string, unknown>) => {
                                         const mockTopicId = `subject-recap-${subject.id}`;
                                         const isDownloading = state.downloadingIds.includes(mockTopicId);
-                                        const hasAudio = availableSubjects.has(subject.id);
+                                        const hasAudio = availableSubjects.has(subject.id as string);
 
                                     return (
                                         <div
-                                            key={subject.id}
+                                            key={subject.id as string}
                                             className="w-full flex items-center p-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-left group relative pr-14 cursor-pointer"
-                                            onClick={() => handlePlaySubject(subject.id)}
+                                            onClick={() => handlePlaySubject(subject.id as string)}
                                         >
                                             {/* Dynamic Theme Color Icon Pill */}
                                             <div className={`w-12 h-12 rounded-xl bg-${themeColor}-50 dark:bg-${themeColor}-900/30 flex items-center justify-center text-${themeColor}-600 mr-4 shrink-0`}>
                                                 {state.loading && state.currentTopic?.id === mockTopicId ? <Loader size={20} className="animate-spin" /> : <Play size={20} fill="currentColor" />}
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="font-bold text-gray-800 dark:text-white truncate">{subject.name} Recap</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{subject.count} topics • Full Recap</p>
+                                                <p className="font-bold text-gray-800 dark:text-white truncate">{subject.name as string} Recap</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{subject.count as number} topics • Full Recap</p>
                                             </div>
                                             <button 
                                                 onClick={(e) => {
-                                                    if (hasAudio) handleDeleteSubject(subject.id, e);
+                                                    if (hasAudio) handleDeleteSubject(subject.id as string, e);
                                                     else {
                                                         const mockSubjectTopic: Topic = {
                                                             id: mockTopicId,
-                                                            subjectId: subject.id,
-                                                            subject: subject.name,
+                                                            subjectId: subject.id as string,
+                                                            subject: subject.name as string,
                                                             topicName: `${subject.name} (Full Recap)`,
-                                                            shortNotes: subject.notes.join('\n\n'),
+                                                            shortNotes: (subject.notes as string[]).join('\n\n'),
                                                             pomodoroTimeMinutes: 0,
                                                             repetitions: [],
                                                             createdAt: new Date().toISOString()
@@ -966,31 +966,31 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                         <p className="text-gray-400 text-sm">No downloaded podcasts yet.</p>
                                     </div>
                                 ) : (
-                                    downloadedItems.map((item: any) => {
+                                    downloadedItems.map((item: Record<string, unknown>) => {
                                         const isSubject = !!item.isSubject;
                                         
                                         return (
                                             <div
-                                                key={item.id}
+                                                key={item.id as string}
                                                 className="w-full flex items-center p-3 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-left group relative pr-14 cursor-pointer"
                                                 onClick={() => {
-                                                    if (isSubject) handlePlaySubject(item.subjectId);
-                                                    else controls.playTopic(item, onUpdateTopic);
+                                                    if (isSubject) handlePlaySubject(item.subjectId as string);
+                                                    else controls.playTopic(item as unknown as Topic, onUpdateTopic);
                                                 }}
                                             >
                                                 <div className={`w-12 h-12 rounded-xl bg-${themeColor}-50 dark:bg-${themeColor}-900/30 flex items-center justify-center text-${themeColor}-600 mr-4 shrink-0`}>
                                                     {state.loading && state.currentTopic?.id === item.id ? <Loader size={20} className="animate-spin" /> : <Play size={20} fill="currentColor" />}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="font-bold text-gray-800 dark:text-white truncate">{item.topicName}</p>
+                                                    <p className="font-bold text-gray-800 dark:text-white truncate">{item.topicName as string}</p>
                                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                                        {item.subject} • {isSubject ? 'Subject Recap' : 'Deep Dive'}
+                                                        {item.subject as string} • {isSubject ? 'Subject Recap' : 'Deep Dive'}
                                                     </p>
                                                 </div>
                                                 <button 
                                                     onClick={(e) => {
-                                                        if (isSubject) handleDeleteSubject(item.subjectId, e);
-                                                        else handleDelete(item, e);
+                                                        if (isSubject) handleDeleteSubject(item.subjectId as string, e);
+                                                        else handleDelete(item as unknown as Topic, e);
                                                     }}
                                                     className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition"
                                                     title="Delete Download"

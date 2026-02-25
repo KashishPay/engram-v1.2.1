@@ -1,7 +1,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Topic } from '../types';
-import { generatePodcastScript, generatePodcastAudio, getFeatureConfig } from '../services/gemini';
+import { generatePodcastScript, generatePodcastAudio } from '../services/gemini';
 import { getAudioFromIDB, saveAudioToIDB } from '../services/storage';
 import { createWavBlob } from '../utils/audio';
 import { ensureAudioContext } from '../utils/audioCue';
@@ -202,8 +202,6 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
         }
 
         // 3. Generate Fresh
-        // Check user preferences for auto-generate
-        const prefs = getFeatureConfig('podcast');
         // By default, allow generation. If explicit 'autoGenerateOnNewTopic' is false, user might want a confirm
         // but for now, we treat clicking play as intent.
         
@@ -241,9 +239,10 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
                 });
             }
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("[Podcast] Generation Error:", e);
-            setError(e.message || "Failed to generate podcast.");
+            const message = e instanceof Error ? e.message : "Failed to generate podcast.";
+            setError(message);
             setStatus('Error');
             setLoading(false);
             setEstimatedDuration(null);
@@ -278,7 +277,7 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
         });
         
         try {
-            const script = await generatePodcastScript(topic.topicName, context, language as any, finalDuration, 'podcast');
+            const script = await generatePodcastScript(topic.topicName, context, language, finalDuration, 'podcast');
             const audioData = await generatePodcastAudio(script, 'podcast');
             
             if (audioData) {
@@ -294,8 +293,9 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
 
                 if (onSuccess) onSuccess(audioData, script);
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("Download failed", e);
+            const message = e instanceof Error ? e.message : String(e);
             
             // 3. Update Notification to Error (Removes ongoing)
             await showLocalNotification("Download Failed", {
@@ -305,7 +305,7 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
                 ongoing: false
             });
 
-            alert(`Download failed: ${e.message}`);
+            alert(`Download failed: ${message}`);
         } finally {
             setDownloadingIds(prev => prev.filter(id => id !== topic.id));
             releaseWakeLock();
@@ -376,7 +376,7 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
         for (const [action, handler] of handlers) {
             try {
                 navigator.mediaSession.setActionHandler(action, handler);
-            } catch (error) {
+            } catch {
                 console.warn(`MediaSession action "${action}" not supported.`);
             }
         }
@@ -386,7 +386,9 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
             for (const [action] of handlers) {
                 try {
                     navigator.mediaSession.setActionHandler(action, null);
-                } catch (e) {}
+                } catch {
+                    // Ignore cleanup errors
+                }
             }
         };
     }, [currentTopic, togglePlay, skip, reset]);
@@ -407,8 +409,8 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
                 playbackRate: audioRef.current.playbackRate || 1,
                 position: currentTime
             });
-        } catch (e) {
-            // Some browsers/versions might fail on setPositionState if values are inconsistent
+        } catch {
+            // Ignore inconsistent state errors
         }
     }, [currentTime, duration, isPlaying]);
 

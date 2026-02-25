@@ -24,7 +24,7 @@ const migrateLegacyLogs = () => {
         const pomodoroLogs: PomodoroSession[] = [];
         const topicLogs: TopicSession[] = [];
 
-        legacyLogs.forEach((log: any) => {
+        legacyLogs.forEach((log: { subject?: string, minutes?: number, date?: string, time?: string, topicName?: string }) => {
             const isGeneral = log.subject === 'General' || !log.subject;
             const base = {
                 minutes: log.minutes,
@@ -122,7 +122,7 @@ export function groupLogsByDate(
 export const groupPomodoroLogsByDate = groupLogsByDate;
 
 // Check for recent duplicate logs (within 2 seconds) to prevent double logging race conditions
-const isDuplicate = (logs: any[], topicName: string, type: string) => {
+const isDuplicate = (logs: SessionLog[], topicName: string, type: string) => {
     if (logs.length === 0) return false;
     const latest = logs[0];
     const now = Date.now();

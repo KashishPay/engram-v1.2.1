@@ -37,7 +37,7 @@ export const attachDevTools = (userId: string, reloadApp: () => void) => {
             const timestamp = new Date().toISOString();
             
             // Synthetic Session Generation
-            let focusLogs: FocusSession[] = [];
+            const focusLogs: FocusSession[] = [];
             let totalMinutes = 0;
 
             if (seedSessions) {
@@ -177,14 +177,14 @@ export const attachDevTools = (userId: string, reloadApp: () => void) => {
     };
     
     // Attach to both window and globalThis for robustness
-    (window as any).__engramSeed = seeder;
-    (globalThis as any).__engramSeed = seeder;
+    (window as unknown as Record<string, unknown>).__engramSeed = seeder;
+    (globalThis as unknown as Record<string, unknown>).__engramSeed = seeder;
     
-    (window as any).__engramWipeStress = wiper;
-    (globalThis as any).__engramWipeStress = wiper;
+    (window as unknown as Record<string, unknown>).__engramWipeStress = wiper;
+    (globalThis as unknown as Record<string, unknown>).__engramWipeStress = wiper;
 
-    (window as any).__engramRebuildCalendarAgg = rebuildAgg;
-    (globalThis as any).__engramRebuildCalendarAgg = rebuildAgg;
+    (window as unknown as Record<string, unknown>).__engramRebuildCalendarAgg = rebuildAgg;
+    (globalThis as unknown as Record<string, unknown>).__engramRebuildCalendarAgg = rebuildAgg;
 
     console.debug("[DevTools] Methods attached: __engramSeed(count, {seedSessions, days}), __engramWipeStress(), __engramRebuildCalendarAgg()");
     console.log(`%c [DevTools] Active.\nRun window.__engramSeed(50) to generate data with history.\nRun window.__engramWipeStress() to clean up.`, 'color: lime; background: #222; padding: 2px 4px; border-radius: 4px;');

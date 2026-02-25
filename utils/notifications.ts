@@ -163,7 +163,7 @@ export const cancelDailyReminder = async () => {
         if (dailyIds.length > 0) {
             await LocalNotifications.cancel({ notifications: dailyIds });
         }
-    } catch (e) {
+    } catch {
         // ignore
     }
 };
@@ -204,11 +204,11 @@ export const scheduleFinishNotification = async (secondsRemaining: number) => {
     // 2. Web (Service Worker) - Fallback for background tabs on Android Chrome
     else if ('serviceWorker' in navigator && Notification.permission === "granted") {
         try {
-            const reg = await navigator.serviceWorker.ready;
+            await navigator.serviceWorker.ready;
             // Note: Standard SWs don't support precise 'schedule' easily without Push API,
             // but we can rely on the app being open in a background tab for now.
             // True background scheduling on Web requires Push Notifications setup.
-        } catch (e) {
+        } catch {
             // ignore
         }
     }
@@ -219,7 +219,7 @@ export const cancelFinishNotification = async () => {
         try {
             await LocalNotifications.cancel({ notifications: [{ id: 8888 }] });
             console.debug("[NOTIF] Cancelled finish notification");
-        } catch (e) {
+        } catch {
             // ignore
         }
     }

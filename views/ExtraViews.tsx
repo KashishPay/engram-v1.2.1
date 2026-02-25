@@ -2,12 +2,12 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card } from '../components/Card';
 import { PomodoroTimer } from '../components/PomodoroTimer';
-import { Calendar as CalendarIcon, CheckSquare, LayoutGrid, MapPin, Search, Plus, Clock, Check, Trash2, X, History, ChevronLeft, ChevronRight, BookOpenText, BarChart2, List, ChevronDown, Edit2, Moon, Star, CalendarDays, Flag } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckSquare, LayoutGrid, MapPin, Search, Plus, Clock, Check, Trash2, X, History, ChevronLeft, ChevronRight, BookOpenText, BarChart2, List, ChevronDown, Moon, Flag } from 'lucide-react';
 import { DateTimeSettings, Habit, Topic, PomodoroSession } from '../types';
 import { AnalyticsService } from '../services/analytics';
 import { getPomodoroLogs, logPomodoroSession, getLocalISODate, updatePomodoroLog } from '../utils/sessionLog';
-import { chipClassesFor, ringDotClassesFor, polarStyle, ringConfig, bottomRowContainer, smallDotClassesFor, DOT_POS_4 } from '../utils/habitUtils';
-import { getThemeDetails, APP_THEMES } from '../constants';
+import { chipClassesFor, ringDotClassesFor, polarStyle, ringConfig, bottomRowContainer, smallDotClassesFor } from '../utils/habitUtils';
+import { getThemeDetails } from '../constants';
 import { getIndianDateInfo, IndianDateInfo } from '../utils/indianHolidays';
 
 interface ExtraViewProps {
@@ -16,7 +16,7 @@ interface ExtraViewProps {
     habits?: Habit[];
     onUpdateHabits?: (habits: Habit[]) => void;
     studyLog?: Topic[];
-    navigateTo?: (view: string, data?: any) => void;
+    navigateTo?: (view: string, data?: unknown) => void;
     userId?: string;
 }
 
@@ -656,8 +656,8 @@ export const EisenhowerMatrixView: React.FC<ExtraViewProps> = ({ themeColor }) =
         if (stored) {
             try {
                 const parsed = JSON.parse(stored);
-                setTasks(parsed.map((t: any) => ({ ...t, done: !!t.done })));
-            } catch(e) {
+                setTasks(parsed.map((t: Record<string, unknown>) => ({ ...t, done: !!t.done })));
+            } catch(_e) {
                 setTasks([]);
             }
         }
@@ -1172,7 +1172,7 @@ export const HabitTrackerView: React.FC<ExtraViewProps> = ({ themeColor, habits 
                                         </button>
                                     </div>
                                     <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/30 p-3 rounded-2xl">
-                                        {displayDates.map((item, index) => {
+                                        {displayDates.map((item) => {
                                             const isCompleted = habit.completedDates.includes(item.fullDate);
                                             const isClickable = item.isToday;
 
@@ -1199,7 +1199,7 @@ export const HabitTrackerView: React.FC<ExtraViewProps> = ({ themeColor, habits 
     );
 };
 
-export const SearchView: React.FC<ExtraViewProps & { studyLog?: Topic[], navigateTo?: (view: string, data?: any) => void }> = ({ themeColor, studyLog = [], navigateTo }) => {
+export const SearchView: React.FC<ExtraViewProps & { studyLog?: Topic[], navigateTo?: (view: string, data?: unknown) => void }> = ({ themeColor, studyLog = [], navigateTo }) => {
     // ... SearchView implementation unchanged ...
     const [query, setQuery] = useState('');
 

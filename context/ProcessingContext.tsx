@@ -278,7 +278,7 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
                 const clusters = clusterRects(expandedRects);
                 
                 // 5. Create Unions (Raw & Visual) & Filter Floors
-                let processedClusters: ProcessedCluster[] = clusters.map(cluster => ({
+                const processedClusters: ProcessedCluster[] = clusters.map(cluster => ({
                     visualUnion: getUnion(cluster), // Cluster is list of ExpandedRects
                     union: getUnion(cluster.map(c => c.original)), // Raw union for cropping
                     originalTags: cluster.map(c => c.original)
@@ -376,14 +376,14 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
             }
 
             return text;
-        } catch (e: any) {
+        } catch (e: unknown) {
             // FIX: Rethrow API Key errors so they aren't swallowed as generic "Error processing page"
-            if (e.code === 'NO_API_KEY' || e.name === 'NoApiKeyError' || e.name === 'UsageLimitError') {
+            if (e && typeof e === 'object' && 'code' in e && (e.code === 'NO_API_KEY' || (e as Error).name === 'NoApiKeyError' || (e as Error).name === 'UsageLimitError')) {
                 throw e;
             }
             
             console.error("Error processing page:", e);
-            const errorMessage = e.message || "Unknown error";
+            const errorMessage = e instanceof Error ? e.message : "Unknown error";
             return `\n\n> ⚠️ **Processing Error:** ${errorMessage}\n\n`;
         }
     };
@@ -461,9 +461,10 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
                         }
                     }
                     console.debug(`[UPLOAD] success: ${file.name}`);
-                } catch (e: any) {
+                } catch (e: unknown) {
                     console.error(`[UPLOAD] fail: ${file.name}`, e);
-                    failedFiles.push({ name: file.name, reason: e.message || "Parse error" });
+                    const message = e instanceof Error ? e.message : "Parse error";
+                    failedFiles.push({ name: file.name, reason: message });
                 }
             }
 
@@ -545,9 +546,10 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
                 stats: { pages: processedPagesCount, size: sizeMb, totalImages } 
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("[UPLOAD] Global processing failed:", error);
-            updateJob(jobId, { status: 'error', message: error.message || 'Unknown error occurred.' });
+            const message = error instanceof Error ? error.message : 'Unknown error occurred.';
+            updateJob(jobId, { status: 'error', message });
         } finally {
             // Universal: Release lock when done or errored
             await releaseWakeLock();

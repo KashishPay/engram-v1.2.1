@@ -1,19 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Sparkles, Settings2, Zap, BrainCircuit, Headphones, MessageCircle, Layers, ChevronRight, Lock, Key, FileText } from 'lucide-react';
+import { ArrowLeft, Sparkles, Settings2, Zap, Headphones, MessageCircle, Layers, ChevronRight, Key, FileText } from 'lucide-react';
 import { Card } from '../components/Card';
 import { getUsageStats } from '../services/gemini';
 import { FeatureConfigModal } from '../components/FeatureConfigModal';
 import { goBackOrFallback } from '../utils/navigation';
 
 interface AiFeaturesViewProps {
-    navigateTo: (view: string, data?: any) => void;
+    navigateTo: (view: string, data?: unknown) => void;
     goBack: () => void;
     themeColor: string;
 }
 
-export const AiFeaturesView: React.FC<AiFeaturesViewProps> = ({ navigateTo, goBack, themeColor }) => {
-    const [stats, setStats] = useState<any>(null);
+export const AiFeaturesView: React.FC<AiFeaturesViewProps> = ({ navigateTo, themeColor }) => {
+    const [stats, setStats] = useState<Record<string, unknown> | null>(null);
     const [configModal, setConfigModal] = useState<{ isOpen: boolean, featureId: 'quiz' | 'chat' | 'podcast' | 'flashcards' | 'ocr' | null }>({ isOpen: false, featureId: null });
 
     useEffect(() => {
@@ -29,7 +29,7 @@ export const AiFeaturesView: React.FC<AiFeaturesViewProps> = ({ navigateTo, goBa
     };
 
     const isUnlimited = stats?.source === 'custom';
-    const percentUsed = stats ? Math.min(100, (stats.count / stats.limit) * 100) : 0;
+    const percentUsed = stats ? Math.min(100, ((stats.count as number) / (stats.limit as number)) * 100) : 0;
 
     return (
         <div className="px-0 py-4 space-y-6">
@@ -62,7 +62,7 @@ export const AiFeaturesView: React.FC<AiFeaturesViewProps> = ({ navigateTo, goBa
                     <div className="mb-4">
                         <div className="flex justify-between text-sm mb-2 font-medium">
                             <span className="text-gray-300">Monthly Usage</span>
-                            <span className="text-white">{isUnlimited ? '∞' : `${stats?.count || 0} / ${stats?.limit || 50}`}</span>
+                            <span className="text-white">{isUnlimited ? '∞' : `${(stats?.count as number) || 0} / ${(stats?.limit as number) || 50}`}</span>
                         </div>
                         {isUnlimited ? (
                             <div className="h-2 w-full bg-gray-700 rounded-full overflow-hidden">
@@ -105,7 +105,7 @@ export const AiFeaturesView: React.FC<AiFeaturesViewProps> = ({ navigateTo, goBa
                     <Card 
                         key={feature.id} 
                         className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/80 transition cursor-pointer group"
-                        onClick={() => handleConfigure(feature.id as any)}
+                        onClick={() => handleConfigure(feature.id as 'quiz' | 'chat' | 'podcast' | 'flashcards' | 'ocr')}
                     >
                         <div className="flex items-center space-x-4">
                             <div className={`w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center ${feature.color}`}>

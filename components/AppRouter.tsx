@@ -148,53 +148,53 @@ const mergeHabits = (local: Habit[], imported: Habit[]): Habit[] => {
     return Array.from(mergedMap.values());
 };
 
-const mergeObservations = (local: unknown[], imported: unknown[]): any[] => {
-    const map = new Map<string, any>();
-    (local as any[]).forEach(o => map.set(o.dateISO, o));
+const mergeObservations = (local: unknown[], imported: unknown[]): unknown[] => {
+    const map = new Map<string, Record<string, unknown>>();
+    (local as Record<string, unknown>[]).forEach(o => map.set(o.dateISO as string, o));
     
-    (imported as any[]).forEach(imp => {
-        const existing = map.get(imp.dateISO);
+    (imported as Record<string, unknown>[]).forEach(imp => {
+        const existing = map.get(imp.dateISO as string);
         if (existing) {
             // Conflict: Use Last Write Wins based on updatedAt
-            const impTime = (imp as { updatedAt?: number }).updatedAt || 0;
-            const locTime = (existing as { updatedAt?: number }).updatedAt || 0;
+            const impTime = (imp.updatedAt as number) || 0;
+            const locTime = (existing.updatedAt as number) || 0;
             if (impTime >= locTime) {
-                map.set(imp.dateISO, imp);
+                map.set(imp.dateISO as string, imp);
             }
         } else {
-            map.set(imp.dateISO, imp);
+            map.set(imp.dateISO as string, imp);
         }
     });
     return Array.from(map.values());
 };
 
-const mergeTasksSmart = (local: unknown[], imported: unknown[], textKey: string = 'text'): any[] => {
-    const map = new Map<string, any>();
+const mergeTasksSmart = (local: unknown[], imported: unknown[], textKey: string = 'text'): unknown[] => {
+    const map = new Map<string, Record<string, unknown>>();
     const texts = new Set<string>();
     
-    (local as any[]).forEach(t => {
-        map.set(t.id, t);
-        if (t[textKey]) texts.add(t[textKey]);
+    (local as Record<string, unknown>[]).forEach(t => {
+        map.set(t.id as string, t);
+        if (t[textKey]) texts.add(t[textKey] as string);
     });
     
-    (imported as any[]).forEach(t => {
-        if (map.has(t.id)) {
+    (imported as Record<string, unknown>[]).forEach(t => {
+        if (map.has(t.id as string)) {
             // ID Conflict: Backup wins (Overwrite)
-            map.set(t.id, t);
-        } else if (!texts.has(t[textKey])) {
+            map.set(t.id as string, t);
+        } else if (!texts.has(t[textKey] as string)) {
             // New Item (Append if text is unique)
-            map.set(t.id, t);
-            texts.add(t[textKey]);
+            map.set(t.id as string, t);
+            texts.add(t[textKey] as string);
         }
     });
     
     return Array.from(map.values());
 };
 
-const mergeFlashcards = (local: unknown[], imported: unknown[]): any[] => {
-    const map = new Map<string, any>();
-    (local as any[]).forEach(item => map.set(item.id, item));
-    (imported as any[]).forEach(item => map.set(item.id, item));
+const mergeFlashcards = (local: unknown[], imported: unknown[]): unknown[] => {
+    const map = new Map<string, Record<string, unknown>>();
+    (local as Record<string, unknown>[]).forEach(item => map.set(item.id as string, item));
+    (imported as Record<string, unknown>[]).forEach(item => map.set(item.id as string, item));
     return Array.from(map.values());
 };
 
@@ -492,8 +492,8 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
     useEffect(() => {
         if (!Capacitor.isNativePlatform()) return;
 
-        let backListener: any = null;
-        let urlListener: any = null;
+        let backListener: { remove: () => void } | null = null;
+        let urlListener: { remove: () => void } | null = null;
 
         const setupListeners = async () => {
             // 1. Back Button
@@ -609,7 +609,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 const newUrl = window.location.origin + '/' + window.location.search + (window.location.hash || '#/auth/callback');
                 try {
                     window.history.replaceState(null, '', newUrl);
-                } catch(e) {}
+                } catch(e) {
+                    console.warn("[Router] replaceState failed", e);
+                }
                 console.debug("[ROUTER] Path rewrite: /auth/callback -> /");
             }
 
@@ -872,7 +874,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             try {
                 const raw = localStorage.getItem('engram_ai_preferences');
                 if (raw) aiPrefs = JSON.parse(raw);
-            } catch { }
+            } catch (e) {
+                console.warn("[Router] Failed to parse AI preferences", e);
+            }
 
             const backupBundle = {
                 schemaVersion: "1.0.0",

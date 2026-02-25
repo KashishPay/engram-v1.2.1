@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../components/Card';
-import { ArrowLeft, ChevronLeft, ChevronRight, History, Calendar, Clock } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, History, Clock } from 'lucide-react';
 import { getAllLogs, groupLogsByDate, getLocalISODate, PomodoroDailySummary } from '../utils/sessionLog';
 
 interface PomoHistoryViewProps {
     themeColor: string;
-    navigateTo: (view: string, data?: any) => void;
+    navigateTo: (view: string, data?: unknown) => void;
 }
 
 export const PomoHistoryView: React.FC<PomoHistoryViewProps> = ({ themeColor, navigateTo }) => {

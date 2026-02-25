@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Layers, Plus, RotateCw, Check, X, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Layers, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, FlashCard } from '../types';
 import { FLASHCARD_SCHEMA } from '../constants';
@@ -14,12 +14,12 @@ import katex from 'katex';
 interface FlashcardHubViewProps {
     studyLog: Topic[];
     userId: string;
-    navigateTo: (view: string, data?: any) => void;
+    navigateTo: (view: string, data?: unknown) => void;
     themeColor: string;
     goBack: () => void;
 }
 
-export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, userId, navigateTo, themeColor, goBack }) => {
+export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, navigateTo, themeColor, goBack }) => {
     
     // --- Data Loading ---
     const [allCards, setAllCards] = useState<FlashCard[]>([]);
@@ -48,8 +48,8 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, us
             if (raw) {
                 setAllCards(JSON.parse(raw));
             }
-        } catch (e) {
-            console.error("Failed to load flashcards", e);
+        } catch (_e) {
+            console.error("Failed to load flashcards", _e);
         }
     }, [userId]);
 
@@ -199,10 +199,10 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, us
                 const timestamp = new Date();
                 const topicName = `Scan ${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
                 
-                const newCards = response.flashcards.map((c: any) => ({
+                const newCards = response.flashcards.map((c: Record<string, unknown>) => ({
                     id: Date.now() + Math.random().toString(36).substr(2, 9),
-                    front: c.front,
-                    back: c.back,
+                    front: c.front as string,
+                    back: c.back as string,
                     subject: 'Question Bank',
                     topicName: topicName,
                     createdAt: timestamp.toISOString(),
@@ -227,8 +227,8 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, us
                 throw new Error("No flashcards generated.");
             }
 
-        } catch (e: any) {
-            console.error(e);
+        } catch (_e) {
+            console.error(_e);
             triggerHaptic.notification('Error');
             alert("Failed to process images. Please try fewer images or check connection.");
         } finally {
@@ -294,8 +294,8 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, us
                 setTimeout(() => setEvolveStatus(null), 1500);
             }
 
-        } catch (e) {
-            console.error(e);
+        } catch (_e) {
+            console.error(_e);
             alert("Failed to evolve deck. Please try again.");
         } finally {
             setIsEvolving(false);
@@ -363,7 +363,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ studyLog, us
                 )}
 
                 <div className="space-y-4">
-                    {activeDeck.map((card, idx) => (
+                    {activeDeck.map((card) => (
                         <Card key={card.id} className="p-4 relative group">
                             <div className="absolute top-4 left-0 w-1 h-8 bg-gray-200 dark:bg-gray-700 rounded-r"></div>
                             

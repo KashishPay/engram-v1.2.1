@@ -138,7 +138,7 @@ export const AuthCallbackView: React.FC<AuthCallbackViewProps> = ({
                             }
 
                             window.history.replaceState({}, document.title, cleanUrl.toString());
-                        } catch (e) {
+                        } catch {
                             console.warn("[CALLBACK] replaceState failed (likely blob sandbox). Using location hash fallback.");
                             window.location.hash = '#/auth/callback';
                         }
@@ -173,7 +173,7 @@ export const AuthCallbackView: React.FC<AuthCallbackViewProps> = ({
                         cleanUrl.search = ''; // Remove query
                         if (cleanUrl.hash.includes('?')) cleanUrl.hash = cleanUrl.hash.split('?')[0];
                         window.history.replaceState({}, document.title, cleanUrl.toString());
-                    } catch (e) {
+                    } catch {
                         console.warn("[CALLBACK] replaceState failed (likely blob sandbox). Using location hash fallback.");
                         window.location.hash = '#/auth/callback';
                     }
@@ -209,9 +209,9 @@ export const AuthCallbackView: React.FC<AuthCallbackViewProps> = ({
                     navigateTo('home'); 
                 }
 
-            } catch (err: any) {
-                console.error("[CALLBACK] exchange fail", { name: err?.name, message: err?.message });
-                setErrorMsg(err.message || "An unexpected error occurred.");
+            } catch (err: unknown) {
+                console.error("[CALLBACK] exchange fail", { name: (err as Error)?.name, message: (err as Error)?.message });
+                setErrorMsg((err as Error).message || "An unexpected error occurred.");
             } finally {
                 clearTimeout(timeoutId);
             }

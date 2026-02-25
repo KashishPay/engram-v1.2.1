@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { RotateCw, Play, Pause, Coffee, Timer as TimerIcon, Settings2, X, Music, CheckCircle2, Bell } from 'lucide-react';
+import { RotateCw, Play, Pause, Coffee, Timer as TimerIcon, Settings2, X, Music, CheckCircle2 } from 'lucide-react';
 import { Card } from './Card';
 import { useFocus } from '../context/FocusContext';
 import { AMBIENT_SOUNDS } from '../constants';
@@ -72,7 +72,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ topicId, topicName
                     tag: 'engram-session-end',
                     renotify: true,
                     requireInteraction: true // Keeps notification until user interacts
-                } as any);
+                });
             } else {
                 // Foreground: In-App Feedback
                 setShowCompletionFeedback(true);

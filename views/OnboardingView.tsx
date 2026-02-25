@@ -5,7 +5,7 @@ import { ProfileService } from '../services/profile';
 import { useAuth } from '../context/AuthContext';
 
 interface OnboardingViewProps {
-    onComplete: (profile: any) => void;
+    onComplete: (profile: Record<string, unknown>) => void;
     initialName?: string;
     initialAvatar?: string | null;
 }
@@ -56,9 +56,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete, init
                 initialAvatar || user?.photoURL || null
             );
             onComplete(profile);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            setError(err.message || "Failed to create profile. Please try again.");
+            setError((err as Error).message || "Failed to create profile. Please try again.");
             setIsSubmitting(false);
         }
     };

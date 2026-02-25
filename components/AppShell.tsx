@@ -7,27 +7,26 @@ import { PodcastMiniPlayer } from '../views/PodcastView';
 import { OfflineBanner } from './OfflineBanner';
 import { PermissionModal, FeedbackModal } from './Modals';
 import { TAB_ITEMS } from '../constants';
-import { Topic } from '../types';
-import { checkGuestStatus } from '../utils/guestLimit';
+import { Topic, User } from '../types';
+import { PodcastState, PodcastControls } from '../hooks/usePodcast';
 import { GlobalNotificationService, GlobalNotification } from '../services/globalNotifications';
-import { triggerHaptic } from '../utils/haptics';
 
 interface AppShellProps {
     children: React.ReactNode;
-    user: any;
+    user: User | null;
     isGuest: boolean;
     currentView: string;
     themeColor: string;
     themeIntensity: string;
-    navigateTo: (view: string, data?: any) => void;
+    navigateTo: (view: string, data?: unknown) => void;
     enabledTabs: string[];
     showFeedbackModal: boolean;
     setShowFeedbackModal: (show: boolean) => void;
     showImportSuccessModal: boolean;
     permissionsGranted: boolean;
     handleAllowPermissions: () => void;
-    podcast: any;
-    focusState: any;
+    podcast: { state: PodcastState; controls: PodcastControls; audioRef: React.RefObject<HTMLAudioElement> };
+    focusState: { topicId: string | null; topicName: string | null };
     handleFloatingLog: (minutes: number) => void;
     selectedTopic: Topic | null;
     

@@ -2,7 +2,7 @@
 import * as pdfjsLibProxy from 'pdfjs-dist';
 
 // Initialize PDF.js worker
-const pdfjsLib = (pdfjsLibProxy as any).default || pdfjsLibProxy;
+const pdfjsLib = (pdfjsLibProxy as unknown as { default: typeof pdfjsLibProxy }).default || pdfjsLibProxy;
 
 // Resilient Worker Loader
 let workerInitPromise: Promise<void> | null = null;
@@ -36,7 +36,7 @@ const initPdfWorker = () => {
                 console.debug("[PDF] workerSrc set to same-origin UMD");
                 return;
             }
-        } catch (e) {
+        } catch {
             console.debug("[PDF] Local worker not found, trying CDN fallback.");
         }
 
@@ -89,16 +89,27 @@ export const getPdfDocument = async (file: File) => {
         const pdf = await loadingTask.promise;
         console.debug(`[PDF] loaded successfully: ${pdf.numPages} pages`);
         return pdf;
-    } catch (e: any) {
-        console.error("[PDF] Load Error:", e.name, e.message);
-        throw new Error(`Failed to load PDF: ${e.message || "Invalid file structure"}`);
+    } catch (e: unknown) {
+        const error = e as Error;
+        console.error("[PDF] Load Error:", error.name, error.message);
+        throw new Error(`Failed to load PDF: ${error.message || "Invalid file structure"}`);
     }
 }
 
-export const renderPdfPage = async (pdf: any, pageNum: number): Promise<string> => {
+interface PDFPageProxy {
+    getViewport(params: { scale: number }): { width: number; height: number };
+    render(params: { canvasContext: CanvasRenderingContext2D; viewport: { width: number; height: number } }): { promise: Promise<void> };
+}
+
+interface PDFDocumentProxy {
+    numPages: number;
+    getPage(pageNumber: number): Promise<PDFPageProxy>;
+}
+
+export const renderPdfPage = async (pdf: unknown, pageNum: number): Promise<string> => {
     try {
         console.debug(`[PDF] rendering page ${pageNum}`);
-        const page = await pdf.getPage(pageNum);
+        const page = await (pdf as PDFDocumentProxy).getPage(pageNum);
         
         // Scale 1.5 is a good balance for OCR accuracy vs Memory usage on mobile
         const viewport = page.getViewport({ scale: 1.5 }); 
@@ -181,7 +192,7 @@ export const compressImage = async (file: File): Promise<{ base64: string, mimeT
             }
         };
         
-        img.onerror = (err) => {
+        img.onerror = () => {
             URL.revokeObjectURL(objectUrl);
             reject(new Error("Failed to load image for compression."));
         };

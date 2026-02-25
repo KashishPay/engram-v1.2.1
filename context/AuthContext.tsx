@@ -116,11 +116,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             } else {
                 throw new Error("No ID Token received from Google Auth.");
             }
-        } catch (err: any) {
-            console.error("[AUTH] Native Google Sign-In Failed:", err);
+        } catch (err: unknown) {
+            const error = err as Error;
+            console.error("[AUTH] Native Google Sign-In Failed:", error);
             // If user cancelled, don't show alert
-            if (err.message !== "User cancelled login") {
-                alert("Native Login Error: " + err.message);
+            if (error.message !== "User cancelled login") {
+                alert("Native Login Error: " + error.message);
             }
         }
         return;
@@ -154,9 +155,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
                 );
             }
-        } catch (err: any) {
-            console.error("[AUTH] Popup Start Failed:", err);
-            alert("Login Error: " + err.message);
+        } catch (err: unknown) {
+            const error = err as Error;
+            console.error("[AUTH] Popup Start Failed:", error);
+            alert("Login Error: " + error.message);
         }
         return;
     }

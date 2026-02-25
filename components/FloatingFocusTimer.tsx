@@ -68,7 +68,7 @@ export const FloatingFocusTimer: React.FC<FloatingFocusTimerProps> = ({
                     tag: 'engram-session-end',
                     renotify: true,
                     requireInteraction: true
-                } as any);
+                });
             }
 
             // 4. Auto-Log Session

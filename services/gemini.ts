@@ -29,13 +29,13 @@ export const checkUsageLimit = () => {
     const stats = getUsageStats();
     if (stats.source === 'custom') return;
     if (stats.count >= stats.limit) {
-        const error: any = new Error("Monthly AI quota reached (Free Tier). Add a custom API Key in Settings for unlimited access.");
+        const error = new Error("Monthly AI quota reached (Free Tier). Add a custom API Key in Settings for unlimited access.");
         error.name = 'UsageLimitError';
         throw error;
     }
 };
 
-export const incrementUsage = (featureId: string) => {
+export const incrementUsage = () => {
     const stats = getUsageStats();
     if (stats.source === 'custom') return;
     
@@ -48,8 +48,8 @@ export const getAiClient = () => {
     const customKey = localStorage.getItem('engram_custom_api_key');
     
     // Priority: 1. Custom Key (LocalStorage) -> 2. Vite Env Var -> 3. Process Env (Fallback)
-    // Cast import.meta to any to avoid TS error about 'env' property
-    const envKey = (import.meta as any).env?.VITE_API_KEY || (typeof process !== 'undefined' ? process.env.API_KEY : undefined);
+    // Cast import.meta to unknown then to any to avoid TS error about 'env' property
+    const envKey = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_KEY || (typeof process !== 'undefined' ? process.env.API_KEY : undefined);
     const apiKey = customKey || envKey; 
     
     if (!apiKey) {
@@ -98,25 +98,25 @@ export const callGeminiApiWithRetry = async (
     systemInstruction: string,
     responseSchema: Schema | null,
     images: { base64: string, mimeType: string }[] | null = null,
-    tools: any[] | null = null,
+    tools: unknown[] | null = null,
     retries: number = 3,
     modelName: string = 'gemini-2.5-flash',
     featureId: string = 'general'
-): Promise<any> => {
+): Promise<unknown> => {
     checkUsageLimit();
     const { client } = getAiClient();
 
     // Prepare contents
-    let contents: any = prompt;
+    let contents: string | { parts: { inlineData?: { mimeType: string, data: string }, text?: string }[] } = prompt;
     if (images && images.length > 0) {
-        const parts: any[] = images.map(img => ({
+        const parts: { inlineData?: { mimeType: string, data: string }, text?: string }[] = images.map(img => ({
             inlineData: { mimeType: img.mimeType, data: img.base64 }
         }));
         parts.push({ text: prompt });
         contents = { parts };
     }
 
-    const config: any = {
+    const config: Record<string, unknown> = {
         systemInstruction,
     };
 
@@ -147,11 +147,11 @@ export const callGeminiApiWithRetry = async (
                 return JSON.parse(jsonStr);
             }
             return response;
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.warn(`Attempt ${i + 1} failed`, e);
             lastError = e;
-            if (e.name === 'UsageLimitError') throw e; // Don't retry quota errors
-            if (e.status === 429) {
+            if (e && typeof e === 'object' && (e as Error).name === 'UsageLimitError') throw e; // Don't retry quota errors
+            if (e && typeof e === 'object' && 'status' in e && (e as { status: number }).status === 429) {
                 // Rate limit, wait
                 await new Promise(r => setTimeout(r, 2000 * (i + 1)));
                 continue;
@@ -240,7 +240,7 @@ export const generatePodcastAudio = async (script: string, featureId: string = '
     return base64;
 };
 
-export const generateScoreAnalysis = async (name: string, score: number, level: number, studyLog: any[]) => {
+export const generateScoreAnalysis = async (name: string, score: number, level: number, studyLog: unknown[]) => {
     const prompt = `Analyze the study performance for ${name}. Score: ${score}, Level: ${level}.
     Topics count: ${studyLog.length}.
     Give a short, encouraging summary of their progress and one specific tip to improve.`;
@@ -249,7 +249,7 @@ export const generateScoreAnalysis = async (name: string, score: number, level: 
     return response.text;
 };
 
-export const chatWithNotes = async (history: any[], message: string, notes: string, subject: string, featureId: string) => {
+export const chatWithNotes = async (history: { role: string, text: string }[], message: string, notes: string, subject: string, featureId: string) => {
     checkUsageLimit();
     const { client } = getAiClient();
     const prefs = getFeatureConfig(featureId);
@@ -276,7 +276,7 @@ export const chatWithNotes = async (history: any[], message: string, notes: stri
 };
 
 export const chatWithNotesStream = async (
-    history: any[],
+    history: { role: string, text: string }[],
     message: string,
     notes: string,
     subject: string,

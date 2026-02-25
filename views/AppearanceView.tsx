@@ -13,7 +13,7 @@ interface AppearanceViewProps {
 }
 
 export const AppearanceView: React.FC<AppearanceViewProps> = ({ 
-    currentTheme, setCurrentTheme, themeIntensity, setThemeIntensity, goBack 
+    currentTheme, setCurrentTheme, themeIntensity, setThemeIntensity 
 }) => (
     <div className="px-0 py-4 space-y-6">
         <div className="flex items-center space-x-2 mb-4">

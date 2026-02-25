@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Shield, Server, Database, Cpu } from 'lucide-react';
+import { ArrowLeft, Shield, Database, Cpu } from 'lucide-react';
 import { Card } from '../components/Card';
 import { goBackOrFallback } from '../utils/navigation';
 
@@ -18,7 +18,7 @@ const Header = ({ title, themeColor }: { title: string, themeColor: string }) =>
     </div>
 );
 
-export const TermsContent: React.FC<{ themeColor?: string }> = ({ themeColor = 'blue' }) => (
+export const TermsContent: React.FC = () => (
     <div className="space-y-6 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
         <p className="font-bold text-xs uppercase text-gray-400">Last Updated: February 2026</p>
         
@@ -55,7 +55,7 @@ export const TermsContent: React.FC<{ themeColor?: string }> = ({ themeColor = '
     </div>
 );
 
-export const PrivacyContent: React.FC<{ themeColor?: string }> = ({ themeColor = 'blue' }) => (
+export const PrivacyContent: React.FC = () => (
     <div className="space-y-6 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
         <p className="font-bold text-xs uppercase text-gray-400">Last Updated: February 2026</p>
 
@@ -103,29 +103,29 @@ export const PrivacyContent: React.FC<{ themeColor?: string }> = ({ themeColor =
     </div>
 );
 
-export const TermsView: React.FC<LegalViewProps> = ({ goBack, themeColor }) => (
+export const TermsView: React.FC<LegalViewProps> = ({ themeColor }) => (
     <div className="px-1.5">
         <div className="px-2.5">
             <Header title="Terms of Service" themeColor={themeColor} />
         </div>
         <Card className="p-6 overflow-y-auto max-h-[80vh] shadow-sm">
-            <TermsContent themeColor={themeColor} />
+            <TermsContent />
         </Card>
     </div>
 );
 
-export const PrivacyView: React.FC<LegalViewProps> = ({ goBack, themeColor }) => (
+export const PrivacyView: React.FC<LegalViewProps> = ({ themeColor }) => (
     <div className="px-1.5">
         <div className="px-2.5">
             <Header title="Privacy Policy" themeColor={themeColor} />
         </div>
         <Card className="p-6 overflow-y-auto max-h-[80vh] shadow-sm">
-            <PrivacyContent themeColor={themeColor} />
+            <PrivacyContent />
         </Card>
     </div>
 );
 
-export const LicensesView: React.FC<LegalViewProps> = ({ goBack, themeColor }) => (
+export const LicensesView: React.FC<LegalViewProps> = ({ themeColor }) => (
     <div className="px-1.5">
         <div className="px-2.5">
             <Header title="Open Source Licenses" themeColor={themeColor} />

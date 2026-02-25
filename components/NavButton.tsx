@@ -3,7 +3,7 @@ import React from 'react';
 import { triggerHaptic } from '../utils/haptics';
 
 interface NavButtonProps {
-    icon: any;
+    icon: React.ElementType;
     label: string;
     view: string;
     currentView: string;

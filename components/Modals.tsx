@@ -5,8 +5,7 @@ import { getImageFromIDB } from '../services/storage';
 import { jsPDF } from 'jspdf';
 import { ImageViewer } from './ImageViewer';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { triggerHaptic } from '../utils/haptics';
 import { showLocalNotification, requestNotificationPermission } from '../utils/notifications';
 
@@ -174,7 +173,7 @@ export const SourceViewerModal: React.FC<SourceViewerModalProps> = ({ topicId, t
                         directory: Directory.Documents,
                         recursive: true,
                     });
-                } catch (e) {
+                } catch {
                     // Directory might exist, proceed
                 }
 

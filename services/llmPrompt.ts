@@ -1,7 +1,7 @@
 
 // Centralized Prompt Logic for OCR and Note Generation
 
-export const getOCRPrompt = (persona?: string, styleParams?: string | null): string => {
+export const getOCRPrompt = (persona?: string): string => {
     let prompt = `You are a study notes OCR expert. 
     1. Extract all text from this image. Use Markdown headings.
     2. **IMPORTANT**: For ANY mathematical formula, equation, or variable, you MUST use STANDARD LaTeX delimiters:

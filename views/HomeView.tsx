@@ -15,7 +15,7 @@ import { triggerHaptic } from '../utils/haptics';
 interface HomeViewProps {
     studyLog: Topic[];
     allSubjects: Subject[];
-    navigateTo: (view: string, data?: any) => void;
+    navigateTo: (view: string, data?: unknown) => void;
     userId: string | null;
     themeColor: string;
     userProfile: UserProfile;
@@ -200,11 +200,11 @@ const FlashCardDeck: React.FC<{
 
                 const isMixed = effectiveIds.length > 1;
 
-                const newCards = list.map((c: any) => ({
+                const newCards = list.map((c: Record<string, unknown>) => ({
                     ...c,
                     id: Date.now() + Math.random().toString(36).substr(2, 9),
-                    front: c.front,
-                    back: c.back,
+                    front: c.front as string,
+                    back: c.back as string,
                     subject: isMixed ? 'Mixed' : shuffled[0]?.subject || 'General',
                     topicName: shuffled.length === 1 ? shuffled[0].topicName : 'Mixed Review',
                     createdAt: new Date().toISOString(),
@@ -219,10 +219,10 @@ const FlashCardDeck: React.FC<{
             } else {
                 console.error("Invalid flashcard data received");
             }
-        } catch (e: any) {
-            console.error(e);
+        } catch (_e) {
+            console.error(_e);
             triggerHaptic.notification('Error');
-            if (e.message?.includes("add your own free API Key") || e.name === 'UsageLimitError') {
+            if (_e instanceof Error && (_e.message?.includes("add your own free API Key") || _e.name === 'UsageLimitError')) {
                  if (confirm("The standard AI quota is currently busy or limited.\n\nWould you like to add your own free API Key in Settings for faster, priority access?")) {
                      navigateTo('settings');
                  }
@@ -361,7 +361,7 @@ const FlashCardDeck: React.FC<{
                 const html = katex.renderToString(formula, { displayMode: true, throwOnError: false });
                 blockMatches.push(html);
                 return `__BLOCK_MATH_${blockMatches.length - 1}__`;
-            } catch (e) {
+            } catch (_e) {
                 return match;
             }
         });
@@ -371,7 +371,7 @@ const FlashCardDeck: React.FC<{
             try {
                 const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
                 return html;
-            } catch (e) {
+            } catch (_e) {
                 return match;
             }
         });

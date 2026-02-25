@@ -1,4 +1,6 @@
 
+import { ChatMessage, Topic } from '../types';
+
 const DB_NAME = 'EngramDB';
 const AUDIO_STORE = 'audio_files';
 const IMAGE_STORE = 'image_files';
@@ -149,7 +151,7 @@ export const deleteTopicBodyFromIDB = async (userId: string, topicId: string): P
 
 // --- Chat History Storage (New) ---
 
-export const saveChatToIDB = async (userId: string, topicId: string, messages: any[]): Promise<void> => {
+export const saveChatToIDB = async (userId: string, topicId: string, messages: ChatMessage[]): Promise<void> => {
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -166,7 +168,7 @@ export const saveChatToIDB = async (userId: string, topicId: string, messages: a
     }
 };
 
-export const getChatFromIDB = async (userId: string, topicId: string): Promise<any[] | undefined> => {
+export const getChatFromIDB = async (userId: string, topicId: string): Promise<ChatMessage[] | undefined> => {
     try {
         const db = await openDB();
         return new Promise((resolve) => {
@@ -311,12 +313,12 @@ export const batchSaveImages = async (map: Record<string, string>): Promise<void
     }
 };
 
-export const batchGetChatHistories = async (userId: string, topicIds: string[]): Promise<Record<string, any[]>> => {
+export const batchGetChatHistories = async (userId: string, topicIds: string[]): Promise<Record<string, ChatMessage[]>> => {
     try {
         const db = await openDB();
-        const results: Record<string, any[]> = {};
+        const results: Record<string, ChatMessage[]> = {};
         for (const id of topicIds) {
-            const val = await new Promise<any[] | undefined>((resolve) => {
+            const val = await new Promise<ChatMessage[] | undefined>((resolve) => {
                 const tx = db.transaction(CHAT_HISTORY_STORE, 'readonly');
                 const req = tx.objectStore(CHAT_HISTORY_STORE).get(getBodyKey(userId, id));
                 req.onsuccess = () => resolve(req.result);
@@ -331,7 +333,7 @@ export const batchGetChatHistories = async (userId: string, topicIds: string[]):
     }
 };
 
-export const batchSaveChatHistories = async (userId: string, map: Record<string, any[]>): Promise<void> => {
+export const batchSaveChatHistories = async (userId: string, map: Record<string, ChatMessage[]>): Promise<void> => {
     try {
         const db = await openDB();
         const tx = db.transaction(CHAT_HISTORY_STORE, 'readwrite');
@@ -351,7 +353,7 @@ export const batchSaveChatHistories = async (userId: string, map: Record<string,
     }
 };
 
-export const ensureTopicContent = async (userId: string, topic: any): Promise<any> => {
+export const ensureTopicContent = async (userId: string, topic: Topic): Promise<Topic> => {
     if (topic.shortNotes && topic.shortNotes.length > 0) return topic;
     const body = await getTopicBodyFromIDB(userId, topic.id);
     return { ...topic, shortNotes: body || "" };
@@ -553,7 +555,7 @@ export const getSourceImageCount = async (topicId: string): Promise<number> => {
                 req.onerror = () => resolve(0);
             }
         });
-    } catch (e) {
+    } catch {
         return 0;
     }
 };

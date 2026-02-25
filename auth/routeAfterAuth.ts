@@ -16,7 +16,7 @@ interface AuthRoutingCallbacks {
  * 
  * deterministic target: "#/home"
  */
-export const routeAfterAuth = async (session: any, callbacks: AuthRoutingCallbacks) => {
+export const routeAfterAuth = async (session: { user: { id: string; user_metadata?: Record<string, unknown> } } | null, callbacks: AuthRoutingCallbacks) => {
     const { navigateTo, setUserProfile, setIsOnboarded } = callbacks;
 
     // 1. Guard: Session Check

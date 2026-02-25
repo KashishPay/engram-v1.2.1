@@ -48,7 +48,7 @@ const workerUrl = URL.createObjectURL(workerBlob);
 export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // Initial state from localStorage or defaults
     const [mode, setModeState] = useState<'stopwatch' | 'pomodoro'>(() => 
-        (localStorage.getItem('focus_mode') as any) || 'stopwatch');
+        (localStorage.getItem('focus_mode') as 'stopwatch' | 'pomodoro' | null) || 'stopwatch');
     const [duration, setDurationState] = useState<number>(() => 
         parseInt(localStorage.getItem('focus_duration') || '25'));
     const [elapsed, setElapsed] = useState<number>(() => 

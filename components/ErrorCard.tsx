@@ -66,7 +66,7 @@ export const ErrorCard: React.FC<ErrorCardProps> = ({ error, resetErrorBoundary 
             try {
                 await window.indexedDB.deleteDatabase('EngramDB');
                 window.location.reload();
-            } catch (e) {
+            } catch {
                 alert("Failed to reset automatically. Please clear browser site data manually.");
             }
         }

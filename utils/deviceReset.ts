@@ -48,8 +48,8 @@ export const performDeviceReset = async (keepAuth: boolean = false): Promise<voi
         req.onerror = () => console.warn("[RESET] failed to clear indexeddb");
         
         // Attempt to clear all if API is supported
-        if ((window.indexedDB as any).databases) {
-            const dbs = await (window.indexedDB as any).databases();
+        if ('databases' in window.indexedDB) {
+            const dbs = await (window.indexedDB as unknown as { databases: () => Promise<{ name: string }[]> }).databases();
             for (const db of dbs) {
                 if (db.name) window.indexedDB.deleteDatabase(db.name);
             }

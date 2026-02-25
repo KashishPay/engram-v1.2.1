@@ -93,6 +93,17 @@ export interface Habit {
     completedDates: string[]; // ISO Date strings YYYY-MM-DD
 }
 
+export interface ChatMessage {
+    role: 'user' | 'model';
+    text: string;
+}
+
+export interface User {
+    id: string;
+    email?: string;
+    user_metadata?: Record<string, unknown>;
+}
+
 export interface UserProfile {
     name: string;
     avatar: string | null; // Base64 data URI

@@ -24,7 +24,7 @@ const ADVANCED_MODELS = [
 ];
 
 export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, featureId, onClose }) => {
-    const [prefs, setPrefs] = useState<any>({});
+    const [prefs, setPrefs] = useState<Record<string, unknown>>({});
     const [showAdvanced, setShowAdvanced] = useState(false);
 
     useEffect(() => {
@@ -37,7 +37,7 @@ export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, 
                 } else {
                     setPrefs({});
                 }
-            } catch (e) {
+            } catch {
                 setPrefs({});
             }
             setShowAdvanced(false);
@@ -51,13 +51,13 @@ export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, 
             allPrefs[featureId] = prefs;
             localStorage.setItem('engram_ai_preferences', JSON.stringify(allPrefs));
             onClose();
-        } catch (e) {
+        } catch (e: unknown) {
             console.error("Failed to save preferences", e);
         }
     };
 
-    const updatePref = (key: string, value: any) => {
-        setPrefs((prev: any) => ({ ...prev, [key]: value }));
+    const updatePref = (key: string, value: unknown) => {
+        setPrefs((prev: Record<string, unknown>) => ({ ...prev, [key]: value }));
     };
 
     if (!isOpen) return null;
