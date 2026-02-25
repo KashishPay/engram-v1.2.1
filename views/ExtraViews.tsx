@@ -657,7 +657,7 @@ export const EisenhowerMatrixView: React.FC<ExtraViewProps> = ({ themeColor }) =
             try {
                 const parsed = JSON.parse(stored);
                 setTasks(parsed.map((t: Record<string, unknown>) => ({ ...t, done: !!t.done })));
-            } catch(_e) {
+            } catch {
                 setTasks([]);
             }
         }

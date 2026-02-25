@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight, PenTool, Star, Save, Calendar as CalendarIcon, X, Plus, Camera, Image as ImageIcon, Loader2, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PenTool, Star, Save, Calendar as CalendarIcon, X, Plus, Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { DailyObservation } from '../types';
 import { ObservationsService } from '../services/observations';

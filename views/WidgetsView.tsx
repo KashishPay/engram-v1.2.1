@@ -12,9 +12,9 @@ interface WidgetsViewProps {
     themeColor: string;
 }
 
-export const WidgetsView: React.FC<WidgetsViewProps> = ({ studyLog, habits, navigateTo, goBack, themeColor }) => {
+export const WidgetsView: React.FC<WidgetsViewProps> = ({ habits, navigateTo, themeColor }) => {
     // Logic for dynamic data
-    const today = new Date().toISOString().split('T')[0];
+    // const today = new Date().toISOString().split('T')[0];
     
     // Habit logic
     const primaryHabit = habits.length > 0 ? habits[0] : { name: 'Eat fruits', completedDates: [] };

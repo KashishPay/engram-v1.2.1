@@ -14,7 +14,7 @@ interface TabBarConfigViewProps {
     themeColor: string;
 }
 
-export const TabBarConfigView: React.FC<TabBarConfigViewProps> = ({ enabledTabIds, onToggleTab, onReorderTabs, navigateTo, goBack, themeColor }) => {
+export const TabBarConfigView: React.FC<TabBarConfigViewProps> = ({ enabledTabIds, onToggleTab, onReorderTabs, themeColor }) => {
     
     // Core tabs are always active and cannot be removed (no minus button), but can be reordered.
     // 'profile' removed from CORE_TABS to allow it to be optional or just excluded by default from the main list view if not enabled

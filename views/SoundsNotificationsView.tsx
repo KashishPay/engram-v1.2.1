@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Bell, Download, Play, Pause, Check, AlertTriangle, Smartphone, Globe, Plus, Trash2, Clock, Tag, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Bell, Download, Play, Pause, Check, AlertTriangle, Smartphone, Globe, Plus, Trash2, Clock, MessageSquare } from 'lucide-react';
 import { Card } from '../components/Card';
 import { NotificationSettings, ReminderConfig } from '../types';
 import { AMBIENT_SOUNDS } from '../constants';
@@ -16,7 +16,7 @@ interface SoundsNotificationsViewProps {
     themeColor: string;
 }
 
-export const SoundsNotificationsView: React.FC<SoundsNotificationsViewProps> = ({ settings, onUpdateSettings, navigateTo, goBack, themeColor }) => {
+export const SoundsNotificationsView: React.FC<SoundsNotificationsViewProps> = ({ settings, onUpdateSettings, themeColor }) => {
     const [downloading, setDownloading] = useState<string | null>(null);
     const [playing, setPlaying] = useState<string | null>(null);
     const [isCached, setIsCached] = useState<Record<string, boolean>>({});

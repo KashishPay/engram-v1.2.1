@@ -416,8 +416,8 @@ export const getAllTopicBodyKeys = async (userId: string): Promise<string[]> => 
     try {
         const db = await openDB();
         return new Promise((resolve) => {
-            const tx = db.transaction(TOPIC_STORE, 'readonly');
-            const store = tx.objectStore(TOPIC_STORE);
+            const tx = db.transaction(TOPIC_BODY_STORE, 'readonly');
+            const store = tx.objectStore(TOPIC_BODY_STORE);
             const prefix = `topicBody_${userId}_`;
             const range = IDBKeyRange.bound(prefix, prefix + '\uffff');
             const req = store.getAllKeys(range);

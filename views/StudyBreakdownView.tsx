@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { ArrowLeft, Clock, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Clock, ChevronDown } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic } from '../types';
 import { goBackOrFallback } from '../utils/navigation';
@@ -8,11 +8,11 @@ import { goBackOrFallback } from '../utils/navigation';
 interface StudyBreakdownViewProps {
     studyLog: Topic[];
     initialFilter: string;
-    navigateTo: (view: string, data?: any) => void;
+    navigateTo: (view: string, data?: unknown) => void;
     themeColor: string;
 }
 
-export const StudyBreakdownView: React.FC<StudyBreakdownViewProps> = ({ studyLog, initialFilter, navigateTo, themeColor }) => {
+export const StudyBreakdownView: React.FC<StudyBreakdownViewProps> = ({ studyLog, initialFilter, themeColor }) => {
     
     const filteredTopics = useMemo(() => {
         if (initialFilter === 'all') return studyLog;

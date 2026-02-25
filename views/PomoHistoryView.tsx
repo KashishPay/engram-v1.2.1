@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../components/Card';
 import { ArrowLeft, ChevronLeft, ChevronRight, History, Clock } from 'lucide-react';
 import { getAllLogs, groupLogsByDate, getLocalISODate, PomodoroDailySummary } from '../utils/sessionLog';

@@ -73,7 +73,7 @@ const StatsChart = ({ data, color, height = 60, labels }: { data: number[], colo
 };
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ 
-    userId, studyLog, userProfile, onUpdateProfile, habits, onUpdateHabits, navigateTo, goBack, themeColor, availableProfiles = [], onSwitchProfile, onAddProfile, onSignOut
+    userId, studyLog, userProfile, onUpdateProfile, habits, onUpdateHabits, themeColor, availableProfiles = [], onSwitchProfile, onAddProfile, onSignOut
 }) => {
     
     const { user } = useAuth();

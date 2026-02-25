@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { BookOpenText, RotateCw, Plus, ChevronDown, Clock, Edit2, Check, X } from 'lucide-react';
+import { BookOpenText, RotateCw, ChevronDown, Clock, Edit2, Check, X } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, Subject } from '../types';
 import { INITIAL_SUBJECTS } from '../constants';
@@ -9,7 +9,7 @@ import { VirtualList } from '../components/VirtualList';
 interface SubjectsViewProps {
     allSubjects: Subject[];
     studyLog: Topic[];
-    navigateTo: (view: string, data?: any) => void;
+    navigateTo: (view: string, data?: unknown) => void;
     onAddSubject: (subject: Subject) => void;
     onDeleteSubject: (id: string) => void;
     onUpdateSubject: (subject: Subject) => void;
@@ -33,7 +33,7 @@ const SubjectItem = React.memo(({
     collapsed: boolean, 
     onToggle: (id: string) => void, 
     onUpdateSubject: (subject: Subject) => void,
-    navigateTo: (view: string, data?: any) => void, 
+    navigateTo: (view: string, data?: unknown) => void, 
     themeColor: string,
     layoutVersion?: number
 }) => {
@@ -95,8 +95,8 @@ const SubjectItem = React.memo(({
                                 className={`w-full p-2 pr-20 border-2 border-${themeColor}-500 rounded-xl focus:outline-none font-bold text-xl text-gray-800 dark:text-white bg-white dark:bg-gray-800 shadow-sm transition-all`}
                                 autoFocus
                                 onKeyDown={e => {
-                                    if (e.key === 'Enter') handleSave(e as any);
-                                    if (e.key === 'Escape') handleCancel(e as any);
+                                    if (e.key === 'Enter') handleSave(e as unknown as React.MouseEvent);
+                                    if (e.key === 'Escape') handleCancel(e as unknown as React.MouseEvent);
                                 }}
                                 onClick={e => e.stopPropagation()}
                             />
@@ -179,7 +179,7 @@ const SubjectItem = React.memo(({
     );
 });
 
-export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjects, studyLog, navigateTo, onAddSubject, onDeleteSubject, onUpdateSubject, onAddTopic, themeColor }) => {
+export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjects, studyLog, navigateTo, onAddSubject, onUpdateSubject, onAddTopic, themeColor }) => {
     const [newTopicName, setNewTopicName] = useState('');
     const [selectedSubjectId, setSelectedSubjectId] = useState(allSubjects?.[0]?.id || '');
     const [isAddingTopic, setIsAddingTopic] = useState(false);

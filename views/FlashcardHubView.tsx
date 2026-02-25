@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Layers, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, FlashCard } from '../types';
 import { FLASHCARD_SCHEMA } from '../constants';
@@ -14,12 +14,10 @@ import katex from 'katex';
 interface FlashcardHubViewProps {
     studyLog: Topic[];
     userId: string;
-    navigateTo: (view: string, data?: unknown) => void;
     themeColor: string;
-    goBack: () => void;
 }
 
-export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, navigateTo, themeColor, goBack }) => {
+export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, themeColor }) => {
     
     // --- Data Loading ---
     const [allCards, setAllCards] = useState<FlashCard[]>([]);

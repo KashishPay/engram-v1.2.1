@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { ArrowLeft, Headphones, Play, Pause, Rewind, FastForward, X, Minimize2, Loader, Mic2, ChevronDown, FileText, Download, FolderOpen, Bookmark, Trash2, AlertTriangle, RefreshCw, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, Headphones, Play, Pause, Rewind, FastForward, X, Minimize2, Loader, Mic2, ChevronDown, FileText, Download, FolderOpen, Bookmark, Trash2, RefreshCw, Plus, Minus } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic } from '../types';
 import { getAudioFromIDB, deleteAudioFromIDB, getAllAudioKeys } from '../services/storage';
@@ -14,12 +14,12 @@ export const PodcastSettingsView: React.FC<{
     config: { language: 'English' | 'Hinglish' }; 
     onUpdate: (config: { language: 'English' | 'Hinglish' }) => void;
     navigateTo: (view: string) => void;
-    goBack: () => void;
+    goBack?: () => void;
     themeColor: string;
     studyLog: Topic[];
     onPlayTopic: (topic: Topic) => void;
     onUpdateTopic?: (topic: Topic) => void;
-}> = ({ config, onUpdate, navigateTo, goBack, themeColor, studyLog, onPlayTopic, onUpdateTopic }) => {
+}> = ({ config, onUpdate, navigateTo, themeColor, studyLog, onPlayTopic, onUpdateTopic }) => {
     
     const difficultTopics = useMemo(() => studyLog.filter(t => t.isMarkedDifficult), [studyLog]);
 
@@ -395,7 +395,9 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                 try {
                     const audio = await getAudioFromIDB(`subject-recap-${subId}`);
                     if (audio) available.add(subId);
-                } catch(e) {}
+                } catch {
+                    // Ignore
+                }
             }
             setAvailableSubjects(available);
         };
@@ -523,7 +525,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
         const isMarked = !!topic.isMarkedDifficult;
         const newStatus = !isMarked;
 
-        let updatedRepetitions = [...(topic.repetitions || [])];
+        const updatedRepetitions = [...(topic.repetitions || [])];
         if (newStatus && updatedRepetitions.length > 0) {
              const today = new Date().toISOString().split('T')[0];
              const lastRep = updatedRepetitions[updatedRepetitions.length - 1];
@@ -559,7 +561,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                     const html = katex.renderToString(formula, { displayMode: true, throwOnError: false });
                     blockMatches.push(html);
                     return `__BLOCK_MATH_${blockMatches.length - 1}__`;
-                } catch (e) {
+                } catch {
                     return match;
                 }
             });
@@ -570,7 +572,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                 try {
                     const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
                     return html;
-                } catch (e) {
+                } catch {
                     return match;
                 }
             });
@@ -850,7 +852,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                         <div className="space-y-3">
                             {libraryTab === 'topics' ? (
                                 filteredTopics.map(topic => {
-                                    const hasAudio = topic.hasSavedAudio || !!(topic as any).podcastAudio;
+                                    const hasAudio = topic.hasSavedAudio || !!(topic as Record<string, unknown>).podcastAudio;
                                     const isDownloading = state.downloadingIds.includes(topic.id);
                                     
                                     return (

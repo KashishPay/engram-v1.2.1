@@ -12,7 +12,7 @@ interface QuizReviewProps {
     quizData: QuizQuestion[];
     answers: { qIndex: number; selected: string; correct: string }[];
     timeTaken: number;
-    navigateTo: (view: string, data?: any, options?: { replace?: boolean }) => void;
+    navigateTo: (view: string, data?: unknown, options?: { replace?: boolean }) => void;
     repetitionNumber: number;
     themeColor: string;
 }
@@ -29,7 +29,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
 
     // Back Button Interceptor: Force user to go to 'topicDetail' instead of 'quiz' if they hit back
     useEffect(() => {
-        const handlePopState = (e: PopStateEvent) => {
+        const handlePopState = () => {
             // If the user hits back, intercept and replace to a safe route
             // Prevents re-submitting the quiz or entering an invalid state
             console.debug("[REVIEW] popstate intercepted, redirecting to detail");
@@ -56,7 +56,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                 const html = katex.renderToString(formula, { displayMode: true, throwOnError: false });
                 blockMatches.push(html);
                 return `__BLOCK_MATH_${blockMatches.length - 1}__`;
-            } catch (e: any) { return match; }
+            } catch { return match; }
         });
 
         processedText = processedText.replace(inlineMathRegex, (match, p1, p2) => {
@@ -64,7 +64,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
             try {
                 const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
                 return html;
-            } catch (e: any) { return match; }
+            } catch { return match; }
         });
 
         // Basic Markdown Support
@@ -223,7 +223,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                     title: 'Engram Result',
                     text: text,
                 });
-            } catch (err: any) {
+            } catch {
                 console.log('Share canceled');
             }
         } else {

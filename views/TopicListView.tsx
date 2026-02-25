@@ -8,7 +8,7 @@ import { VirtualList } from '../components/VirtualList';
 interface TopicListViewProps {
     title: string;
     topics: Topic[];
-    navigateTo: (view: string, data?: any) => void;
+    navigateTo: (view: string, data?: unknown) => void;
     themeColor: string;
 }
 

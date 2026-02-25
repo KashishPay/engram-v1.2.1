@@ -104,7 +104,11 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
     useEffect(() => {
         const timer = setTimeout(() => {
             if (messages.length > 0 && topic && !isTyping) {
-                const cleanMessages = messages.map(({isStreaming, ...msg}) => msg);
+                const cleanMessages = messages.map((m) => {
+                    const { isStreaming: _, ...msg } = m;
+                    void _;
+                    return msg;
+                });
                 saveChatToIDB(userId, topic.id, cleanMessages).catch(err => 
                     console.warn("Failed to persist chat", err)
                 );
@@ -277,31 +281,32 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                                                 remarkPlugins={[remarkGfm, remarkMath]}
                                                 rehypePlugins={[rehypeKatex]}
                                                 components={{
-                                                    table: ({node: _node, ...props}: Record<string, unknown>) => <div className="overflow-x-auto my-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" {...props} /></div>,
-                                                    th: ({node: _node, ...props}: Record<string, unknown>) => <th className="px-3 py-2 bg-gray-50 dark:bg-gray-800 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700" {...props} />,
-                                                    td: ({node: _node, ...props}: Record<string, unknown>) => <td className="px-3 py-2 text-sm border-b border-gray-100 dark:border-gray-800 last:border-0 text-gray-700 dark:text-gray-300" {...props} />,
-                                                    code: ({node: _node, className, children, ...props}: Record<string, unknown>) => {
-                                                        const match = /language-(\w+)/.exec((className as string) || '')
+                                                    table: ({node, ...props}: React.ComponentPropsWithoutRef<'table'> & {node?: unknown}) => { void node; return <div className="overflow-x-auto my-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" {...props} /></div> },
+                                                    th: ({node, ...props}: React.ComponentPropsWithoutRef<'th'> & {node?: unknown}) => { void node; return <th className="px-3 py-2 bg-gray-50 dark:bg-gray-800 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700" {...props} /> },
+                                                    td: ({node, ...props}: React.ComponentPropsWithoutRef<'td'> & {node?: unknown}) => { void node; return <td className="px-3 py-2 text-sm border-b border-gray-100 dark:border-gray-800 last:border-0 text-gray-700 dark:text-gray-300" {...props} /> },
+                                                    code: ({node, className, children, ...props}: React.ComponentPropsWithoutRef<'code'> & {node?: unknown}) => {
+                                                        void node;
+                                                        const match = /language-(\w+)/.exec(className || '')
                                                         return match ? (
                                                             <div className="rounded-lg bg-gray-900 text-gray-100 overflow-hidden my-3 shadow-sm border border-gray-800 text-xs">
                                                                 <div className="px-3 py-1 bg-gray-800 text-[9px] uppercase font-bold text-gray-400 border-b border-gray-700">
                                                                     {match[1]}
                                                                 </div>
                                                                 <div className="p-3 overflow-x-auto">
-                                                                    <code className={className as string} {...props}>{children as React.ReactNode}</code>
+                                                                    <code className={className} {...props}>{children}</code>
                                                                 </div>
                                                             </div>
                                                         ) : (
-                                                            <code className="px-1 py-0.5 rounded font-mono text-xs bg-gray-100 dark:bg-gray-800 text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700" {...props}>{children as React.ReactNode}</code>
+                                                            <code className="px-1 py-0.5 rounded font-mono text-xs bg-gray-100 dark:bg-gray-800 text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700" {...props}>{children}</code>
                                                         )
                                                     },
-                                                    p: ({node: _node, ...props}: Record<string, unknown>) => <p className="mb-2 last:mb-0" {...props} />,
-                                                    ul: ({node: _node, ...props}: Record<string, unknown>) => <ul className="list-disc list-outside ml-4 mb-2 space-y-1" {...props} />,
-                                                    ol: ({node: _node, ...props}: Record<string, unknown>) => <ol className="list-decimal list-outside ml-4 mb-2 space-y-1" {...props} />,
-                                                    li: ({node: _node, ...props}: Record<string, unknown>) => <li className="pl-1" {...props} />,
-                                                    a: ({node: _node, ...props}: Record<string, unknown>) => <a className={`underline text-${themeColor}-600 dark:text-${themeColor}-400 hover:text-${themeColor}-700`} {...props} />,
-                                                    blockquote: ({node: _node, ...props}: Record<string, unknown>) => <blockquote className="border-l-2 border-gray-300 dark:border-gray-600 pl-3 italic my-2 text-gray-500 dark:text-gray-400" {...props} />,
-                                                    hr: ({node: _node, ...props}: Record<string, unknown>) => <hr className="my-4 border-gray-200 dark:border-gray-800" {...props} />,
+                                                    p: ({node, ...props}: React.ComponentPropsWithoutRef<'p'> & {node?: unknown}) => { void node; return <p className="mb-2 last:mb-0" {...props} /> },
+                                                    ul: ({node, ...props}: React.ComponentPropsWithoutRef<'ul'> & {node?: unknown}) => { void node; return <ul className="list-disc list-outside ml-4 mb-2 space-y-1" {...props} /> },
+                                                    ol: ({node, ...props}: React.ComponentPropsWithoutRef<'ol'> & {node?: unknown}) => { void node; return <ol className="list-decimal list-outside ml-4 mb-2 space-y-1" {...props} /> },
+                                                    li: ({node, ...props}: React.ComponentPropsWithoutRef<'li'> & {node?: unknown}) => { void node; return <li className="pl-1" {...props} /> },
+                                                    a: ({node, ...props}: React.ComponentPropsWithoutRef<'a'> & {node?: unknown}) => { void node; return <a className={`underline text-${themeColor}-600 dark:text-${themeColor}-400 hover:text-${themeColor}-700`} {...props} /> },
+                                                    blockquote: ({node, ...props}: React.ComponentPropsWithoutRef<'blockquote'> & {node?: unknown}) => { void node; return <blockquote className="border-l-2 border-gray-300 dark:border-gray-600 pl-3 italic my-2 text-gray-500 dark:text-gray-400" {...props} /> },
+                                                    hr: ({node, ...props}: React.ComponentPropsWithoutRef<'hr'> & {node?: unknown}) => { void node; return <hr className="my-4 border-gray-200 dark:border-gray-800" {...props} /> },
                                                 }}
                                             >
                                                 {msg.text || (msg.isStreaming ? "▋" : "")}

@@ -1,12 +1,12 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { GraduationCap, ListRestart, CheckCircle, PieChart, Filter, Layers, RotateCw, Check, X, Zap, Calendar, TrendingUp, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, History, BrainCircuit, RefreshCcw, Settings2, Trash2, Undo2 } from 'lucide-react';
+import { GraduationCap, ListRestart, PieChart, Filter, Layers, RotateCw, Check, X, Calendar, TrendingUp, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, History, RefreshCcw, Settings2, Trash2, Undo2 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ProgressChart } from '../components/ProgressChart';
 import { Topic, Subject, UserProfile, FlashCard } from '../types';
 import { SPACING_INTERVALS, FLASHCARD_SCHEMA } from '../constants';
 import { callGeminiApiWithRetry } from '../services/gemini';
-import { ensureTopicContent, getTopicBodyFromIDB } from '../services/storage';
+import { getTopicBodyFromIDB } from '../services/storage';
 import { TopicSelectorModal } from '../components/TopicSelectorModal'; 
 import katex from 'katex';
 import DOMPurify from 'dompurify';
@@ -125,7 +125,9 @@ const FlashCardDeck: React.FC<{
             if (prefs?.flashcards?.persona) {
                 persona = prefs.flashcards.persona;
             }
-        } catch {}
+        } catch {
+            // Ignore parse errors
+        }
         desiredCount = Math.min(20, Math.max(5, desiredCount)); 
         
         console.debug("[FLASHCARDS] requested", { desiredCount, poolSize: pool.length });
@@ -361,7 +363,7 @@ const FlashCardDeck: React.FC<{
                 const html = katex.renderToString(formula, { displayMode: true, throwOnError: false });
                 blockMatches.push(html);
                 return `__BLOCK_MATH_${blockMatches.length - 1}__`;
-            } catch (_e) {
+            } catch {
                 return match;
             }
         });
@@ -371,7 +373,7 @@ const FlashCardDeck: React.FC<{
             try {
                 const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
                 return html;
-            } catch (_e) {
+            } catch {
                 return match;
             }
         });

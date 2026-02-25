@@ -64,10 +64,11 @@ export const ResetPasswordView: React.FC<ResetPasswordViewProps> = ({ navigateTo
                 navigateTo('home');
             }, 2000);
 
-        } catch (err: any) {
-            console.error("[AUTH] password update error", err.message);
+        } catch (err: unknown) {
+            const e = err as Error;
+            console.error("[AUTH] password update error", e.message);
             setStatus('error');
-            setMessage(err.message || "Failed to update password.");
+            setMessage(e.message || "Failed to update password.");
         } finally {
             setLoading(false);
         }

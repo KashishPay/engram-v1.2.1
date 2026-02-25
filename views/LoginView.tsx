@@ -139,7 +139,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onComplete, onSignInSucces
         } catch (err: unknown) {
             console.error("Magic link error:", err);
             let msg = "Failed to send magic link.";
-            if ((err as any).status === 429) msg = "Too many requests. Please wait a moment.";
+            if (err && typeof err === 'object' && 'status' in err && err.status === 429) msg = "Too many requests. Please wait a moment.";
             else if ((err as Error).message) msg = (err as Error).message;
             setError(msg);
         } finally {
@@ -205,10 +205,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onComplete, onSignInSucces
         } catch (err: unknown) {
             console.error(err);
             let msg = "Authentication failed.";
-            if ((err as any).code === 'auth/invalid-credential' || (err as any).code === 'auth/invalid-login-credentials') msg = "Invalid email or password.";
-            else if ((err as any).code === 'auth/email-already-in-use') msg = "Email already in use.";
-            else if ((err as any).code === 'auth/weak-password') msg = "Password should be at least 6 characters.";
-            else if ((err as Error).message) msg = (err as Error).message;
+            const authErr = err as { code?: string; message?: string };
+            if (authErr.code === 'auth/invalid-credential' || authErr.code === 'auth/invalid-login-credentials') msg = "Invalid email or password.";
+            else if (authErr.code === 'auth/email-already-in-use') msg = "Email already in use.";
+            else if (authErr.code === 'auth/weak-password') msg = "Password should be at least 6 characters.";
+            else if (authErr.message) msg = authErr.message;
             setError(msg);
         } finally {
             setIsLoading(false);
