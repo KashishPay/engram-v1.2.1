@@ -192,7 +192,7 @@ const FlashCardDeck: React.FC<{
                 null,
                 null,
                 3,
-                'gemini-2.5-flash',
+                'gemini-3-flash-preview',
                 'flashcards'
             );
 

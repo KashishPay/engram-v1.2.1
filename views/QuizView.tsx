@@ -13,7 +13,7 @@ import DOMPurify from 'dompurify';
 interface QuizViewProps {
     topic: Topic | null;
     userId: string;
-    navigateTo: (view: string, data?: unknown, options?: { replace?: boolean }) => void;
+    navigateTo: (view: string, data?: any, options?: { replace?: boolean }) => void;
     onUpdateTopic: (topic: Topic) => void;
     themeColor: string;
 }
@@ -77,8 +77,8 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                         return;
                     }
                 }
-            } catch {
-                console.warn("Failed to load quiz session");
+            } catch (e: any) {
+                console.warn("Failed to load quiz session", e);
             }
         }
 
@@ -103,7 +103,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
 
     // --- Timer Logic ---
     useEffect(() => {
-        let interval: ReturnType<typeof setInterval> | null = null;
+        let interval: any = null;
         if (timerRunning) {
             interval = setInterval(() => {
                 setTimeTaken(t => t + 1);
@@ -126,7 +126,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 const html = katex.renderToString(formula, { displayMode: true, throwOnError: false });
                 blockMatches.push(html);
                 return `__BLOCK_MATH_${blockMatches.length - 1}__`;
-            } catch { return match; }
+            } catch (e: any) { return match; }
         });
 
         processedText = processedText.replace(inlineMathRegex, (match, p1, p2) => {
@@ -134,7 +134,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             try {
                 const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
                 return html;
-            } catch { return match; }
+            } catch (e: any) { return match; }
         });
 
         blockMatches.forEach((html, index) => {
@@ -192,8 +192,8 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             let fullTopic = topic;
             try {
                 fullTopic = await ensureTopicContent(userId, topic);
-            } catch (err: unknown) {
-                console.warn("Failed to hydrate topic content", err);
+            } catch (e: any) {
+                console.warn("Failed to hydrate topic content", e);
             }
 
             // 2. Build Context (Difficulty, Mistakes)
@@ -238,20 +238,18 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             }
 
             // 3. Resolve Model from Prefs
-            let model = 'gemini-2.5-flash'; // Safe Default
+            let model = 'gemini-3-flash-preview'; // Safe Default
             let persona = "";
             try {
                 const prefs = JSON.parse(localStorage.getItem('engram_ai_preferences') || '{}');
                 const quizPrefs = prefs.quiz || {};
                 if (quizPrefs.model) {
-                    if (quizPrefs.model === 'flash') model = 'gemini-2.5-flash';
-                    else if (quizPrefs.model === 'pro') model = 'gemini-2.5-pro';
+                    if (quizPrefs.model === 'flash') model = 'gemini-3-flash-preview';
+                    else if (quizPrefs.model === 'pro') model = 'gemini-3.1-pro-preview';
                     else model = quizPrefs.model; // Explicit string
                 }
                 if (quizPrefs.persona) persona = quizPrefs.persona;
-            } catch {
-                // Ignore
-            }
+            } catch (e: any) {}
 
             console.debug("[POPQUIZ] request sent", { model });
 
@@ -278,16 +276,15 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                         controller.signal.addEventListener('abort', () => reject(new Error("Aborted")));
                     })
                 ]);
-            } catch (firstError: unknown) {
+            } catch (firstError: any) {
                 // FALLBACK LOGIC: If Pro/Preview fails, retry with Flash
-                const err = firstError as { status?: number; message?: string };
                 const isProOrPreview = model.includes('pro') || model.includes('preview');
-                const isRecoverable = err.status === 404 || err.status === 400 || err.status === 429 || err.status === 503 || err.message?.includes('preview');
+                const isRecoverable = firstError.status === 404 || firstError.status === 400 || firstError.status === 429 || firstError.status === 503 || firstError.message?.includes('preview');
                 
                 if (isProOrPreview && isRecoverable && !controller.signal.aborted) {
                     console.debug("[QUIZ] Fallback to Flash");
                     setIsModelFallback(true);
-                    data = await makeCall('gemini-2.5-flash');
+                    data = await makeCall('gemini-3-flash-preview');
                 } else {
                     throw firstError;
                 }
@@ -299,9 +296,9 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
 
             if (data?.pop_quiz?.length === 10) {
                 // SANITIZATION STEP START
-                const cleanedQuiz = data.pop_quiz.map((q: Record<string, unknown>) => ({
+                const cleanedQuiz = data.pop_quiz.map((q: any) => ({
                     ...q,
-                    explanation: (q.explanation as string)
+                    explanation: q.explanation
                         .replace(/(Let me re-read|Do not include|Note:|Step 1:|Thinking:).*/gi, '') // aggressive start-of-line garbage removal
                         .replace(/JSON string/gi, '')
                         .trim()
@@ -316,17 +313,16 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 throw new Error("Invalid quiz format: Did not receive 10 questions.");
             }
 
-        } catch (err: unknown) {
+        } catch (e: any) {
             clearTimeout(timeoutId);
             if (!isMounted.current) return;
 
-            const e = err as Error;
             console.error("[POPQUIZ] error", { message: e.message, stack: e.stack });
             
             // Determine user-friendly error message
             let msg: string = "An unknown error occurred.";
             if (e.message === "Aborted") msg = "Generation timed out. Please try again.";
-            else if (e.message?.includes("quota") || (e as { name?: string }).name === 'UsageLimitError') msg = (e.message as string) || "AI quota reached. Please check Settings.";
+            else if (e.message?.includes("quota") || e.name === 'UsageLimitError') msg = (e.message as string) || "AI quota reached. Please check Settings.";
             else if (e.message) msg = String(e.message);
 
             setErrorMessage(msg);
@@ -335,7 +331,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
     }, [topic, userId]);
 
     // --- Submission Logic ---
-    const submitRepetition = async (score: number, finalTimeTaken: number, fullQuizData: QuizQuestion[], userAnswers: { qIndex: number; selected: string }[]) => {
+    const submitRepetition = async (score: number, finalTimeTaken: number, fullQuizData: QuizQuestion[], userAnswers: any[]) => {
         if (!topic || isSubmitting.current) return;
         isSubmitting.current = true;
 
@@ -387,8 +383,8 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 repetitionNumber: lastRepetitionIndex + 1
             }, { replace: true });
 
-        } catch (err: unknown) {
-            console.error("Error submitting repetition:", err);
+        } catch (e: any) {
+            console.error("Error submitting repetition:", e);
             setErrorMessage("Error saving results. Check console.");
             setStatus('error');
             isSubmitting.current = false;

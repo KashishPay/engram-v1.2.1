@@ -17,10 +17,8 @@ const FEATURE_TITLES: Record<string, string> = {
 };
 
 const ADVANCED_MODELS = [
-    { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
-    { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-    { id: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash Preview' },
-    { id: 'gemini-3-pro-preview', label: 'Gemini 3.0 Pro Preview' }
+    { id: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash Preview (Recommended)' },
+    { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview' }
 ];
 
 export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, featureId, onClose }) => {

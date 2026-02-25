@@ -236,7 +236,7 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
                 [attachment], 
                 null, 
                 3, 
-                'gemini-2.5-flash',
+                'gemini-3-flash-preview',
                 'ocr'
             );
             

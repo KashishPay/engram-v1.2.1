@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon, X } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, FlashCard } from '../types';
 import { FLASHCARD_SCHEMA } from '../constants';
@@ -189,7 +189,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
                 images, // Send array of images
                 null,
                 2,
-                'gemini-2.5-flash', 
+                'gemini-3-flash-preview', 
                 'flashcards'
             );
 
@@ -266,7 +266,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
                 null,
                 null,
                 2,
-                'gemini-2.5-flash',
+                'gemini-3-flash-preview',
                 'flashcards'
             );
 
