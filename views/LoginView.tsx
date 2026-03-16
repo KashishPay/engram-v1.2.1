@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 import { getOAuthAppOrigin } from '../utils/authEnv';
 import { EngramLogo } from '../components/EngramLogo';
+import { Capacitor } from '@capacitor/core';
 import { ENABLE_PASSWORD_RECOVERY, ENABLE_GOOGLE_OAUTH } from '../config/auth';
 import { GoogleSignInCard } from '../components/GoogleSignInCard';
 import { TermsContent, PrivacyContent } from './LegalViews';
@@ -476,7 +477,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onComplete, onSignInSucces
                             </form>
 
                             {/* Google Sign In Integration */}
-                            {ENABLE_GOOGLE_OAUTH && (
+                            {ENABLE_GOOGLE_OAUTH && !Capacitor.isNativePlatform() && (
                                 <>
                                     <div className="relative w-full max-w-sm py-6">
                                         <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-200 dark:border-gray-700"></span></div>

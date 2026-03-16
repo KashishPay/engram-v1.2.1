@@ -4,7 +4,7 @@ import {
     Award, ChevronRight, Palette, Clock, Bell, Layout, 
     Info, Download, Upload, Sun, Moon, 
     Smartphone, LogOut, Key, Trash2, ShieldCheck, ExternalLink, AlertTriangle, RotateCw, Zap, Sparkles,
-    Check, Loader2, LayoutGrid, Layers, Headphones, MessageSquarePlus, Star, PartyPopper, RefreshCw, UserX
+    Check, Loader2, LayoutGrid, Layers, Headphones, MessageSquarePlus, Star, PartyPopper, RefreshCw, UserX, Lock, CloudSync
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { validateApiKey, getUsageStats } from '../services/gemini';
@@ -34,6 +34,8 @@ interface SettingsViewProps {
     level: number;
     badgeCount: number;
     streak?: number;
+    globalSyncEnabled: boolean;
+    setGlobalSyncEnabled: (enabled: boolean) => void;
 }
 
 const SettingsItem: React.FC<{ icon: unknown, label: string, color: string, onClick?: () => void, rightElement?: React.ReactNode }> = ({ icon, label, color, onClick, rightElement }) => {
@@ -170,7 +172,8 @@ const CelebrationOverlay: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
     userProfile, userId, userEmail, isGuest, currentTheme, navigateTo, 
-    handleExportData, handleImportData, appMode, setAppMode, onSignOut, level, badgeCount, streak = 0 
+    handleExportData, handleImportData, appMode, setAppMode, onSignOut, level, badgeCount, streak = 0,
+    globalSyncEnabled, setGlobalSyncEnabled
 }) => {
     const [showCelebration, setShowCelebration] = useState(false);
     const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
@@ -191,6 +194,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     // Delete Account State
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleGlobalSyncToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const isEnabled = e.target.checked;
+        setGlobalSyncEnabled(isEnabled);
+        localStorage.setItem('engramGlobalSyncEnabled', String(isEnabled));
+        console.log("Global sync toggled:", isEnabled);
+    };
 
     // Initial Load
     useEffect(() => {
@@ -562,6 +572,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                     </label>
                                 )}
                             </div>
+                            
+                            {/* Global Sync Feature - Only visible to authorized users */}
+                            {userProfile?.can_use_global_sync && (
+                                <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-xl">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center">
+                                            <div className="p-2 bg-purple-100 dark:bg-purple-800/50 rounded-lg mr-3">
+                                                <CloudSync size={18} className="text-purple-600 dark:text-purple-400" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300">Global Sync</h4>
+                                                <p className="text-xs text-purple-700 dark:text-purple-400/80">Automatically sync your exports</p>
+                                            </div>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" className="sr-only peer" checked={globalSyncEnabled} onChange={handleGlobalSyncToggle} />
+                                            <div className="w-11 h-6 bg-purple-200 dark:bg-purple-900/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="p-4 border-b border-gray-100 dark:border-gray-700">
                             <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3 text-sm">App Mode</h3>

@@ -161,7 +161,7 @@ export const useStudyData = (userId: string) => {
 
     // Handlers
     const handleUpdateTopic = useCallback(async (updatedTopic: Topic) => {
-        const topicToState = { ...updatedTopic };
+        const topicToState = { ...updatedTopic, updatedAt: new Date().toISOString() };
 
         // 1. Offload Audio
         if (updatedTopic.podcastAudio) {
@@ -195,13 +195,27 @@ export const useStudyData = (userId: string) => {
             repetitions: [],
             focusLogs: [],
             pomodoroTimeMinutes: 0,
-            hasNotes: !!(newTopicData.shortNotes && newTopicData.shortNotes.length > 0)
+            hasNotes: !!(newTopicData.shortNotes && newTopicData.shortNotes.length > 0),
+            updatedAt: new Date().toISOString()
         };
         // Save initial empty body if needed, mostly for consistency
         saveTopicBodyToIDB(userId, newTopic.id, newTopic.shortNotes || "");
         
         setStudyLog(prev => [...prev, newTopic]);
         return newTopic;
+    }, [userId]);
+
+    const handleDeleteTopic = useCallback(async (topicId: string) => {
+        // Delete from IDB
+        try {
+            await deleteTopicBodyFromIDB(userId, topicId);
+            await deleteAudioFromIDB(topicId);
+        } catch (e) {
+            console.error("Failed to delete topic data from IDB", e);
+        }
+        
+        // Remove from state
+        setStudyLog(prev => prev.filter(t => t.id !== topicId));
     }, [userId]);
 
     const handleAddSubject = useCallback((newSubject: Subject) => {
@@ -211,7 +225,7 @@ export const useStudyData = (userId: string) => {
             if (exists) return prev;
             
             if (prev.some(s => s.id === newSubject.id)) return prev;
-            return [...prev, newSubject];
+            return [...prev, { ...newSubject, updatedAt: new Date().toISOString() }];
         });
     }, []);
 
@@ -244,13 +258,13 @@ export const useStudyData = (userId: string) => {
                 // OPTION 1: Cascade Update
                 // Update the subject name in the subjects list
                 const nextSubjects = prevSubjects.map(s => 
-                    s.id === updatedSubject.id ? { ...s, name: newName } : s
+                    s.id === updatedSubject.id ? { ...s, name: newName, updatedAt: new Date().toISOString() } : s
                 );
                 
                 // Update the subject name string inside every associated topic
                 setStudyLog(prevLog => prevLog.map(topic => {
                     if (topic.subjectId === updatedSubject.id) {
-                        return { ...topic, subject: newName };
+                        return { ...topic, subject: newName, updatedAt: new Date().toISOString() };
                     }
                     return topic;
                 }));
@@ -344,10 +358,16 @@ export const useStudyData = (userId: string) => {
                     };
 
                     if (existingTopicIds.has(updatedTopic.id)) {
-                        // Conflict: Topic ID exists. Overwrite with imported version.
+                        // Conflict: Topic ID exists. Use Last Write Wins based on updatedAt
                         const idx = nextTopics.findIndex(t => t.id === updatedTopic.id);
                         if (idx !== -1) {
-                            nextTopics[idx] = updatedTopic;
+                            const existingTopic = nextTopics[idx];
+                            const existingTime = new Date(existingTopic.updatedAt || existingTopic.createdAt || 0).getTime();
+                            const importedTime = new Date(updatedTopic.updatedAt || updatedTopic.createdAt || 0).getTime();
+                            
+                            if (importedTime > existingTime) {
+                                nextTopics[idx] = updatedTopic;
+                            }
                         }
                     } else {
                         // New Topic: Append
@@ -363,15 +383,22 @@ export const useStudyData = (userId: string) => {
         });
     }, [userId]);
 
+    const clearStudyData = useCallback(() => {
+        setStudyLog([]);
+        setUserSubjects([]);
+    }, []);
+
     return {
         studyLog,
         userSubjects,
         loadingData,
         handleUpdateTopic,
         handleAddTopic,
+        handleDeleteTopic,
         handleAddSubject,
         handleUpdateSubject,
         handleDeleteSubject,
-        importStudyLog
+        importStudyLog,
+        clearStudyData
     };
 };

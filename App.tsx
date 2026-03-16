@@ -11,11 +11,24 @@ import { usePodcast } from './hooks/usePodcast';
 import { useFocus } from './context/FocusContext';
 import { ProcessingProvider } from './context/ProcessingContext';
 import { useNotifications } from './hooks/useNotifications';
-import { deleteTopicBodyFromIDB, deleteAudioFromIDB } from './services/storage';
+import { 
+    deleteTopicBodyFromIDB, 
+    deleteAudioFromIDB,
+    batchGetTopicBodies,
+    batchGetImages,
+    batchGetOriginalImages,
+    batchGetChatHistories,
+    batchSaveTopicBodies,
+    batchSaveImages,
+    batchSaveChatHistories
+} from './services/storage';
+import { ObservationsService } from './services/observations';
+import { getPomodoroLogs, savePomodoroLogs } from './utils/sessionLog';
 import { attachDevTools } from './utils/devTools';
 import { AnalyticsService } from './services/analytics';
 import { ProfileService } from './services/profile';
 import { getFeatureConfig } from './services/gemini';
+import { SyncService, SyncPayload } from './services/sync';
 
 export const App: React.FC = () => {
     // [AUTH DIAGNOSIS] Boot Logs & Upload Diagnostics
@@ -62,6 +75,13 @@ export const App: React.FC = () => {
     const [isOnboarded, setIsOnboarded] = useState(false);
     const [checkingProfile, setCheckingProfile] = useState(false);
 
+    // Global Sync State
+    const [globalSyncEnabled, setGlobalSyncEnabled] = useState<boolean>(() => {
+        return localStorage.getItem('engramGlobalSyncEnabled') === 'true';
+    });
+    const [pendingSyncData, setPendingSyncData] = useState<SyncPayload | null>(null);
+    const [showSyncPrompt, setShowSyncPrompt] = useState(false);
+
     // Sync User ID and Check Profile (Onboarding Gate) - Optimized for Offline
     useEffect(() => {
         if (authLoading) return;
@@ -104,12 +124,15 @@ export const App: React.FC = () => {
             }
 
             ProfileService.getCurrentProfile().then(profile => {
+                console.debug("[APP] Fetched profile from Supabase:", profile);
                 if (profile) {
                     const mappedProfile = {
                         name: profile.full_name,
                         avatar: profile.avatar_url || user.photoURL,
-                        username: profile.username
+                        username: profile.username,
+                        can_use_global_sync: profile.can_use_global_sync
                     };
+                    console.debug("[APP] Mapped profile:", mappedProfile);
                     setUserProfile(mappedProfile);
                     setIsOnboarded(true);
                     localStorage.setItem(`engramProfile_${currentUid}`, JSON.stringify(mappedProfile));
@@ -147,10 +170,12 @@ export const App: React.FC = () => {
         loadingData, 
         handleUpdateTopic, 
         handleAddTopic: addTopicLogic, 
+        handleDeleteTopic,
         handleAddSubject, 
         handleUpdateSubject, 
         handleDeleteSubject,
-        importStudyLog
+        importStudyLog,
+        clearStudyData
     } = useStudyData(userId);
     
     // Attach Dev Tools & Analytics Migration
@@ -275,6 +300,193 @@ export const App: React.FC = () => {
     });
     const [habits, setHabits] = useState<Habit[]>([]);
     
+    // Helper to process incoming sync data (heavy + light)
+    const handleIncomingSyncPayload = async (payload: SyncPayload) => {
+        if (payload.settings?._heavyData) {
+            const heavy = payload.settings._heavyData;
+            
+            if (heavy.notesByTopicId) await batchSaveTopicBodies(userId, heavy.notesByTopicId);
+            if (heavy.images) await batchSaveImages(heavy.images);
+            if (heavy.originalImages) await batchSaveImages(heavy.originalImages);
+            if (heavy.chatHistoryByTopicId) await batchSaveChatHistories(userId, heavy.chatHistoryByTopicId);
+            
+            if (heavy.observations) {
+                const localObs = ObservationsService.getAll(userId);
+                const mergedObs = SyncService.mergeCollections(localObs, heavy.observations);
+                ObservationsService.saveAll(userId, mergedObs);
+            }
+            
+            if (heavy.globalPomodoroLogs) {
+                savePomodoroLogs(heavy.globalPomodoroLogs);
+            }
+            
+            if (heavy.flashcardHistory) {
+                localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(heavy.flashcardHistory));
+            }
+            if (heavy.tasks) {
+                localStorage.setItem('engramTasks', JSON.stringify(heavy.tasks));
+            }
+            if (heavy.matrix) {
+                localStorage.setItem('engramMatrix', JSON.stringify(heavy.matrix));
+            }
+        }
+        
+        if (payload.study_logs && payload.subjects) {
+            importStudyLog(payload.study_logs, payload.subjects);
+        }
+        if (payload.habits) {
+            setHabits(prevHabits => SyncService.mergeCollections(prevHabits, payload.habits!));
+        }
+    };
+
+    // Pull Data on Load
+    useEffect(() => {
+        if (authLoading || loadingData || !user || isGuest || !globalSyncEnabled) return;
+
+        // Only pull once per session to avoid infinite loops
+        const hasPulled = sessionStorage.getItem(`engram_sync_pulled_${userId}`);
+        if (hasPulled) return;
+
+        SyncService.pullData(userId).then(remoteData => {
+            sessionStorage.setItem(`engram_sync_pulled_${userId}`, 'true');
+            if (remoteData && remoteData.study_logs && remoteData.study_logs.length > 0) {
+                if (studyLog.length === 0) {
+                    // Auto-download if local is empty
+                    console.debug("[APP] Local empty, auto-downloading remote data.");
+                    handleIncomingSyncPayload(remoteData);
+                } else {
+                    // Prompt to merge
+                    console.debug("[APP] Local and remote data found. Prompting user.");
+                    setPendingSyncData(remoteData);
+                    setShowSyncPrompt(true);
+                }
+            }
+        }).catch(err => console.error("[APP] Sync pull failed", err));
+    }, [authLoading, loadingData, user, isGuest, globalSyncEnabled, userId, studyLog.length, importStudyLog]);
+
+    const lastPushTimestamp = useRef<number>(0);
+    const syncDirty = useRef<boolean>(false);
+
+    // Push Data on Change
+    useEffect(() => {
+        if (authLoading || loadingData || !user || isGuest || !globalSyncEnabled) return;
+
+        const push = async () => {
+            if (!navigator.onLine) {
+                console.debug("[APP] Offline, queuing push.");
+                syncDirty.current = true;
+                return;
+            }
+
+            console.debug("[APP] Pushing data to Supabase...");
+            
+            // Gather heavy data
+            const topicIds = studyLog.map(t => t.id);
+            const notesByTopicId = await batchGetTopicBodies(userId, topicIds);
+            
+            const imageIds = new Set<string>();
+            const captureRegex = /\[FIG_CAPTURE: (.*?) \|/g; 
+            Object.values(notesByTopicId).forEach(note => {
+                if (!note) return;
+                const matches = [...note.matchAll(captureRegex)];
+                matches.forEach(m => imageIds.add(m[1]));
+            });
+            const images = await batchGetImages(Array.from(imageIds));
+            const originalImages = await batchGetOriginalImages(topicIds);
+            const chatHistoryByTopicId = await batchGetChatHistories(userId, topicIds);
+            const observations = ObservationsService.getAll(userId);
+            const globalPomodoroLogs = getPomodoroLogs();
+            
+            let flashcardHistory = [];
+            try {
+                const raw = localStorage.getItem(`engram-flashcard-history_${userId}`);
+                if (raw) flashcardHistory = JSON.parse(raw);
+            } catch (e) {}
+
+            let tasks = [];
+            try {
+                const raw = localStorage.getItem('engramTasks');
+                if (raw) tasks = JSON.parse(raw);
+            } catch (e) {}
+
+            let matrix = [];
+            try {
+                const raw = localStorage.getItem('engramMatrix');
+                if (raw) matrix = JSON.parse(raw);
+            } catch (e) {}
+
+            const heavyData = {
+                notesByTopicId,
+                images,
+                originalImages,
+                chatHistoryByTopicId,
+                observations,
+                globalPomodoroLogs,
+                flashcardHistory,
+                tasks,
+                matrix
+            };
+
+            const success = await SyncService.pushData(userId, {
+                subjects: userSubjects,
+                study_logs: studyLog,
+                habits: habits,
+                settings: {
+                    theme: currentTheme,
+                    appMode: appMode,
+                    dateTimeSettings,
+                    notificationSettings,
+                    enabledTabs,
+                    _heavyData: heavyData
+                }
+            });
+
+            if (success) {
+                lastPushTimestamp.current = Date.now();
+                syncDirty.current = false;
+            } else {
+                syncDirty.current = true;
+            }
+        };
+
+        const timeout = setTimeout(push, 5000); // 5s debounce
+
+        return () => clearTimeout(timeout);
+    }, [studyLog, userSubjects, habits, currentTheme, appMode, dateTimeSettings, notificationSettings, enabledTabs, globalSyncEnabled, user, isGuest, userId, loadingData, authLoading]);
+
+    // Offline Retry
+    useEffect(() => {
+        const handleOnline = () => {
+            if (syncDirty.current && globalSyncEnabled && user && !isGuest) {
+                console.debug("[APP] Back online, retrying push...");
+                // Force a state update to trigger the push effect
+                setHabits(prev => [...prev]);
+            }
+        };
+
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, [globalSyncEnabled, user, isGuest]);
+
+    // Realtime Subscription
+    useEffect(() => {
+        if (authLoading || loadingData || !user || isGuest || !globalSyncEnabled) return;
+
+        const unsubscribe = SyncService.subscribeToSyncState(userId, (payload) => {
+            // Ignore updates that are likely our own recent pushes (within 10 seconds)
+            const timeSinceLastPush = Date.now() - lastPushTimestamp.current;
+            if (timeSinceLastPush < 10000) {
+                console.debug("[APP] Ignoring realtime update (likely our own push).");
+                return;
+            }
+
+            console.debug("[APP] Realtime update applied.");
+            handleIncomingSyncPayload(payload);
+        });
+
+        return () => unsubscribe();
+    }, [authLoading, loadingData, user, isGuest, globalSyncEnabled, userId, importStudyLog]);
+
     useNotifications(studyLog, notificationSettings);
     
     // Stats & Badges
@@ -395,11 +607,12 @@ export const App: React.FC = () => {
     };
 
     const handleOnboardingComplete = (profile: unknown) => {
-        const p = profile as { full_name: string; avatar_url?: string; username: string };
+        const p = profile as { full_name: string; avatar_url?: string; username: string; can_use_global_sync?: boolean };
         setUserProfile({
             name: p.full_name,
             avatar: p.avatar_url || user?.photoURL,
-            username: p.username
+            username: p.username,
+            can_use_global_sync: p.can_use_global_sync
         });
         setIsOnboarded(true);
         window.location.hash = '#/home';
@@ -566,10 +779,60 @@ export const App: React.FC = () => {
         setUserId('local-user-' + Math.floor(Math.random() * 100000));
     };
 
+    const handleSyncChoice = (choice: 'merge' | 'keep_local' | 'download_cloud') => {
+        if (!pendingSyncData) return;
+        
+        if (choice === 'download_cloud') {
+            // Clear local data first
+            localStorage.removeItem(`engramData_${userId}`);
+            localStorage.removeItem(`engramSubjects_${userId}`);
+            localStorage.removeItem(`engramHabits_${userId}`);
+            localStorage.removeItem(`engram-flashcard-history_${userId}`);
+            localStorage.removeItem('engramTasks');
+            localStorage.removeItem('engramMatrix');
+            
+            // We can't easily clear IDB here synchronously, but handleIncomingSyncPayload will overwrite keys.
+            // For a true overwrite, we should set state to empty first.
+            clearStudyData();
+            setHabits([]);
+            
+            setTimeout(() => {
+                handleIncomingSyncPayload(pendingSyncData);
+            }, 100);
+        } else if (choice === 'merge') {
+            // Simple merge: append remote to local (deduplicated by ID in importStudyLog)
+            handleIncomingSyncPayload(pendingSyncData);
+        }
+        
+        setShowSyncPrompt(false);
+        setPendingSyncData(null);
+    };
+
     if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900"><RotateCw size={32} className={`animate-spin text-${currentTheme}-600`} /></div>;
 
     return (
         <ProcessingProvider>
+            {showSyncPrompt && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Cloud Data Found</h2>
+                        <p className="text-gray-600 dark:text-gray-300 mb-6 text-sm">
+                            We found existing study data in your cloud account. How would you like to proceed?
+                        </p>
+                        <div className="space-y-3">
+                            <button onClick={() => handleSyncChoice('merge')} className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition">
+                                Merge Local & Cloud Data
+                            </button>
+                            <button onClick={() => handleSyncChoice('download_cloud')} className="w-full py-3 px-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-xl font-medium transition">
+                                Download Cloud Data (Overwrite Local)
+                            </button>
+                            <button onClick={() => handleSyncChoice('keep_local')} className="w-full py-3 px-4 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition">
+                                Keep Local Data (Overwrite Cloud)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <AppRouter 
                 user={user}
                 isGuest={isGuest}
@@ -594,6 +857,7 @@ export const App: React.FC = () => {
                 setHabits={setHabits}
                 handleUpdateTopic={handleUpdateTopic}
                 handleAddTopic={addTopicLogic}
+                handleDeleteTopic={handleDeleteTopic}
                 handleAddSubject={handleAddSubject}
                 handleUpdateSubject={handleUpdateSubject}
                 handleDeleteSubject={handleDeleteSubject}
@@ -614,6 +878,8 @@ export const App: React.FC = () => {
                 setAppMode={setAppMode}
                 enabledTabs={enabledTabs}
                 setEnabledTabs={setEnabledTabs}
+                globalSyncEnabled={globalSyncEnabled}
+                setGlobalSyncEnabled={setGlobalSyncEnabled}
                 permissionsGranted={permissionsGranted}
                 handleAllowPermissions={handleAllowPermissions}
 

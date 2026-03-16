@@ -32,7 +32,7 @@ export const routeAfterAuth = async (session: { user: { id: string; user_metadat
         // 2. Fetch Profile (Non-blocking UI check)
         const { data: profile, error } = await supabase
             .from("profiles")
-            .select("user_id, full_name, username, avatar_url")
+            .select("user_id, full_name, username, avatar_url, can_use_global_sync")
             .eq("user_id", userId)
             .maybeSingle();
 
@@ -47,7 +47,8 @@ export const routeAfterAuth = async (session: { user: { id: string; user_metadat
             setUserProfile({
                 name: profile.full_name,
                 avatar: profile.avatar_url || session.user.user_metadata?.avatar_url || null,
-                username: profile.username
+                username: profile.username,
+                can_use_global_sync: profile.can_use_global_sync
             });
             setIsOnboarded(true);
             navigateTo("home");

@@ -16,19 +16,17 @@ interface TabBarConfigViewProps {
 
 export const TabBarConfigView: React.FC<TabBarConfigViewProps> = ({ enabledTabIds, onToggleTab, onReorderTabs, themeColor }) => {
     
-    // Core tabs are always active and cannot be removed (no minus button), but can be reordered.
-    // 'profile' removed from CORE_TABS to allow it to be optional or just excluded by default from the main list view if not enabled
-    const CORE_TABS = ['home', 'subjects'];
+    // Core tabs are always active and cannot be removed (no minus button).
+    // 'home' and 'subjects' can be reordered, but 'settings' is fixed at the end.
+    const CORE_TABS = ['home', 'subjects', 'settings'];
     
     // Configurable items can be added/removed.
     const CONFIGURABLE_ITEMS = [
         'profile', 'calendar', 'task', 'matrix', 'pomodoro', 'habit', 'observations', 'search'
     ];
     
-    // "Settings" is strictly fixed and handled by App.tsx, so we ignore it here.
-    
-    // Filter enabled tabs to only include valid ones (excluding settings if present)
-    const activeTabs = enabledTabIds.filter(id => CORE_TABS.includes(id) || CONFIGURABLE_ITEMS.includes(id));
+    // Filter enabled tabs to only include valid ones
+    const activeTabs = [...enabledTabIds.filter(id => (CORE_TABS.includes(id) || CONFIGURABLE_ITEMS.includes(id)) && id !== 'settings'), 'settings'];
     
     // Available items (Configurable items NOT currently active)
     const availableTabs = CONFIGURABLE_ITEMS.filter(id => !enabledTabIds.includes(id));
@@ -108,15 +106,15 @@ export const TabBarConfigView: React.FC<TabBarConfigViewProps> = ({ enabledTabId
                             <div className="flex flex-col space-y-1">
                                 <button 
                                     onClick={() => moveTab(item.id, 'up')}
-                                    disabled={idx === 0}
-                                    className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${idx === 0 ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}
+                                    disabled={idx === 0 || itemId === 'settings'}
+                                    className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${idx === 0 || itemId === 'settings' ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}
                                 >
                                     <ChevronUp size={16} />
                                 </button>
                                 <button 
                                     onClick={() => moveTab(item.id, 'down')}
-                                    disabled={idx === activeTabs.length - 1}
-                                    className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${idx === activeTabs.length - 1 ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}
+                                    disabled={idx === activeTabs.length - 2 || itemId === 'settings'}
+                                    className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${idx === activeTabs.length - 2 || itemId === 'settings' ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}
                                 >
                                     <ChevronDown size={16} />
                                 </button>
@@ -160,7 +158,7 @@ export const TabBarConfigView: React.FC<TabBarConfigViewProps> = ({ enabledTabId
             </div>
             
             <p className="text-xs text-gray-400 text-center px-4">
-                Core tabs (Blue) cannot be removed. Use arrows to reorder all active tabs.
+                Core tabs (Blue) cannot be removed. Settings is fixed at the end. Use arrows to reorder other active tabs.
             </p>
         </div>
     );

@@ -78,6 +78,7 @@ interface AppRouterProps {
     setHabits: (habits: Habit[]) => void;
     handleUpdateTopic: (topic: Topic) => void;
     handleAddTopic: (topic: Omit<Topic, 'id'>) => void;
+    handleDeleteTopic: (topicId: string) => void;
     handleAddSubject: (subject: Subject) => void;
     handleUpdateSubject: (subject: Subject) => void;
     handleDeleteSubject: (id: string) => void;
@@ -98,6 +99,8 @@ interface AppRouterProps {
     setAppMode: (mode: string) => void;
     enabledTabs: string[];
     setEnabledTabs: (tabs: string[]) => void;
+    globalSyncEnabled: boolean;
+    setGlobalSyncEnabled: (enabled: boolean) => void;
     permissionsGranted: boolean;
     handleAllowPermissions: () => void;
 
@@ -993,17 +996,17 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
         >
             {currentView === 'home' && <HomeView studyLog={props.studyLog} allSubjects={props.userSubjects} navigateTo={navigateTo} userId={props.userId} themeColor={props.currentTheme} userProfile={props.userProfile} loading={props.loadingData} />}
             {currentView === 'subjects' && <SubjectsView allSubjects={props.userSubjects} studyLog={props.studyLog} navigateTo={navigateTo} onAddSubject={props.handleAddSubject} onUpdateSubject={props.handleUpdateSubject} onDeleteSubject={props.handleDeleteSubject} onAddTopic={props.handleAddTopic} themeColor={props.currentTheme} />}
-            {currentView === 'topicDetail' && <TopicDetailView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} onUpdateTopic={props.handleUpdateTopic} themeColor={props.currentTheme} defaultLanguage={props.podcastConfig.language} />}
+            {currentView === 'topicDetail' && <TopicDetailView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} onUpdateTopic={props.handleUpdateTopic} onDeleteTopic={props.handleDeleteTopic} themeColor={props.currentTheme} defaultLanguage={props.podcastConfig.language} />}
             {currentView === 'quiz' && <QuizView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} onUpdateTopic={props.handleUpdateTopic} themeColor={props.currentTheme} />}
             {currentView === 'quizReview' && (
                 isHydratingQuizReview 
                 ? <div className="p-10 text-center text-gray-500 animate-pulse">Analyzing Results...</div>
                 : selectedQuizReviewData 
-                    ? <QuizReview topic={selectedQuizReviewData.topic} quizData={selectedQuizReviewData.quizAttempt.questions} answers={selectedQuizReviewData.quizAttempt.questions.map((q, i) => ({ qIndex: i, selected: q.userSelected, correct: q.correct_answer_letter }))} timeTaken={selectedQuizReviewData.quizAttempt.timeTakenSeconds} navigateTo={navigateTo} repetitionNumber={selectedQuizReviewData.repetitionNumber} themeColor={props.currentTheme} />
+                    ? <QuizReview topic={selectedQuizReviewData.topic} quizData={Array.isArray(selectedQuizReviewData.quizAttempt.questions) ? selectedQuizReviewData.quizAttempt.questions : []} answers={(Array.isArray(selectedQuizReviewData.quizAttempt.questions) ? selectedQuizReviewData.quizAttempt.questions : []).map((q, i) => ({ qIndex: i, selected: q.userSelected, correct: q.correct_answer_letter || q.correctAnswer || '' }))} timeTaken={selectedQuizReviewData.quizAttempt.timeTakenSeconds} navigateTo={navigateTo} repetitionNumber={selectedQuizReviewData.repetitionNumber} themeColor={props.currentTheme} />
                     : <ErrorCard error={new Error("Failed to load quiz results.")} resetErrorBoundary={() => navigateTo('home')} />
             )}
             {currentView === 'chat' && <ChatView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} />}
-            {currentView === 'settings' && <SettingsView userProfile={props.userProfile} userId={props.userId} userEmail={props.user?.email} isGuest={props.isGuest} currentTheme={props.currentTheme} navigateTo={navigateTo} setShowFeedbackModal={setShowFeedbackModal} handleExportData={handleExportData} handleImportData={handleImportData} appMode={props.appMode} setAppMode={props.setAppMode} onSignOut={props.onSignOut} level={Math.floor((props.earnedBadges?.length || 0) / 3) + 1} badgeCount={props.earnedBadges?.length || 0} streak={props.currentStreak} />}
+            {currentView === 'settings' && <SettingsView userProfile={props.userProfile} userId={props.userId} userEmail={props.user?.email} isGuest={props.isGuest} currentTheme={props.currentTheme} navigateTo={navigateTo} setShowFeedbackModal={setShowFeedbackModal} handleExportData={handleExportData} handleImportData={handleImportData} appMode={props.appMode} setAppMode={props.setAppMode} onSignOut={props.onSignOut} level={Math.floor((props.earnedBadges?.length || 0) / 3) + 1} badgeCount={props.earnedBadges?.length || 0} streak={props.currentStreak} globalSyncEnabled={props.globalSyncEnabled} setGlobalSyncEnabled={props.setGlobalSyncEnabled} />}
             {currentView === 'profile' && <ProfileView userId={props.userId} studyLog={props.studyLog} userProfile={props.userProfile} onUpdateProfile={props.setUserProfile} habits={props.habits} onUpdateHabits={props.setHabits} navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} availableProfiles={props.profiles} onSwitchProfile={props.onSwitchProfile} onAddProfile={props.onAddProfile} onSignOut={props.onSignOut} />}
             {currentView === 'topicList' && <TopicListView title={topicListData.title} topics={topicListData.topics} navigateTo={navigateTo} themeColor={props.currentTheme} />}
             {currentView === 'studyBreakdown' && <StudyBreakdownView studyLog={props.studyLog} initialFilter={breakdownFilter} navigateTo={navigateTo} themeColor={props.currentTheme} />}

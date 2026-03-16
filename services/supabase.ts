@@ -38,7 +38,12 @@ console.log(`[Supabase] client status: enabled=${SUPABASE_ENABLED}, ready=${SUPA
 export const deleteUserAccount = async () => {
     if (!supabase) throw new Error("Supabase not initialized");
     const { error } = await supabase.rpc('delete_user_account');
-    if (error) throw error;
+    if (error) {
+        if (error.message.includes('function "delete_user_account" does not exist')) {
+            throw new Error("The delete_user_account RPC function is not set up in your Supabase database. Please create it in the Supabase SQL Editor.");
+        }
+        throw error;
+    }
 };
 
 export { supabase };

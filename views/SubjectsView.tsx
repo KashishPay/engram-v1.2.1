@@ -33,6 +33,7 @@ const SubjectItem = React.memo(({
     collapsed: boolean, 
     onToggle: (id: string) => void, 
     onUpdateSubject: (subject: Subject) => void,
+    onDeleteSubject: (id: string) => void,
     navigateTo: (view: string, data?: unknown) => void, 
     themeColor: string,
     layoutVersion?: number
@@ -69,6 +70,13 @@ const SubjectItem = React.memo(({
     const startEditing = (e: React.MouseEvent) => {
         e.stopPropagation();
         setIsEditing(true);
+    };
+
+    const handleDelete = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (window.confirm(`Are you sure you want to delete the subject "${subject.name}"? This action cannot be undone.`)) {
+            onDeleteSubject(subject.id);
+        }
     };
 
     // Height calculation:
@@ -179,7 +187,7 @@ const SubjectItem = React.memo(({
     );
 });
 
-export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjects, studyLog, navigateTo, onAddSubject, onUpdateSubject, onAddTopic, themeColor }) => {
+export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjects, studyLog, navigateTo, onAddSubject, onDeleteSubject, onUpdateSubject, onAddTopic, themeColor }) => {
     const [newTopicName, setNewTopicName] = useState('');
     const [selectedSubjectId, setSelectedSubjectId] = useState(allSubjects?.[0]?.id || '');
     const [isAddingTopic, setIsAddingTopic] = useState(false);
@@ -399,6 +407,7 @@ export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjec
                         collapsed={collapsedSubjects[subject.id] !== undefined ? collapsedSubjects[subject.id] : true} // Default true
                         onToggle={toggleSubject}
                         onUpdateSubject={onUpdateSubject}
+                        onDeleteSubject={onDeleteSubject}
                         navigateTo={navigateTo}
                         themeColor={themeColor}
                         layoutVersion={layoutVersion}

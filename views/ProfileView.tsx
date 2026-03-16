@@ -223,7 +223,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         const newHabit: Habit = {
             id: Date.now().toString(),
             name: newHabitName.trim(),
-            completedDates: []
+            completedDates: [],
+            updatedAt: new Date().toISOString()
         };
         onUpdateHabits([...habits, newHabit]);
         setNewHabitName('');
@@ -238,7 +239,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                     ...h,
                     completedDates: isCompleted 
                         ? h.completedDates.filter(d => d !== today)
-                        : [...h.completedDates, today]
+                        : [...h.completedDates, today],
+                    updatedAt: new Date().toISOString()
                 };
             }
             return h;

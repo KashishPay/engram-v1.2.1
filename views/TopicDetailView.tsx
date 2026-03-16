@@ -5,7 +5,7 @@ import { Card } from '../components/Card';
 import { PomodoroTimer } from '../components/PomodoroTimer';
 import { NotesRenderer, InteractiveNoteEditor } from '../components/NotesRenderer';
 import { SourceViewerModal } from '../components/Modals';
-import { Topic, FocusSession } from '../types';
+import { Topic, FocusSession, Repetition } from '../types';
 import { getTopicBodyFromIDB, saveTopicBodyToIDB } from '../services/storage';
 import { useProcessing } from '../context/ProcessingContext';
 import { AnalyticsService } from '../services/analytics';
@@ -17,21 +17,13 @@ interface TopicDetailViewProps {
     userId: string;
     navigateTo: (view: string, data?: unknown) => void;
     onUpdateTopic: (topic: Topic) => void;
+    onDeleteTopic?: (topicId: string) => void;
     themeColor: string;
     defaultLanguage?: 'English' | 'Hinglish';
 }
 
-export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ topic, userId, navigateTo, onUpdateTopic, themeColor }) => {
+export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ topic, userId, navigateTo, onUpdateTopic, onDeleteTopic, themeColor }) => {
     const { jobs, startProcessing, clearJob } = useProcessing();
-    
-    if (!topic) {
-        return (
-            <ErrorCard 
-                error={new Error("Topic details missing. Please navigate from the Subjects list.")} 
-                resetErrorBoundary={() => navigateTo('subjects')}
-            />
-        );
-    }
     
     const [notes, setNotes] = useState<string>('');
     const [isLoadingBody, setIsLoadingBody] = useState(true);
@@ -40,7 +32,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
     
     // Title Editing State
     const [isEditingTitle, setIsEditingTitle] = useState(false);
-    const [titleDraft, setTitleDraft] = useState(topic.topicName);
+    const [titleDraft, setTitleDraft] = useState(topic?.topicName || '');
 
     // Render Error & Source View State
     const [renderError, setRenderError] = useState(false);
@@ -52,11 +44,11 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
 
     // Sync title draft if topic updates externally
     useEffect(() => {
-        setTitleDraft(topic.topicName);
-    }, [topic.topicName]);
+        if (topic) setTitleDraft(topic.topicName);
+    }, [topic?.topicName]);
 
     // Check if there is an active job for this topic
-    const currentJob = jobs[topic.id];
+    const currentJob = topic ? jobs[topic.id] : undefined;
     
     // Ref to track latest content for flush on unmount
     const notesRef = useRef(notes);
@@ -71,7 +63,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
         isMounted.current = true;
         let isCurrent = true;
         
-        if (isEditing) return;
+        if (isEditing || !topic) return;
 
         const isJobActive = currentJob && (currentJob.status === 'processing' || currentJob.status === 'uploading');
         if (isJobActive) return;
@@ -102,10 +94,11 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
         loadContent();
 
         return () => { isCurrent = false; isMounted.current = false; };
-    }, [topic.id, userId, currentJob?.status === 'success']); 
+    }, [topic?.id, userId, currentJob?.status === 'success']); 
 
     // Update metadata on job success
     useEffect(() => {
+        if (!topic) return;
         if (currentJob?.status === 'success') {
             const timer = setTimeout(() => {
                 clearJob(topic.id);
@@ -119,7 +112,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
 
             return () => clearTimeout(timer);
         }
-    }, [currentJob?.status, topic.id, clearJob]);
+    }, [currentJob?.status, topic?.id, clearJob]);
 
     const handleSave = useCallback(async (currentNotes: string) => {
         if (!topic) return false;
@@ -146,16 +139,17 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
 
     // Debounced Save
     useEffect(() => {
-        if (isLoadingBody) return;
+        if (isLoadingBody || !topic) return;
         const timer = setTimeout(() => {
             if (notesRef.current !== (topic.shortNotes || "") && notes !== topic.shortNotes) {
                 handleSave(notes);
             }
         }, 1500); 
         return () => clearTimeout(timer);
-    }, [notes, isLoadingBody]); 
+    }, [notes, isLoadingBody, topic]); 
 
     const handleTimeLogged = (minutes: number) => {
+        if (!topic) return;
         const currentTotal = topic.pomodoroTimeMinutes || 0;
         const newTime = currentTotal + minutes;
         
@@ -175,6 +169,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
     };
 
     const handleTitleSave = () => {
+        if (!topic) return;
         if (titleDraft.trim() && titleDraft !== topic.topicName) {
             onUpdateTopic({ ...topic, topicName: titleDraft.trim() });
         }
@@ -194,6 +189,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
     };
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!topic) return;
         const files = event.target.files;
         if (!files || files.length === 0) return;
         
@@ -213,16 +209,17 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
     };
 
     const handleViewOriginal = () => {
+        if (!topic) return;
         AnalyticsService.trackEvent(userId, 'view_original_source', { topicId: topic.id });
         setShowSourceModal(true);
     };
 
-    const lastRepetition = topic?.repetitions?.[topic.repetitions.length - 1];
+    const lastRepetition = topic?.repetitions?.[(topic?.repetitions?.length || 1) - 1];
     const isReadyForReview = lastRepetition ? new Date(lastRepetition.nextReviewDate) <= new Date() : true;
     const repetitionCount = topic?.repetitions?.length || 0;
     const isQuizUnlocked = notes.length > 0;
-    const pomodoroTime = topic.pomodoroTimeMinutes || 0;
-    const hasOriginals = (topic.sourcePageCount || 0) > 0;
+    const pomodoroTime = topic?.pomodoroTimeMinutes || 0;
+    const hasOriginals = (topic?.sourcePageCount || 0) > 0;
 
     // Smart Top Bar Logic
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -278,6 +275,32 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
         }
     }, [isEditing]);
 
+    const handleReviewPastQuiz = useCallback((rep: Repetition, repNumber: number) => {
+        if (!rep.quizAttempt || !rep.quizAttempt.questions || !topic) return;
+        navigateTo('quizReview', {
+            topic,
+            quizAttempt: rep.quizAttempt,
+            repetitionNumber: repNumber
+        });
+    }, [navigateTo, topic]);
+
+    const handleDeleteTopic = useCallback(() => {
+        if (!topic || !onDeleteTopic) return;
+        if (window.confirm("Are you sure you want to delete this topic? This action cannot be undone.")) {
+            onDeleteTopic(topic.id);
+            navigateTo('subjects');
+        }
+    }, [topic, onDeleteTopic, navigateTo]);
+
+    if (!topic) {
+        return (
+            <ErrorCard 
+                error={new Error("Topic details missing. Please navigate from the Subjects list.")} 
+                resetErrorBoundary={() => navigateTo('subjects')}
+            />
+        );
+    }
+
     return (
         <div ref={scrollContainerRef} className="flex flex-col h-full bg-gray-100 dark:bg-gray-900 overflow-y-auto no-scrollbar relative scroll-smooth">
             {showSourceModal && (
@@ -320,12 +343,14 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                         )}
                         <span className="text-xs text-gray-500 dark:text-gray-400 font-medium block mt-2 ml-1">{topic.subject}</span>
                     </div>
-                    <button
-                        onClick={() => navigateTo('subjects')}
-                        className={`flex-none flex items-center text-xs font-bold px-3 py-2 bg-${themeColor}-100 dark:bg-${themeColor}-900 text-${themeColor}-700 dark:text-${themeColor}-300 rounded-full hover:bg-${themeColor}-200 dark:hover:bg-${themeColor}-800 transition`}
-                    >
-                        <BookOpenText size={14} className="mr-1" /> All Subjects
-                    </button>
+                    <div className="flex items-center space-x-2 shrink-0">
+                        <button
+                            onClick={() => navigateTo('subjects')}
+                            className={`flex-none flex items-center text-xs font-bold px-3 py-2 bg-${themeColor}-100 dark:bg-${themeColor}-900 text-${themeColor}-700 dark:text-${themeColor}-300 rounded-full hover:bg-${themeColor}-200 dark:hover:bg-${themeColor}-800 transition`}
+                        >
+                            <BookOpenText size={14} className="mr-1" /> All Subjects
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
@@ -337,11 +362,103 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                     />
                     <Card className="flex flex-col relative overflow-hidden">
                         <h3 className={`text-lg font-semibold mb-3 text-${themeColor}-700 dark:text-${themeColor}-300`}>Topic Stats</h3>
-                        <div className="space-y-2 mb-4">
+                        <div className="space-y-2 mb-2">
                             <p className="text-gray-900 dark:text-gray-200 text-sm"><strong className="font-semibold text-gray-700 dark:text-gray-400">Total Study Time:</strong> {Math.floor(pomodoroTime / 60)}h {Math.round(pomodoroTime % 60)}m</p>
                             <p className="text-gray-900 dark:text-gray-200 text-sm"><strong className="font-semibold text-gray-700 dark:text-gray-400">Completed Reps:</strong> {repetitionCount}</p>
                             {lastRepetition && (
                                  <p className="text-gray-900 dark:text-gray-200 text-sm"><strong className="font-semibold text-gray-700 dark:text-gray-400">Next Review:</strong> <span className={`font-bold ${isReadyForReview ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{new Date(lastRepetition.nextReviewDate).toLocaleDateString()}</span></p>
+                            )}
+                        </div>
+
+                        {/* Spaced Repetition Stepper */}
+                        <div className="mt-2 mb-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            <div className="flex justify-between items-center mb-4">
+                                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Spaced Repetition Journey</span>
+                                <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{repetitionCount}/5</span>
+                            </div>
+                            <div className="flex justify-between items-center relative px-2">
+                                {/* Connecting Line */}
+                                <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 h-1 bg-gray-200 dark:bg-gray-700 rounded-full z-0"></div>
+                                
+                                {/* Nodes */}
+                                {Array.from({ length: 5 }).map((_, i) => {
+                                    const rep = topic.repetitions?.[i];
+                                    const isCompleted = !!rep;
+                                    const isNext = i === repetitionCount;
+                                    
+                                    let nodeColor = "bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600";
+                                    let icon = null;
+                                    
+                                    let percentageScore = 0;
+                                    
+                                    if (isCompleted) {
+                                        // If score is > 10, it's definitely a percentage. 
+                                        // If totalQuestions is present and score <= totalQuestions, it's a raw score.
+                                        // If totalQuestions is missing, and score is <= 100, we might assume it's a percentage if it was saved that way, but usually raw score is saved.
+                                        // Let's use a robust check: if score > (rep.totalQuestions || 10), it's a percentage.
+                                        // Wait, if score is 90 and totalQuestions is 10, score > 10 is true -> 90%.
+                                        // If score is 9 and totalQuestions is 10, score > 10 is false -> (9/10)*100 = 90%.
+                                        // If score is 100 and totalQuestions is 100, score > 100 is false -> (100/100)*100 = 100%.
+                                        // If score is 80 and totalQuestions is 100, score > 100 is false -> (80/100)*100 = 80%.
+                                        // The issue is if score is stored as a percentage (e.g., 90) but totalQuestions is 100. Then 90 > 100 is false -> (90/100)*100 = 90%. This works!
+                                        // What if score is stored as percentage (e.g. 90) and totalQuestions is missing (defaults to 10)? 90 > 10 is true -> 90. This works!
+                                        // What if score is raw (e.g. 9) and totalQuestions is missing (defaults to 10)? 9 > 10 is false -> (9/10)*100 = 90%. This works!
+                                        // Wait, what if score is 10 and totalQuestions is 10? 10 > 10 is false -> (10/10)*100 = 100%. This works!
+                                        // What if score is 100 (percentage) and totalQuestions is 10? 100 > 10 is true -> 100. This works!
+                                        // Are there cases where score is stored as percentage (e.g. 80) and totalQuestions is 10? 80 > 10 is true -> 80. Works.
+                                        // The only issue is if score is raw (e.g. 80) and totalQuestions is 100. 80 > 100 is false -> (80/100)*100 = 80%. Works.
+                                        // But wait, what if the score was saved as a percentage (e.g. 80) and totalQuestions is 100? 80 > 100 is false -> (80/100)*100 = 80%. Works.
+                                        // What if score was saved as a percentage (e.g. 80) and totalQuestions is 0? 80 > 0 is true -> 80. Works.
+                                        // Let's just use the existing logic, but make sure it's consistent.
+                                        const totalQs = rep.totalQuestions || 10;
+                                        // If the score is greater than the total questions, it must be a percentage.
+                                        // Also, if the score is exactly 100, it's likely a percentage (unless totalQs is 100, in which case 100/100*100 = 100 anyway).
+                                        // If score is <= totalQs, it's a raw score, so calculate percentage.
+                                        // Wait, what if score is 90, and totalQs is 100?
+                                        // If it's a raw score: 90/100 * 100 = 90%.
+                                        // If it's a percentage: 90.
+                                        // Both give 90.
+                                        // What if score is 9, and totalQs is 10?
+                                        // Raw score: 9/10 * 100 = 90%.
+                                        // Percentage: 9. (This would be wrong, but score is usually saved as raw score now).
+                                        // Earlier versions might have saved percentage. If they saved percentage, and totalQs was 10, then score (e.g. 90) > 10, so it uses 90.
+                                        percentageScore = rep.score > totalQs ? rep.score : (rep.score / totalQs) * 100;
+                                        
+                                        // Let's add a safety check: if percentageScore > 100, cap it at 100.
+                                        if (percentageScore > 100) percentageScore = 100;
+                                        if (percentageScore >= 80) {
+                                            nodeColor = "bg-green-500 border-green-600 text-white cursor-pointer hover:scale-110 shadow-sm";
+                                            icon = <Check size={12} strokeWidth={3} />;
+                                        } else if (percentageScore >= 50) {
+                                            nodeColor = "bg-yellow-500 border-yellow-600 text-white cursor-pointer hover:scale-110 shadow-sm";
+                                            icon = <Check size={12} strokeWidth={3} />;
+                                        } else {
+                                            nodeColor = "bg-red-500 border-red-600 text-white cursor-pointer hover:scale-110 shadow-sm";
+                                            icon = <XCircle size={12} strokeWidth={3} />;
+                                        }
+                                    } else if (isNext) {
+                                        nodeColor = `bg-white dark:bg-gray-800 border-2 border-${themeColor}-500 shadow-[0_0_8px_rgba(0,0,0,0.1)]`;
+                                        if (isReadyForReview) {
+                                            nodeColor += " animate-pulse";
+                                        }
+                                    }
+
+                                    return (
+                                        <div 
+                                            key={i} 
+                                            className={`relative z-10 w-6 h-6 rounded-full border flex items-center justify-center transition-all duration-200 ${nodeColor}`}
+                                            onClick={() => isCompleted ? handleReviewPastQuiz(rep, i + 1) : undefined}
+                                            title={isCompleted ? `Review Repetition ${i + 1} (Score: ${Math.round(percentageScore)}%)` : isNext ? "Next Review" : "Upcoming"}
+                                        >
+                                            {icon}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {repetitionCount > 0 && (
+                                <p className="text-[10px] text-center text-gray-400 dark:text-gray-500 mt-3">
+                                    Click on a completed node to review your quiz attempt.
+                                </p>
                             )}
                         </div>
 

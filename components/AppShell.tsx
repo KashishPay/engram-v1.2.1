@@ -363,7 +363,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 {/* HIDDEN IN CHAT: To maximize screen space and fix layout */}
                 {isLoggedIn && currentView !== 'onboarding' && currentView !== 'chat' && (
                     <footer 
-                        className="fixed left-0 right-0 max-w-md mx-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-white/20 dark:border-gray-800 md:rounded-b-3xl shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex justify-between items-center px-2 h-[calc(4rem+env(safe-area-inset-bottom))] md:h-16 z-40 overflow-x-auto no-scrollbar transition-all duration-300"
+                        className="fixed left-0 right-0 max-w-md mx-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-white/20 dark:border-gray-800 md:rounded-b-3xl shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex justify-around items-center px-2 h-[calc(4rem+env(safe-area-inset-bottom))] md:h-16 z-40 transition-all duration-300"
                         style={{ 
                             bottom: '0', 
                             paddingBottom: 'env(safe-area-inset-bottom)'

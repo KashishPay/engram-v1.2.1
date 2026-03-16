@@ -42,8 +42,8 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
         return () => window.removeEventListener('popstate', handlePopState);
     }, [navigateTo, topic]);
 
-    const renderMathHtml = (text: string) => {
-        if (!text) return "";
+    const renderMathHtml = (text: string | undefined | null) => {
+        if (!text || typeof text !== 'string') return "";
         // Support $$, \[ \] for block math and $, \( \) for inline math
         const blockMathRegex = /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g;
         const inlineMathRegex = /\$([\s\S]*?)\$|\\\(([\s\S]*?)\\\)/g;
@@ -83,7 +83,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
         });
     };
 
-    if (!quizData || !answers || !topic) {
+    if (!quizData || quizData.length === 0 || !answers || !topic) {
         return (
             <Card className="text-center py-10 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200">
                 <h3 className="text-xl font-bold mb-2">Error Loading Review</h3>
@@ -99,7 +99,8 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
     }
     
     const score = answers.filter(a => a.selected === a.correct).length;
-    const isSuccessful = (score / 10) * 100 >= 60;
+    const totalQuestions = quizData.length || 10;
+    const isSuccessful = (score > totalQuestions ? score : (score / totalQuestions) * 100) >= 60;
     
     // Calculate next review date based on current repetition index
     // Note: repetitionNumber is 1-based index of the ATTEMPT just finished.
@@ -127,7 +128,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
             setCanvasSize();
             window.addEventListener('resize', setCanvasSize);
 
-            const particles: any[] = [];
+            const particles: { id: number; x: number; y: number; color: string; size: number; duration: number }[] = [];
             const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
             
             // Create particles
@@ -216,7 +217,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
     }, [isSuccessful]);
 
     const handleShare = async () => {
-        const text: string = `I just scored ${score}/10 on ${topic.topicName} in Engram! 🚀 Can you beat my score? https://engram-space.vercel.app`;
+        const text: string = `I just scored ${score > totalQuestions ? score + '%' : score + '/' + totalQuestions} on ${topic.topicName} in Engram! 🚀 Can you beat my score? https://engram-space.vercel.app`;
         if (navigator.share) {
             try {
                 await navigator.share({
@@ -259,7 +260,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                             }`}
                     >
                         {isSuccessful && <div className="absolute top-0 right-0 p-4 opacity-10 dark:opacity-20 transform rotate-12"><Trophy size={64} /></div>}
-                        <p className="text-xl font-bold">Score: <span className="text-4xl">{score} / 10</span></p>
+                        <p className="text-xl font-bold">Score: <span className="text-4xl">{score > totalQuestions ? `${score}%` : `${score} / ${totalQuestions}`}</span></p>
                         <p className="mt-1 opacity-90 text-sm">Time: {timeTaken} seconds | Repetition: {repetitionNumber}</p>
                         <p className="text-sm mt-2 font-medium opacity-90">Next Review: {nextReviewDate.toLocaleDateString()}</p>
                         {isSuccessful && <p className="text-xs font-bold uppercase tracking-widest mt-2 text-green-700 dark:text-green-400 animate-pulse quiz-transition">Quiz Passed!</p>}
@@ -292,13 +293,13 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
 
                                     <div 
                                         className="mb-4 text-sm md:text-base font-medium text-gray-800 dark:text-gray-200 leading-relaxed"
-                                        dangerouslySetInnerHTML={{ __html: renderMathHtml(q.question) }}
+                                        dangerouslySetInnerHTML={{ __html: renderMathHtml(q.question || q.questionText || '') }}
                                     />
 
                                     <div className="space-y-2 text-sm">
-                                        {Object.entries(q.options).map(([letter, text]) => {
+                                        {Object.entries(q.options || {}).map(([letter, text]) => {
                                             const isSelected = answer && answer.selected === letter;
-                                            const isCorrectAnswer = q.correct_answer_letter === letter;
+                                            const isCorrectAnswer = (q.correct_answer_letter || q.correctAnswer) === letter;
                                             
                                             let containerClass = "p-2 rounded-lg border flex items-start transition-colors duration-200 ";
                                             

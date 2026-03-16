@@ -57,11 +57,13 @@ export interface Topic {
   focusLogs?: FocusSession[];
   repetitions: Repetition[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Subject {
   id: string;
   name: string;
+  updatedAt?: string;
 }
 
 export interface GeminiQuizResponse {
@@ -91,6 +93,7 @@ export interface Habit {
     id: string;
     name: string;
     completedDates: string[]; // ISO Date strings YYYY-MM-DD
+    updatedAt?: string;
 }
 
 export interface ChatMessage {
@@ -108,6 +111,7 @@ export interface UserProfile {
     name: string;
     avatar: string | null; // Base64 data URI
     username?: string; // Unique handle from Supabase
+    can_use_global_sync?: boolean; // Flag to allow global sync feature
 }
 
 export interface DailyObservation {

@@ -3,7 +3,6 @@ import { supabase } from '../services/supabase';
 import { getOAuthAppOrigin, isPreviewEnv } from '../utils/authEnv';
 import { initGuestClock } from '../utils/guestLimit';
 import { Capacitor } from '@capacitor/core';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 // Minimal User Shim to replace Firebase User interface
 export interface User {
@@ -96,83 +95,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signInWithGoogle = async () => {
     if (!supabase) return;
     
-    // 1) Handle Native Platform (Android/iOS)
-    if (Capacitor.isNativePlatform()) {
-        console.debug("[AUTH] Native platform detected. Using Native Google Sign-In.");
-        try {
-            // Initialize GoogleAuth if not already done (plugin handles this mostly)
-            const googleUser = await GoogleAuth.signIn();
-            
-            if (googleUser && googleUser.authentication.idToken) {
-                console.debug("[AUTH] Native Google Sign-In success. Authenticating with Supabase...");
-                const { data, error } = await supabase.auth.signInWithIdToken({
-                    provider: 'google',
-                    token: googleUser.authentication.idToken,
-                    nonce: undefined // Nonce is optional unless configured in Google Console
-                });
-                
-                if (error) throw error;
-                console.debug("[AUTH] Supabase session established via ID Token", { userId: data.user?.id });
-            } else {
-                throw new Error("No ID Token received from Google Auth.");
-            }
-        } catch (err: unknown) {
-            const error = err as Error;
-            console.error("[AUTH] Native Google Sign-In Failed:", error);
-            // If user cancelled, don't show alert
-            if (error.message !== "User cancelled login") {
-                alert("Native Login Error: " + error.message);
-            }
-        }
-        return;
-    }
-
-    // 2) Handle Preview Environment (AI Studio)
-    if (isPreviewEnv()) {
-        console.debug("[AUTH] Preview environment detected. Using popup flow.");
-        
-        try {
-            const redirectTo = `${window.location.origin}/#/auth/callback`;
-            const { data, error } = await supabase.auth.signInWithOAuth({ 
-                provider: 'google',
-                options: { 
-                    redirectTo,
-                    skipBrowserRedirect: true
-                }
-            });
-
-            if (error) throw error;
-
-            if (data?.url) {
-                const width = 500;
-                const height = 600;
-                const left = window.screenX + (window.outerWidth - width) / 2;
-                const top = window.screenY + (window.outerHeight - height) / 2;
-                
-                window.open(
-                    data.url,
-                    'engram_oauth_popup',
-                    `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
-                );
-            }
-        } catch (err: unknown) {
-            const error = err as Error;
-            console.error("[AUTH] Popup Start Failed:", error);
-            alert("Login Error: " + error.message);
-        }
-        return;
-    }
-
-    // 2) Compute safe redirect URL
-    // Defaulting to standard web URL for compatibility across all devices
-    const redirectTo = `${getOAuthAppOrigin()}/auth/callback`;
+    const redirectTo = `${getOAuthAppOrigin()}/#/auth/callback`;
     
     console.debug("[AUTH] signInWithOAuth start", { 
         redirectTo, 
         origin: window.location.origin, 
     });
     
-    // 3) Use skipBrowserRedirect: true to manually handle the navigation (mainly for web control)
     const { data, error } = await supabase.auth.signInWithOAuth({ 
         provider: 'google',
         options: { 
@@ -181,7 +110,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     });
 
-    // 4) Log result
     console.debug("[AUTH] signInWithGoogle result", { hasUrl: !!data?.url, error });
 
     if (error) {
@@ -190,9 +118,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     if (data?.url) {
-        console.debug("[AUTH] Redirecting top window to:", data.url);
-        // Force top window navigation
-        (window.top || window).location.href = data.url;
+        console.debug("[AUTH] Redirecting to:", data.url);
+        window.location.href = data.url;
     }
   };
 

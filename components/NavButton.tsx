@@ -21,7 +21,7 @@ export const NavButton: React.FC<NavButtonProps> = React.memo(({ icon: Icon, lab
     };
 
     return (
-        <button onClick={handleClick} className={`flex flex-col items-center p-2 min-w-[64px] rounded-lg transition duration-200 ${isActive ? `text-${themeColor}-600 dark:text-${themeColor}-400 font-semibold` : `text-gray-500 dark:text-gray-500 hover:text-${themeColor}-500 dark:hover:text-${themeColor}-400`}`} disabled={isNavDisabled}>
+        <button onClick={handleClick} className={`flex flex-col items-center p-2 flex-1 rounded-lg transition duration-200 ${isActive ? `text-${themeColor}-600 dark:text-${themeColor}-400 font-semibold` : `text-gray-500 dark:text-gray-500 hover:text-${themeColor}-500 dark:hover:text-${themeColor}-400`}`} disabled={isNavDisabled}>
             <Icon size={24} /><span className="text-[10px] mt-1 whitespace-nowrap">{label}</span>
         </button>
     );

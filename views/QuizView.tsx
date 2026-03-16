@@ -13,7 +13,7 @@ import DOMPurify from 'dompurify';
 interface QuizViewProps {
     topic: Topic | null;
     userId: string;
-    navigateTo: (view: string, data?: any, options?: { replace?: boolean }) => void;
+    navigateTo: (view: string, data?: unknown, options?: { replace?: boolean }) => void;
     onUpdateTopic: (topic: Topic) => void;
     themeColor: string;
 }
@@ -65,7 +65,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 const saved = sessionStorage.getItem(sessionKey);
                 if (saved) {
                     const { index, savedAnswers, time, questions } = JSON.parse(saved);
-                    if (questions && questions.length === 10) {
+                    if (questions && questions.length > 0) {
                         console.debug("[POPQUIZ] Restored session from storage");
                         setQuizData(questions);
                         setCurrentQuestionIndex(index);
@@ -73,11 +73,11 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                         setTimeTaken(time);
                         setStatus('ready');
                         generationAttemptedRef.current = true;
-                        if (index < 10) setTimerRunning(true);
+                        if (index < questions.length) setTimerRunning(true);
                         return;
                     }
                 }
-            } catch (e: any) {
+            } catch (e: unknown) {
                 console.warn("Failed to load quiz session", e);
             }
         }
@@ -103,7 +103,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
 
     // --- Timer Logic ---
     useEffect(() => {
-        let interval: any = null;
+        let interval: ReturnType<typeof setInterval> | null = null;
         if (timerRunning) {
             interval = setInterval(() => {
                 setTimeTaken(t => t + 1);
@@ -112,8 +112,8 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
         return () => { if(interval) clearInterval(interval); };
     }, [timerRunning]);
 
-    const renderMathHtml = (text: string) => {
-        if (!text) return "";
+    const renderMathHtml = (text: string | undefined | null) => {
+        if (!text || typeof text !== 'string') return "";
         // Support $$, \[ \] for block math and $, \( \) for inline math
         const blockMathRegex = /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g;
         const inlineMathRegex = /\$([\s\S]*?)\$|\\\(([\s\S]*?)\\\)/g;
@@ -126,7 +126,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 const html = katex.renderToString(formula, { displayMode: true, throwOnError: false });
                 blockMatches.push(html);
                 return `__BLOCK_MATH_${blockMatches.length - 1}__`;
-            } catch (e: any) { return match; }
+            } catch { return match; }
         });
 
         processedText = processedText.replace(inlineMathRegex, (match, p1, p2) => {
@@ -134,7 +134,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             try {
                 const html = katex.renderToString(formula, { displayMode: false, throwOnError: false });
                 return html;
-            } catch (e: any) { return match; }
+            } catch { return match; }
         });
 
         blockMatches.forEach((html, index) => {
@@ -192,7 +192,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             let fullTopic = topic;
             try {
                 fullTopic = await ensureTopicContent(userId, topic);
-            } catch (e: any) {
+            } catch (e: unknown) {
                 console.warn("Failed to hydrate topic content", e);
             }
 
@@ -249,7 +249,9 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                     else model = quizPrefs.model; // Explicit string
                 }
                 if (quizPrefs.persona) persona = quizPrefs.persona;
-            } catch (e: any) {}
+            } catch {
+                // Ignore error
+            }
 
             console.debug("[POPQUIZ] request sent", { model });
 
@@ -276,10 +278,11 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                         controller.signal.addEventListener('abort', () => reject(new Error("Aborted")));
                     })
                 ]);
-            } catch (firstError: any) {
+            } catch (firstError: unknown) {
                 // FALLBACK LOGIC: If Pro/Preview fails, retry with Flash
                 const isProOrPreview = model.includes('pro') || model.includes('preview');
-                const isRecoverable = firstError.status === 404 || firstError.status === 400 || firstError.status === 429 || firstError.status === 503 || firstError.message?.includes('preview');
+                const err = firstError as { status?: number; message?: string };
+                const isRecoverable = err.status === 404 || err.status === 400 || err.status === 429 || err.status === 503 || err.message?.includes('preview');
                 
                 if (isProOrPreview && isRecoverable && !controller.signal.aborted) {
                     console.debug("[QUIZ] Fallback to Flash");
@@ -294,9 +297,9 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
 
             if (!isMounted.current) return;
 
-            if (data?.pop_quiz?.length === 10) {
+            if (data?.pop_quiz?.length > 0) {
                 // SANITIZATION STEP START
-                const cleanedQuiz = data.pop_quiz.map((q: any) => ({
+                const cleanedQuiz = data.pop_quiz.map((q: { explanation: string; [key: string]: unknown }) => ({
                     ...q,
                     explanation: q.explanation
                         .replace(/(Let me re-read|Do not include|Note:|Step 1:|Thinking:).*/gi, '') // aggressive start-of-line garbage removal
@@ -310,20 +313,21 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 setStatus('ready');
                 setTimerRunning(true);
             } else {
-                throw new Error("Invalid quiz format: Did not receive 10 questions.");
+                throw new Error("Invalid quiz format: Did not receive questions.");
             }
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             clearTimeout(timeoutId);
             if (!isMounted.current) return;
 
-            console.error("[POPQUIZ] error", { message: e.message, stack: e.stack });
+            const err = e as Error;
+            console.error("[POPQUIZ] error", { message: err.message, stack: err.stack });
             
             // Determine user-friendly error message
             let msg: string = "An unknown error occurred.";
-            if (e.message === "Aborted") msg = "Generation timed out. Please try again.";
-            else if (e.message?.includes("quota") || e.name === 'UsageLimitError') msg = (e.message as string) || "AI quota reached. Please check Settings.";
-            else if (e.message) msg = String(e.message);
+            if (err.message === "Aborted") msg = "Generation timed out. Please try again.";
+            else if (err.message?.includes("quota") || err.name === 'UsageLimitError') msg = err.message || "AI quota reached. Please check Settings.";
+            else if (err.message) msg = String(err.message);
 
             setErrorMessage(msg);
             setStatus('error');
@@ -331,7 +335,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
     }, [topic, userId]);
 
     // --- Submission Logic ---
-    const submitRepetition = async (score: number, finalTimeTaken: number, fullQuizData: QuizQuestion[], userAnswers: any[]) => {
+    const submitRepetition = async (score: number, finalTimeTaken: number, fullQuizData: QuizQuestion[], userAnswers: { qIndex: number; selected: string }[]) => {
         if (!topic || isSubmitting.current) return;
         isSubmitting.current = true;
 
@@ -361,7 +365,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 nextReviewDate: nextReviewDate.toISOString().split('T')[0],
                 quizCompleted: true,
                 score: score,
-                totalQuestions: 10,
+                totalQuestions: fullQuizData.length,
                 quizAttempt: quizAttemptData
             };
 
@@ -383,7 +387,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 repetitionNumber: lastRepetitionIndex + 1
             }, { replace: true });
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("Error submitting repetition:", e);
             setErrorMessage("Error saving results. Check console.");
             setStatus('error');
@@ -483,7 +487,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                             {timeTaken}s
                         </div>
                         <div className="text-xs md:text-sm font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                            {currentQuestionIndex + 1}<span className="opacity-50">/10</span>
+                            {currentQuestionIndex + 1}<span className="opacity-50">/{quizData?.length}</span>
                         </div>
                     </div>
                 </div>
@@ -495,7 +499,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                     dangerouslySetInnerHTML={{ __html: renderMathHtml(currentQ.question) }}
                 />
                 <div className="space-y-3 pb-2">
-                    {Object.entries(currentQ.options).map(([letter, text]) => (
+                    {Object.entries(currentQ.options || {}).map(([letter, text]) => (
                         <button 
                             key={`${currentQuestionIndex}-${letter}`} 
                             onClick={() => handleAnswer(letter)} 

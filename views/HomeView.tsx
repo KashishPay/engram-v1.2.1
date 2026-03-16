@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { GraduationCap, ListRestart, PieChart, Filter, Layers, RotateCw, Check, X, Calendar, TrendingUp, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, History, RefreshCcw, Settings2, Trash2, Undo2 } from 'lucide-react';
+import { GraduationCap, ListRestart, PieChart, Filter, Layers, RotateCw, Check, X, Calendar, TrendingUp, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, History, RefreshCcw, Settings2, Trash2, Undo2, XCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ProgressChart } from '../components/ProgressChart';
 import { Topic, Subject, UserProfile, FlashCard } from '../types';
@@ -589,7 +589,10 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
             const reps = topic.repetitions || [];
             if (reps.length >= 5) {
                 const fifthRep = reps[4]; 
-                return fifthRep.score < 9; 
+                const totalQs = fifthRep.totalQuestions || 10;
+                let percentage = fifthRep.score > totalQs ? fifthRep.score : (fifthRep.score / totalQs) * 100;
+                if (percentage > 100) percentage = 100;
+                return percentage < 90; 
             }
             return false;
         });
@@ -627,6 +630,7 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
                 score: lastRep.score,
                 date: lastRep.dateCompleted,
                 quizAttempt: lastRep.quizAttempt,
+                totalQuestions: lastRep.totalQuestions,
                 repNum: topic.repetitions.length
             };
         });
@@ -638,14 +642,17 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
             topic.repetitions?.forEach((rep, index) => {
                 const repNum = index + 1;
                 if (!repetitionsByCount[repNum]) repetitionsByCount[repNum] = [];
-                repetitionsByCount[repNum].push(rep.score);
+                const totalQs = rep.totalQuestions || 10;
+                let percentage = rep.score > totalQs ? rep.score : (rep.score / totalQs) * 100;
+                if (percentage > 100) percentage = 100;
+                repetitionsByCount[repNum].push(percentage);
             });
         });
 
         return Object.keys(repetitionsByCount).map(repNum => {
             const scores = repetitionsByCount[parseInt(repNum)];
             const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-            return { rep: parseInt(repNum), avg: (avg / 10) * 100 };
+            return { rep: parseInt(repNum), avg: avg };
         }).sort((a, b) => a.rep - b.rep);
     }, [filteredTopics]);
 
@@ -789,20 +796,58 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
                                                     {attempt.topic.topicName}
                                                 </span>
                                                 <div className="flex items-center space-x-2">
-                                                    <div className="flex space-x-0.5">
-                                                        {[...Array(5)].map((_, i) => (
-                                                            <div 
-                                                                key={i} 
-                                                                className={`w-2 h-1 rounded-full ${
-                                                                    (i + 1) * 2 <= attempt.score 
-                                                                        ? (attempt.score >= 7 ? 'bg-green-500' : 'bg-red-400') 
-                                                                        : 'bg-gray-300 dark:bg-gray-600'
-                                                                }`}
-                                                            />
-                                                        ))}
+                                                    <div className="flex justify-between items-center relative px-1 w-24">
+                                                        {/* Connecting Line */}
+                                                        <div className="absolute left-1 right-1 top-1/2 -translate-y-1/2 h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full z-0"></div>
+                                                        
+                                                        {/* Nodes */}
+                                                        {Array.from({ length: 5 }).map((_, i) => {
+                                                            const rep = attempt.topic.repetitions?.[i];
+                                                            const isCompleted = !!rep;
+                                                            const isNext = i === (attempt.topic.repetitions?.length || 0);
+                                                            
+                                                            let nodeColor = "bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600";
+                                                            let icon = null;
+                                                            
+                                                            let percentageScore = 0;
+                                                            
+                                                            if (isCompleted) {
+                                                                const totalQs = rep.totalQuestions || 10;
+                                                                percentageScore = rep.score > totalQs ? rep.score : (rep.score / totalQs) * 100;
+                                                                if (percentageScore > 100) percentageScore = 100;
+                                                                
+                                                                if (percentageScore >= 80) {
+                                                                    nodeColor = "bg-green-500 border-green-600 text-white shadow-sm";
+                                                                    icon = <Check size={8} strokeWidth={3} />;
+                                                                } else if (percentageScore >= 50) {
+                                                                    nodeColor = "bg-yellow-500 border-yellow-600 text-white shadow-sm";
+                                                                    icon = <Check size={8} strokeWidth={3} />;
+                                                                } else {
+                                                                    nodeColor = "bg-red-500 border-red-600 text-white shadow-sm";
+                                                                    icon = <XCircle size={8} strokeWidth={3} />;
+                                                                }
+                                                            } else if (isNext) {
+                                                                nodeColor = `bg-white dark:bg-gray-800 border border-${themeColor}-500 shadow-[0_0_4px_rgba(0,0,0,0.1)]`;
+                                                            }
+
+                                                            return (
+                                                                <div 
+                                                                    key={i} 
+                                                                    className={`relative z-10 w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all duration-200 ${nodeColor}`}
+                                                                    title={isCompleted ? `Review Repetition ${i + 1} (Score: ${Math.round(percentageScore)}%)` : isNext ? "Next Review" : "Upcoming"}
+                                                                >
+                                                                    {icon}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
-                                                    <span className={`text-xs font-bold ${attempt.score >= 7 ? 'text-green-600' : 'text-orange-600'}`}>
-                                                        {attempt.score}/10
+                                                    <span className={`text-xs font-bold ${(() => {
+                                                        const totalQs = attempt.quizAttempt?.questions?.length || attempt.totalQuestions || 10;
+                                                        let percentage = attempt.score > totalQs ? attempt.score : (attempt.score / totalQs) * 100;
+                                                        if (percentage > 100) percentage = 100;
+                                                        return percentage >= 70 ? 'text-green-600' : 'text-orange-600';
+                                                    })()}`}>
+                                                        {attempt.score > (attempt.quizAttempt?.questions?.length || attempt.totalQuestions || 10) ? `${attempt.score}%` : `${attempt.score}/${attempt.quizAttempt?.questions?.length || attempt.totalQuestions || 10}`}
                                                     </span>
                                                 </div>
                                             </div>
@@ -852,7 +897,7 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
                                 >
                                     <span className="font-medium text-gray-800 dark:text-gray-200 text-sm truncate">{topic.topicName}</span>
                                     <span className="text-[10px] font-bold text-red-600 bg-red-100 dark:bg-red-900/50 px-2 py-0.5 rounded">
-                                         Score: {topic.repetitions[4].score}/10
+                                         Score: {topic.repetitions[4].score > (topic.repetitions[4].totalQuestions || 10) ? `${topic.repetitions[4].score}%` : `${topic.repetitions[4].score}/${topic.repetitions[4].totalQuestions || 10}`}
                                     </span>
                                 </button>
                             ))}

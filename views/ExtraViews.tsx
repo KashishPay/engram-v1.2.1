@@ -928,7 +928,7 @@ export const HabitTrackerView: React.FC<ExtraViewProps> = ({ themeColor, habits 
                 const newDates = isCompleted 
                     ? h.completedDates.filter(d => d !== date)
                     : [...h.completedDates, date];
-                return { ...h, completedDates: newDates };
+                return { ...h, completedDates: newDates, updatedAt: new Date().toISOString() };
             }
             return h;
         });
@@ -940,7 +940,8 @@ export const HabitTrackerView: React.FC<ExtraViewProps> = ({ themeColor, habits 
         const newHabit: Habit = {
             id: Date.now().toString(),
             name: newHabitName.trim(),
-            completedDates: []
+            completedDates: [],
+            updatedAt: new Date().toISOString()
         };
         onUpdateHabits([...habits, newHabit]);
         setNewHabitName('');
