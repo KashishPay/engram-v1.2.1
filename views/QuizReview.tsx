@@ -158,13 +158,6 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
 
     try {
         return (
-            <>
-                <style>{`
-                @media (prefers-reduced-motion: reduce) {
-                    .quiz-transition { transition: none !important; animation: none !important; }
-                }
-            `}</style>
-            
             <Card className="p-6 relative bg-white dark:bg-gray-800">
                 <div className="relative z-20">
                     <h2 className={`text-3xl font-bold mb-4 text-${themeColor}-800 dark:text-${themeColor}-200 text-center`}>Quiz Results</h2>
@@ -180,7 +173,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                         <p className="text-xl font-bold">Score: <span className="text-4xl">{score > totalQuestions ? `${score}%` : `${score} / ${totalQuestions}`}</span></p>
                         <p className="mt-1 opacity-90 text-sm">Time: {timeTaken} seconds | Repetition: {repetitionNumber}</p>
                         <p className="text-sm mt-2 font-medium opacity-90">Next Review: {nextReviewDate.toLocaleDateString()}</p>
-                        {isSuccessful && <p className="text-xs font-bold uppercase tracking-widest mt-2 text-green-700 dark:text-green-400 animate-pulse quiz-transition">Quiz Passed!</p>}
+                        {isSuccessful && <p className="text-xs font-bold uppercase tracking-widest mt-2 text-green-700 dark:text-green-400 animate-pulse motion-reduce:animate-none">Quiz Passed!</p>}
                     </div>
 
                     <div className="space-y-6">
@@ -193,7 +186,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                             return (
                                 <Card 
                                     key={index} 
-                                    className={`p-5 border-l-4 shadow-sm quiz-transition border transition-colors
+                                    className={`p-5 border-l-4 shadow-sm motion-reduce:transition-none border transition-colors
                                         ${isCorrect 
                                             ? 'border-l-green-500 bg-green-50/50 dark:bg-green-900/10 border-y-green-100 border-r-green-100 dark:border-y-green-900/30 dark:border-r-green-900/30' 
                                             : 'border-l-red-500 bg-red-50/50 dark:bg-red-900/10 border-y-red-100 border-r-red-100 dark:border-y-red-900/30 dark:border-r-red-900/30'
@@ -275,7 +268,6 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                     </div>
                 </div>
             </Card>
-            </>
         );
     } catch (e) {
         console.error("[REVIEW] Render crash:", e);
