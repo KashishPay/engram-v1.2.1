@@ -14,10 +14,10 @@
 import { supabase } from './supabase';
 
 export interface SyncPayload {
-    subjects?: any[];
-    study_logs?: any[];
-    habits?: any[];
-    settings?: any;
+    subjects?: unknown[];
+    study_logs?: unknown[];
+    habits?: unknown[];
+    settings?: unknown;
     updated_at?: string;
 }
 

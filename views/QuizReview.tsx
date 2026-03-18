@@ -1,11 +1,12 @@
 
-import React, { useEffect, useRef } from 'react';
-import { ArrowLeft, CheckCircle, XCircle, Trophy, Share2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowLeft, CheckCircle, XCircle, Trophy, Share2, AlertCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, QuizQuestion } from '../types';
 import { SPACING_INTERVALS } from '../constants';
 import katex from 'katex';
 import DOMPurify from 'dompurify';
+import { triggerHaptic } from '../utils/haptics';
 
 interface QuizReviewProps {
     topic: Topic;
@@ -18,9 +19,9 @@ interface QuizReviewProps {
 }
 
 export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers, timeTaken, navigateTo, repetitionNumber, themeColor }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-
     // DEBUG: Verify props on mount
+    const [renderError, setRenderError] = useState<Error | null>(null);
+
     useEffect(() => {
         if (topic) {
             console.debug(`[REVIEW] View mounted. Topic: ${topic.topicName}, Repetition: ${repetitionNumber} (1-based)`);
@@ -98,9 +99,9 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
         );
     }
     
-    const score = answers.filter(a => a.selected === a.correct).length;
-    const totalQuestions = quizData.length || 10;
-    const isSuccessful = (score > totalQuestions ? score : (score / totalQuestions) * 100) >= 60;
+    const score = (Array.isArray(answers) ? answers : []).filter(a => a && a.selected === a.correct).length;
+    const totalQuestions = (Array.isArray(quizData) ? quizData.length : 0) || 10;
+    const isSuccessful = (score > totalQuestions ? score : (totalQuestions > 0 ? (score / totalQuestions) * 100 : 0)) >= 60;
     
     // Calculate next review date based on current repetition index
     // Note: repetitionNumber is 1-based index of the ATTEMPT just finished.
@@ -110,109 +111,9 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
     nextReviewDate.setDate(nextReviewDate.getDate() + intervalDays);
 
     useEffect(() => {
-        if (isSuccessful && canvasRef.current) {
-            const canvas = canvasRef.current;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            // Set canvas size to window for full screen confetti
-            const setCanvasSize = () => {
-                const dpr = window.devicePixelRatio || 1;
-                canvas.width = window.innerWidth * dpr;
-                canvas.height = window.innerHeight * dpr;
-                ctx.scale(dpr, dpr);
-                canvas.style.width = `${window.innerWidth}px`;
-                canvas.style.height = `${window.innerHeight}px`;
-            };
-
-            setCanvasSize();
-            window.addEventListener('resize', setCanvasSize);
-
-            const particles: { id: number; x: number; y: number; color: string; size: number; duration: number }[] = [];
-            const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
-            
-            // Create particles
-            for (let i = 0; i < 150; i++) {
-                particles.push({
-                    x: window.innerWidth / 2,
-                    y: window.innerHeight / 2, // Start from center of screen
-                    vx: (Math.random() - 0.5) * 12,
-                    vy: (Math.random() - 0.5) * 12 - 4, // Slight upward bias
-                    size: Math.random() * 6 + 2,
-                    color: colors[Math.floor(Math.random() * colors.length)],
-                    life: 1,
-                    decay: 0.005 + Math.random() * 0.015,
-                    rotation: Math.random() * 360,
-                    rotationSpeed: (Math.random() - 0.5) * 10
-                });
-            }
-
-            let animationId: number;
-            let frame = 0;
-            const MAX_FRAMES = 300; // ~5 seconds @ 60fps
-
-            // PERFORMANCE OPTIMIZATION: Stop on Interaction
-            const stopAnimation = () => {
-                if (animationId) cancelAnimationFrame(animationId);
-                if (canvas) canvas.style.opacity = '0';
-                // Remove listeners immediately
-                window.removeEventListener('scroll', stopAnimation);
-                window.removeEventListener('pointerdown', stopAnimation);
-            };
-
-            const animate = () => {
-                // Auto-stop after ~5 seconds to free GPU
-                if (frame > MAX_FRAMES) {
-                    stopAnimation();
-                    return;
-                }
-                
-                frame++;
-                if (!ctx) return;
-                ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-                
-                let activeParticles = 0;
-
-                particles.forEach(p => {
-                    if (p.life > 0) {
-                        activeParticles++;
-                        p.x += p.vx;
-                        p.y += p.vy;
-                        p.vy += 0.2; // Gravity
-                        p.vx *= 0.95; // Drag
-                        p.vy *= 0.95;
-                        p.life -= p.decay;
-                        p.rotation += p.rotationSpeed;
-
-                        ctx.save();
-                        ctx.translate(p.x, p.y);
-                        ctx.rotate((p.rotation * Math.PI) / 180);
-                        ctx.fillStyle = p.color;
-                        ctx.globalAlpha = Math.max(p.life, 0);
-                        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
-                        ctx.restore();
-                    }
-                });
-
-                if (activeParticles > 0) {
-                    animationId = requestAnimationFrame(animate);
-                }
-            };
-
-            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            if (!prefersReducedMotion) {
-                animate();
-                // Listen for scroll/tap to stop early
-                window.addEventListener('scroll', stopAnimation, { passive: true, once: true });
-                window.addEventListener('pointerdown', stopAnimation, { passive: true, once: true });
-            }
-
-            return () => {
-                cancelAnimationFrame(animationId);
-                window.removeEventListener('resize', setCanvasSize);
-                window.removeEventListener('scroll', stopAnimation);
-                window.removeEventListener('pointerdown', stopAnimation);
-            };
+        if (isSuccessful) {
+            // Use native haptics instead of heavy canvas confetti to prevent WebView crashes
+            triggerHaptic.notification('Success').catch(e => console.debug('Haptics failed:', e));
         }
     }, [isSuccessful]);
 
@@ -233,20 +134,36 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
         }
     };
 
-    return (
-        <>
-            <style>{`
+    if (renderError) {
+        return (
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 flex items-center justify-center">
+                <Card className="max-w-md w-full p-8 text-center shadow-xl border-red-100 dark:border-red-900/30">
+                    <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <AlertCircle size={40} className="text-red-600 dark:text-red-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Rendering Error</h2>
+                    <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
+                        Something went wrong while displaying your quiz results. This might be due to malformed data.
+                    </p>
+                    <button 
+                        onClick={() => navigateTo('home')}
+                        className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-orange-200 dark:shadow-none"
+                    >
+                        Return Home
+                    </button>
+                </Card>
+            </div>
+        );
+    }
+
+    try {
+        return (
+            <>
+                <style>{`
                 @media (prefers-reduced-motion: reduce) {
                     .quiz-transition { transition: none !important; animation: none !important; }
                 }
             `}</style>
-
-            {isSuccessful && (
-                <canvas 
-                    ref={canvasRef} 
-                    className="fixed inset-0 pointer-events-none z-50 quiz-transition transition-opacity duration-500"
-                />
-            )}
             
             <Card className="p-6 relative bg-white dark:bg-gray-800">
                 <div className="relative z-20">
@@ -267,8 +184,9 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                     </div>
 
                     <div className="space-y-6">
-                        {quizData.map((q, index) => {
-                            const answer = answers.find(a => a.qIndex === index);
+                        {(Array.isArray(quizData) ? quizData : []).map((q, index) => {
+                            if (!q) return null;
+                            const answer = (Array.isArray(answers) ? answers : []).find(a => a && a.qIndex === index);
                             const isCorrect = answer && answer.selected === answer.correct;
                             const resultIcon = isCorrect ? <CheckCircle size={18} className="text-green-600 dark:text-green-400" /> : <XCircle size={18} className="text-red-600 dark:text-red-400" />;
 
@@ -297,9 +215,9 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                                     />
 
                                     <div className="space-y-2 text-sm">
-                                        {Object.entries(q.options || {}).map(([letter, text]) => {
+                                        {Object.entries(q?.options || {}).map(([letter, text]) => {
                                             const isSelected = answer && answer.selected === letter;
-                                            const isCorrectAnswer = (q.correct_answer_letter || q.correctAnswer) === letter;
+                                            const isCorrectAnswer = (q?.correct_answer_letter || q?.correctAnswer) === letter;
                                             
                                             let containerClass = "p-2 rounded-lg border flex items-start transition-colors duration-200 ";
                                             
@@ -358,6 +276,11 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                     </div>
                 </div>
             </Card>
-        </>
-    );
+            </>
+        );
+    } catch (e) {
+        console.error("[REVIEW] Render crash:", e);
+        setRenderError(e instanceof Error ? e : new Error(String(e)));
+        return null;
+    }
 };

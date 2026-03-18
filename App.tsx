@@ -350,15 +350,22 @@ export const App: React.FC = () => {
         SyncService.pullData(userId).then(remoteData => {
             sessionStorage.setItem(`engram_sync_pulled_${userId}`, 'true');
             if (remoteData && remoteData.study_logs && remoteData.study_logs.length > 0) {
+                const lastSyncTimeStr = localStorage.getItem(`engram_last_sync_time_${userId}`);
+                const lastSyncTime = lastSyncTimeStr ? new Date(lastSyncTimeStr).getTime() : 0;
+                const remoteTime = remoteData.updated_at ? new Date(remoteData.updated_at).getTime() : 0;
+
                 if (studyLog.length === 0) {
                     // Auto-download if local is empty
                     console.debug("[APP] Local empty, auto-downloading remote data.");
                     handleIncomingSyncPayload(remoteData);
-                } else {
+                    localStorage.setItem(`engram_last_sync_time_${userId}`, remoteData.updated_at || new Date().toISOString());
+                } else if (!lastSyncTimeStr || remoteTime > lastSyncTime) {
                     // Prompt to merge
                     console.debug("[APP] Local and remote data found. Prompting user.");
                     setPendingSyncData(remoteData);
                     setShowSyncPrompt(true);
+                } else {
+                    console.debug("[APP] Remote data is not newer than local. Skipping prompt.");
                 }
             }
         }).catch(err => console.error("[APP] Sync pull failed", err));
@@ -401,19 +408,19 @@ export const App: React.FC = () => {
             try {
                 const raw = localStorage.getItem(`engram-flashcard-history_${userId}`);
                 if (raw) flashcardHistory = JSON.parse(raw);
-            } catch (e) {}
+            } catch { /* ignore */ }
 
             let tasks = [];
             try {
                 const raw = localStorage.getItem('engramTasks');
                 if (raw) tasks = JSON.parse(raw);
-            } catch (e) {}
+            } catch { /* ignore */ }
 
             let matrix = [];
             try {
                 const raw = localStorage.getItem('engramMatrix');
                 if (raw) matrix = JSON.parse(raw);
-            } catch (e) {}
+            } catch { /* ignore */ }
 
             const heavyData = {
                 notesByTopicId,
@@ -444,6 +451,7 @@ export const App: React.FC = () => {
             if (success) {
                 lastPushTimestamp.current = Date.now();
                 syncDirty.current = false;
+                localStorage.setItem(`engram_last_sync_time_${userId}`, new Date().toISOString());
             } else {
                 syncDirty.current = true;
             }
@@ -482,6 +490,7 @@ export const App: React.FC = () => {
 
             console.debug("[APP] Realtime update applied.");
             handleIncomingSyncPayload(payload);
+            localStorage.setItem(`engram_last_sync_time_${userId}`, payload.updated_at || new Date().toISOString());
         });
 
         return () => unsubscribe();
@@ -803,6 +812,8 @@ export const App: React.FC = () => {
             // Simple merge: append remote to local (deduplicated by ID in importStudyLog)
             handleIncomingSyncPayload(pendingSyncData);
         }
+        
+        localStorage.setItem(`engram_last_sync_time_${userId}`, pendingSyncData.updated_at || new Date().toISOString());
         
         setShowSyncPrompt(false);
         setPendingSyncData(null);

@@ -22,7 +22,7 @@ interface TopicDetailViewProps {
     defaultLanguage?: 'English' | 'Hinglish';
 }
 
-export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ topic, userId, navigateTo, onUpdateTopic, onDeleteTopic, themeColor }) => {
+export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ topic, userId, navigateTo, onUpdateTopic, themeColor }) => {
     const { jobs, startProcessing, clearJob } = useProcessing();
     
     const [notes, setNotes] = useState<string>('');
@@ -283,14 +283,6 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
             repetitionNumber: repNumber
         });
     }, [navigateTo, topic]);
-
-    const handleDeleteTopic = useCallback(() => {
-        if (!topic || !onDeleteTopic) return;
-        if (window.confirm("Are you sure you want to delete this topic? This action cannot be undone.")) {
-            onDeleteTopic(topic.id);
-            navigateTo('subjects');
-        }
-    }, [topic, onDeleteTopic, navigateTo]);
 
     if (!topic) {
         return (

@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '../services/supabase';
-import { getOAuthAppOrigin, isPreviewEnv } from '../utils/authEnv';
+import { getOAuthAppOrigin } from '../utils/authEnv';
 import { initGuestClock } from '../utils/guestLimit';
-import { Capacitor } from '@capacitor/core';
 
 // Minimal User Shim to replace Firebase User interface
 export interface User {

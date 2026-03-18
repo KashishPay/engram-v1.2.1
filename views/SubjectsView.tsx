@@ -72,13 +72,6 @@ const SubjectItem = React.memo(({
         setIsEditing(true);
     };
 
-    const handleDelete = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (window.confirm(`Are you sure you want to delete the subject "${subject.name}"? This action cannot be undone.`)) {
-            onDeleteSubject(subject.id);
-        }
-    };
-
     // Height calculation:
     // P-3 padding (12px top + 12px bottom) + Content height (~24px) + Border (1px) + Gap (8px in container but handled via height here)
     // Approx 60px per item

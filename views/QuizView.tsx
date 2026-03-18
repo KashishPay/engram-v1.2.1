@@ -40,9 +40,6 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
     const generationAttemptedRef = useRef(false);
     const isSubmitting = useRef(false);
 
-    // Session Persistence Key
-    const sessionKey = topic ? `engram_quiz_progress_${topic.id}` : null;
-
     // --- Cleanup on Unmount ---
     useEffect(() => {
         isMounted.current = true;
@@ -55,51 +52,15 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
         };
     }, []);
 
-    // --- Restoration & Initial Trigger ---
+    // --- Initial Trigger ---
     useEffect(() => {
         if (!topic) return;
 
-        // 1. Try to restore session
-        if (sessionKey && status === 'idle' && !generationAttemptedRef.current) {
-            try {
-                const saved = sessionStorage.getItem(sessionKey);
-                if (saved) {
-                    const { index, savedAnswers, time, questions } = JSON.parse(saved);
-                    if (questions && questions.length > 0) {
-                        console.debug("[POPQUIZ] Restored session from storage");
-                        setQuizData(questions);
-                        setCurrentQuestionIndex(index);
-                        setAnswers(savedAnswers);
-                        setTimeTaken(time);
-                        setStatus('ready');
-                        generationAttemptedRef.current = true;
-                        if (index < questions.length) setTimerRunning(true);
-                        return;
-                    }
-                }
-            } catch (e: unknown) {
-                console.warn("Failed to load quiz session", e);
-            }
-        }
-
-        // 2. If no session, trigger generation
+        // Trigger generation
         if (status === 'idle' && !generationAttemptedRef.current) {
             generateQuiz();
         }
-    }, [topic, sessionKey]);
-
-    // --- Persist State on Change ---
-    useEffect(() => {
-        if (sessionKey && status === 'ready' && quizData) {
-            const state = {
-                index: currentQuestionIndex,
-                savedAnswers: answers,
-                time: timeTaken,
-                questions: quizData
-            };
-            sessionStorage.setItem(sessionKey, JSON.stringify(state));
-        }
-    }, [currentQuestionIndex, answers, timeTaken, quizData, sessionKey, status]);
+    }, [topic]);
 
     // --- Timer Logic ---
     useEffect(() => {
@@ -377,8 +338,6 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             onUpdateTopic(updatedTopic);
 
             console.debug("[POPQUIZ] complete -> replacing view with results");
-
-            if (sessionKey) sessionStorage.removeItem(sessionKey);
 
             // Use replacement to prevent Back button from re-entering quiz
             navigateTo('quizReview', {

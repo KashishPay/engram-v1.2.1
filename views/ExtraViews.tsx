@@ -497,7 +497,7 @@ export const TaskView: React.FC<ExtraViewProps> = ({ themeColor, settings }) => 
                         <button onClick={() => changeMonth(1)}><ChevronRight size={20} className="text-gray-400"/></button>
                     </div>
                     <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                        {['S','M','T','W','T','F','S'].map(d => <div key={d} className="text-xs font-bold text-gray-400">{d}</div>)}
+                        {['S','M','T','W','T','F','S'].map((d, i) => <div key={i} className="text-xs font-bold text-gray-400">{d}</div>)}
                     </div>
                     <div className="grid grid-cols-7 gap-1">
                         {getCalendarCells().map((day, idx) => {
@@ -1034,7 +1034,7 @@ export const HabitTrackerView: React.FC<ExtraViewProps> = ({ themeColor, habits 
                         <button onClick={() => changeMonth(1)}><ChevronRight size={20} className="text-gray-400"/></button>
                     </div>
                     <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                        {['S','M','T','W','T','F','S'].map(d => <div key={d} className="text-xs font-bold text-gray-400">{d}</div>)}
+                        {['S','M','T','W','T','F','S'].map((d, i) => <div key={i} className="text-xs font-bold text-gray-400">{d}</div>)}
                     </div>
                     <div className="grid grid-cols-7 gap-1">
                         {getCalendarCells().map((day, idx) => {

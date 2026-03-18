@@ -250,7 +250,7 @@ export const ObservationsView: React.FC<ObservationsViewProps> = ({ userId, them
                     <button onClick={() => changeMonth(1)} className="p-1 text-gray-400 hover:text-gray-600"><ChevronRight/></button>
                 </div>
                 <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                    {weekDays.map(d => <span key={d} className="text-xs font-bold text-gray-400">{d}</span>)}
+                    {weekDays.map((d, i) => <span key={i} className="text-xs font-bold text-gray-400">{d}</span>)}
                 </div>
                 <div className="grid grid-cols-7 gap-1 justify-items-center">
                     {days}
@@ -269,32 +269,41 @@ export const ObservationsView: React.FC<ObservationsViewProps> = ({ userId, them
     }
 
     return (
-        <div className="px-1.5 space-y-4 pb-20">
+        <div className="space-y-6 pb-20">
             {activeViewerImage && <ImageViewer src={activeViewerImage} onClose={() => setActiveViewerImage(null)} />}
             
-            <h1 className={`px-2.5 text-3xl font-bold text-${themeColor}-800 dark:text-${themeColor}-200 flex items-center`}>
-                <PenTool className="mr-2" /> Observations
-            </h1>
+            <div className="px-2.5 flex items-center mb-2 mt-4">
+                <h1 className={`text-3xl font-bold text-${themeColor}-800 dark:text-${themeColor}-200 flex items-center`}>
+                    <PenTool className="mr-2" /> Observations
+                </h1>
+            </div>
 
-            <div className="px-1.5">
-                <div className="px-4">
+            <div className="space-y-6">
                 <Card className="p-4 bg-white dark:bg-gray-800">
-                {renderCalendar()}
+                    {renderCalendar()}
+                </Card>
                 
-                <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="font-bold text-gray-700 dark:text-gray-200">
-                            {new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                <div className="mt-6">
+                    <div className="flex justify-between items-center mb-3 px-1">
+                        <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Activity Log
                         </h3>
-                        {!isEditing && (
-                            <button 
-                                onClick={startEditing}
-                                className={`px-4 py-2 bg-${themeColor}-100 dark:bg-${themeColor}-900/30 text-${themeColor}-700 dark:text-${themeColor}-300 rounded-xl text-xs font-bold hover:opacity-80 transition`}
-                            >
-                                {activeObservation ? 'Edit Entry' : 'Log Entry'}
-                            </button>
-                        )}
+                        <span className="text-xs font-medium text-gray-400">
+                            {new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                        </span>
                     </div>
+
+                    <Card className="p-4 bg-white dark:bg-gray-800">
+                        {!isEditing && (
+                            <div className="flex justify-end items-center mb-4">
+                                <button 
+                                    onClick={startEditing}
+                                    className={`px-4 py-2 bg-${themeColor}-100 dark:bg-${themeColor}-900/30 text-${themeColor}-700 dark:text-${themeColor}-300 rounded-xl text-xs font-bold hover:opacity-80 transition`}
+                                >
+                                    {activeObservation ? 'Edit Entry' : 'Log Entry'}
+                                </button>
+                            </div>
+                        )}
 
                     {!isEditing ? (
                         activeObservation ? (
@@ -490,10 +499,9 @@ export const ObservationsView: React.FC<ObservationsViewProps> = ({ userId, them
                             </div>
                         </div>
                     )}
+                    </Card>
                 </div>
-            </Card>
+            </div>
         </div>
-    </div>
-</div>
-);
+    );
 };

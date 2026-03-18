@@ -125,17 +125,25 @@ export const TabBarConfigView: React.FC<TabBarConfigViewProps> = ({ enabledTabId
                 
                 {availableTabs.length > 0 && (
                     <>
-                        <h3 className="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 text-xs font-bold text-gray-400 uppercase tracking-wider border-t border-gray-100 dark:border-gray-700">Available Tabs</h3>
+                        <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Available Tabs</h3>
+                            <span className="text-xs font-medium text-gray-500">
+                                {activeTabs.length - CORE_TABS.length}/3 added
+                            </span>
+                        </div>
                         {availableTabs.map((itemId) => {
                             const item = TAB_ITEMS.find(t => t.id === itemId);
                             if (!item) return null;
                             
+                            const isAtLimit = activeTabs.length - CORE_TABS.length >= 3;
+                            
                             return (
-                                <div key={item.id} className="flex items-center justify-between p-4 border-b last:border-b-0 border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                                <div key={item.id} className={`flex items-center justify-between p-4 border-b last:border-b-0 border-gray-100 dark:border-gray-700 transition ${isAtLimit ? 'opacity-50' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
                                     <div className="flex items-center space-x-4">
                                         <button 
-                                            onClick={() => handleToggle(item.id)}
-                                            className="w-6 h-6 rounded-full flex items-center justify-center transition-colors bg-green-500 text-white hover:bg-green-600"
+                                            onClick={() => !isAtLimit && handleToggle(item.id)}
+                                            disabled={isAtLimit}
+                                            className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors text-white ${isAtLimit ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'}`}
                                         >
                                             <Plus size={14} strokeWidth={3} />
                                         </button>

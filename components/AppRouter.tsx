@@ -1002,7 +1002,26 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 isHydratingQuizReview 
                 ? <div className="p-10 text-center text-gray-500 animate-pulse">Analyzing Results...</div>
                 : selectedQuizReviewData 
-                    ? <QuizReview topic={selectedQuizReviewData.topic} quizData={Array.isArray(selectedQuizReviewData.quizAttempt.questions) ? selectedQuizReviewData.quizAttempt.questions : []} answers={(Array.isArray(selectedQuizReviewData.quizAttempt.questions) ? selectedQuizReviewData.quizAttempt.questions : []).map((q, i) => ({ qIndex: i, selected: q.userSelected, correct: q.correct_answer_letter || q.correctAnswer || '' }))} timeTaken={selectedQuizReviewData.quizAttempt.timeTakenSeconds} navigateTo={navigateTo} repetitionNumber={selectedQuizReviewData.repetitionNumber} themeColor={props.currentTheme} />
+                    ? (() => {
+                        console.debug("[ROUTER] Rendering QuizReview", {
+                            topic: selectedQuizReviewData.topic?.topicName,
+                            questionsCount: selectedQuizReviewData.quizAttempt?.questions?.length,
+                            repetitionNumber: selectedQuizReviewData.repetitionNumber
+                        });
+                        return <QuizReview 
+                            topic={selectedQuizReviewData.topic} 
+                            quizData={Array.isArray(selectedQuizReviewData.quizAttempt?.questions) ? selectedQuizReviewData.quizAttempt.questions : []} 
+                            answers={(Array.isArray(selectedQuizReviewData.quizAttempt?.questions) ? selectedQuizReviewData.quizAttempt.questions : []).map((q, i) => ({ 
+                                qIndex: i, 
+                                selected: q?.userSelected, 
+                                correct: q?.correct_answer_letter || q?.correctAnswer || '' 
+                            }))} 
+                            timeTaken={selectedQuizReviewData.quizAttempt?.timeTakenSeconds || 0} 
+                            navigateTo={navigateTo} 
+                            repetitionNumber={selectedQuizReviewData.repetitionNumber} 
+                            themeColor={props.currentTheme} 
+                        />;
+                    })()
                     : <ErrorCard error={new Error("Failed to load quiz results.")} resetErrorBoundary={() => navigateTo('home')} />
             )}
             {currentView === 'chat' && <ChatView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} />}
