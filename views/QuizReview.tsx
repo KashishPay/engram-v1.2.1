@@ -198,7 +198,6 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                                             ? 'border-l-green-500 bg-green-50/50 dark:bg-green-900/10 border-y-green-100 border-r-green-100 dark:border-y-green-900/30 dark:border-r-green-900/30' 
                                             : 'border-l-red-500 bg-red-50/50 dark:bg-red-900/10 border-y-red-100 border-r-red-100 dark:border-y-red-900/30 dark:border-r-red-900/30'
                                         }`}
-                                    style={{ contentVisibility: 'auto' }}
                                 >
                                     <div className="flex justify-between items-start mb-3">
                                         <h4 className="text-base md:text-lg font-bold flex items-center text-gray-800 dark:text-gray-100">
