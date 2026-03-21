@@ -46,7 +46,7 @@ export const EngramLogo: React.FC<EngramLogoProps> = ({
     
     // 4. Construct Source
     // If in preview, prepend the prod domain. If prod/local, use the path as-is.
-    const src = assetBase ? `${assetBase}${path}` : path;
+    const src = path;
 
     if (hasError) {
         return (
