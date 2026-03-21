@@ -365,10 +365,29 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     }
                     
                     const targetRep = topic.repetitions?.[targetIndex];
-                    if (targetRep?.quizAttempt) {
+                    
+                    let quizAttempt = targetRep?.quizAttempt;
+                    if (!quizAttempt && targetRep?.quizData && targetRep?.answers) {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const questions = (targetRep.quizData as any[]).map((q, index) => ({
+                            ...q,
+                            userSelected: targetRep.answers![index] || '',
+                            questionText: q.question,
+                            correctAnswer: q.correct_answer_letter
+                        }));
+                        quizAttempt = {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            timeTakenSeconds: (targetRep as any).timeTaken || 0,
+                            score: targetRep.score || 0,
+                            isFallbackQuiz: false,
+                            questions
+                        };
+                    }
+
+                    if (quizAttempt) {
                         setSelectedQuizReviewData({ 
                             topic: topic,
-                            quizAttempt: targetRep.quizAttempt, 
+                            quizAttempt: quizAttempt, 
                             repetitionNumber: targetIndex + 1 
                         });
                         setIsHydratingQuizReview(false);

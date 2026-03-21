@@ -276,10 +276,37 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
     }, [isEditing]);
 
     const handleReviewPastQuiz = useCallback((rep: Repetition, repNumber: number) => {
-        if (!rep.quizAttempt || !rep.quizAttempt.questions || !topic) return;
+        if (!topic) return;
+
+        let quizAttempt = rep.quizAttempt;
+
+        // Backwards compatibility for older repetitions
+        if (!quizAttempt && rep.quizData && rep.answers) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const questions = (rep.quizData as any[]).map((q, index) => ({
+                ...q,
+                userSelected: rep.answers![index] || '',
+                questionText: q.question,
+                correctAnswer: q.correct_answer_letter
+            }));
+            
+            quizAttempt = {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                timeTakenSeconds: (rep as any).timeTaken || 0,
+                score: rep.score || 0,
+                isFallbackQuiz: false,
+                questions
+            };
+        }
+
+        if (!quizAttempt || !quizAttempt.questions) {
+            alert("Detailed review is not available for this older quiz attempt.");
+            return;
+        }
+        
         navigateTo('quizReview', {
             topic,
-            quizAttempt: rep.quizAttempt,
+            quizAttempt: quizAttempt,
             repetitionNumber: repNumber
         });
     }, [navigateTo, topic]);
@@ -442,7 +469,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                                             onClick={() => isCompleted ? handleReviewPastQuiz(rep, i + 1) : undefined}
                                             title={isCompleted ? `Review Repetition ${i + 1} (Score: ${Math.round(percentageScore)}%)` : isNext ? "Next Review" : "Upcoming"}
                                         >
-                                            {icon}
+                                            {icon || <span className="text-[10px] font-medium opacity-50">{i + 1}</span>}
                                         </div>
                                     );
                                 })}

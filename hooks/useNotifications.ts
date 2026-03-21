@@ -52,7 +52,7 @@ export const useNotifications = (
             }).slice(0, 5);
 
             // Find matching reminder
-            const activeReminder = reminders.find(r => r.time === currentHm);
+            const activeReminder = settings.reminders.find(r => r.time === currentHm);
 
             if (activeReminder) {
                 
