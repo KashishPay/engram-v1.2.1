@@ -141,7 +141,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
         // Let's do it every 2 questions to be "adequate" but frequent enough, or every question.
         // Let's do every 2 questions to avoid overwhelming, but we can do every question if preferred.
         // The user said "adequate intervals may be like after every question user asks"
-        const questionsCount = userQuestions.length + 1;
         const shouldShowAd = true; // Show after every question as requested
 
         const newMessages: Message[] = [userMsg];

@@ -1,5 +1,5 @@
 # ==============================================================================
-# ENGRAM ANDROID BUILD AUTOMATOR (Iterated v1.4)
+# ENGRAM ANDROID BUILD AUTOMATOR (Iterated v1.5)
 # ==============================================================================
 
 # 1) Define Paths & Auto-Detect Latest Zip
@@ -51,6 +51,8 @@ npm pkg set scripts.dev="vite"
 npm pkg set scripts.build="vite build"
 npm pkg set scripts.preview="vite preview"
 npm pkg set scripts.lint="eslint . --ext .ts,.tsx"
+npm pkg set scripts.resources="capacitor-assets generate"
+npm pkg set scripts.check:no-alias="grep -r \"@/\" . && exit 1 || echo 'Pass: No aliases found.'"
 
 # Create PDF worker helper script
 New-Item -ItemType Directory -Force -Path .\scripts | Out-Null
@@ -84,11 +86,11 @@ Write-Output "Ensuring critical dependencies are installed..."
 # Install Core App Features
 npm install react react-dom lucide-react @google/genai @supabase/supabase-js katex dompurify jspdf pdfjs-dist@3.11.174 react-markdown remark-gfm remark-math rehype-katex
 
-# Install Capacitor Plugins
-npm install @capacitor/core @capacitor/app @capacitor/filesystem @capacitor/share @capacitor/local-notifications @capacitor/haptics @capacitor/camera @capacitor/android
+# Install Capacitor Plugins (Core + Community)
+npm install @capacitor/core @capacitor/app @capacitor/filesystem @capacitor/share @capacitor/local-notifications @capacitor/haptics @capacitor/camera @capacitor/android @capacitor/ios @capacitor-community/admob @capacitor-community/keep-awake
 
-# Install Dev Tools
-npm install -D vite @vitejs/plugin-react typescript @types/react @types/react-dom autoprefixer postcss tailwindcss @capacitor/cli @capacitor/assets
+# Install Dev Tools & Linters
+npm install -D vite @vitejs/plugin-react typescript @types/react @types/react-dom autoprefixer postcss tailwindcss @capacitor/cli @capacitor/assets eslint eslint-plugin-react-hooks eslint-plugin-react-refresh @typescript-eslint/eslint-plugin @typescript-eslint/parser
 
 # 6) Build Web App
 Write-Output "--- Step 6: Building Web Assets ---"
@@ -118,15 +120,9 @@ if (!(Test-Path $LogoSource)) {
     $found = Get-ChildItem "public\brand\*" -Include *.png -Recurse | Select-Object -First 1
     if ($found) { $LogoSource = $found.FullName }
 }
-# Fallback to searching the entire repo if public/brand fails
-if (!(Test-Path $LogoSource)) {
-    $found = Get-ChildItem ".\*" -Include engram_logo_1024.png, engram_logo_512.png -Recurse | Select-Object -First 1
-    if ($found) { $LogoSource = $found.FullName }
-}
 
 if (Test-Path $LogoSource) {
     Write-Output "Using logo source: $LogoSource"
-    if (!(Test-Path "assets")) { New-Item -ItemType Directory -Force -Path "assets" | Out-Null }
     Copy-Item $LogoSource "assets\icon-only.png" -Force
     Copy-Item $LogoSource "assets\icon-foreground.png" -Force
     Copy-Item $LogoSource "assets\icon-background.png" -Force
