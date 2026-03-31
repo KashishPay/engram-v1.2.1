@@ -162,6 +162,19 @@ if (Test-Path "android") {
     } else {
         Set-Content -Path $gradleProps -Value $fixes
     }
+
+    # 4. Inject AdMob App ID into AndroidManifest.xml to prevent startup crash
+    $manifestFile = "android\app\src\main\AndroidManifest.xml"
+    if (Test-Path $manifestFile) {
+        $manifestContent = Get-Content $manifestFile -Raw
+        if ($manifestContent -notmatch "com.google.android.gms.ads.APPLICATION_ID") {
+            # Using your real App ID: ca-app-pub-1930133918087114~6997595405
+            $admobMeta = "`n        <meta-data android:name=`"com.google.android.gms.ads.APPLICATION_ID`" android:value=`"ca-app-pub-1930133918087114~6997595405`"/>"
+            $manifestContent = $manifestContent -replace '<application([^>]*)>', "<application`$1>$admobMeta"
+            Set-Content -Path $manifestFile -Value $manifestContent
+            Write-Output "Injected AdMob App ID into AndroidManifest.xml."
+        }
+    }
 }
 
 # 10) Sync & Launch
