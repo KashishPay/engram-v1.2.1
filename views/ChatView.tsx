@@ -131,57 +131,24 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
         }
     }, [messages.length, isTyping]);
 
+    useEffect(() => {
+        AdManager.showChatBanner();
+        return () => {
+            AdManager.hideBanner();
+        };
+    }, []);
+
     const handleSend = async () => {
         if (!input.trim() || !topic || isTyping) return;
 
         const userMsg: Message = { id: Date.now().toString(), role: 'user', text: input.trim(), timestamp: Date.now() };
         
-        // Determine if we should show an ad (e.g., every 2nd question, or every question)
-        // The user suggested "at adequate intervals may be like after every question user asks"
-        // Let's do it every 2 questions to be "adequate" but frequent enough, or every question.
-        // Let's do every 2 questions to avoid overwhelming, but we can do every question if preferred.
-        // The user said "adequate intervals may be like after every question user asks"
-        const shouldShowAd = true; // Show after every question as requested
-
-        const newMessages: Message[] = [userMsg];
-
-        if (shouldShowAd) {
-            const adMsgId = `ad-${Date.now()}`;
-            // Simulate fetching ad from server side
-            const adMsg: Message = {
-                id: adMsgId,
-                role: 'ad',
-                text: 'Loading advertisement...',
-                timestamp: Date.now()
-            };
-            newMessages.push(adMsg);
-        }
-
         const botMsgId = (Date.now() + 1).toString();
         const initialBotMsg: Message = { id: botMsgId, role: 'model', text: '', timestamp: Date.now(), isStreaming: true };
-        newMessages.push(initialBotMsg);
         
-        setMessages(prev => [...prev, ...newMessages]);
+        setMessages(prev => [...prev, userMsg, initialBotMsg]);
         setInput('');
         setIsTyping(true);
-
-        if (shouldShowAd) {
-            // Fetch ad content from server
-            AdManager.fetchChatAd().then(adContent => {
-                if (adContent) {
-                    setMessages(prev => prev.map(msg => {
-                        if (msg.id === newMessages[1].id) {
-                            return {
-                                ...msg,
-                                text: '',
-                                adContent
-                            };
-                        }
-                        return msg;
-                    }));
-                }
-            });
-        }
 
         const history = messages.filter(m => m.role !== 'ad').map(m => ({ role: m.role, text: m.text }));
 
@@ -296,7 +263,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                     <>
                         {messages.map((msg, idx) => {
                             const isUser = msg.role === 'user';
-                            const isAd = msg.role === 'ad';
                             // Determine Question Number
                             const qIndex = isUser ? userQuestions.findIndex(q => q.id === msg.id) + 1 : null;
 
@@ -305,8 +271,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                                     id={`msg-${msg.id}`}
                                     key={msg.id || idx} 
                                     className={`w-full py-3 px-4 border-b border-gray-50 dark:border-gray-800/50 transition-colors duration-1000 ${
-                                        isUser ? 'bg-gray-50/50 dark:bg-gray-800/20' : 
-                                        isAd ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'bg-white dark:bg-gray-900'
+                                        isUser ? 'bg-gray-50/50 dark:bg-gray-800/20' : 'bg-white dark:bg-gray-900'
                                     }`}
                                 >
                                     <div className="max-w-4xl mx-auto">
@@ -315,54 +280,21 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                                             <span className={`text-xs font-bold uppercase tracking-wide flex items-center ${
                                                 isUser 
                                                 ? `text-${themeColor}-600 dark:text-${themeColor}-400`
-                                                : isAd
-                                                ? 'text-gray-400 dark:text-gray-500'
                                                 : 'text-indigo-600 dark:text-indigo-400'
                                             }`}>
-                                                {isUser ? 'You' : isAd ? 'Sponsored' : 'AI Tutor'}
+                                                {isUser ? 'You' : 'AI Tutor'}
                                                 {isUser && qIndex && (
                                                     <span className={`ml-2 text-[9px] bg-${themeColor}-100 text-${themeColor}-700 dark:bg-${themeColor}-900 dark:text-${themeColor}-300 px-1.5 py-0.5 rounded-md font-mono`}>
                                                         #{qIndex}
                                                     </span>
                                                 )}
                                             </span>
-                                            {!isUser && !isAd && !msg.isStreaming && <CopyButton text={msg.text} />}
+                                            {!isUser && !msg.isStreaming && <CopyButton text={msg.text} />}
                                         </div>
 
                                         {/* Full Width Content */}
                                         <div className="markdown-body text-gray-800 dark:text-gray-200 text-sm leading-relaxed break-words pl-0">
-                                            {isAd ? (
-                                                msg.adContent ? (
-                                                    <a 
-                                                        href={msg.adContent.link} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        className="block mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition group"
-                                                    >
-                                                        {msg.adContent.imageUrl && (
-                                                            <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
-                                                                <img 
-                                                                    src={msg.adContent.imageUrl} 
-                                                                    alt="Advertisement" 
-                                                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                                                                    referrerPolicy="no-referrer"
-                                                                />
-                                                                <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Ad</div>
-                                                            </div>
-                                                        )}
-                                                        <div className="p-3">
-                                                            <h4 className={`font-bold text-${themeColor}-600 dark:text-${themeColor}-400 mb-1`}>{msg.adContent.title}</h4>
-                                                            <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">{msg.adContent.description}</p>
-                                                        </div>
-                                                    </a>
-                                                ) : (
-                                                    <div className="flex items-center space-x-2 text-gray-400 dark:text-gray-500 text-xs italic py-2">
-                                                        <RotateCw size={12} className="animate-spin" />
-                                                        <span>{msg.text}</span>
-                                                    </div>
-                                                )
-                                            ) : (
-                                                <ReactMarkdown 
+                                            <ReactMarkdown 
                                                     remarkPlugins={[remarkGfm, remarkMath]}
                                                     rehypePlugins={[rehypeKatex]}
                                                     components={{
@@ -396,7 +328,6 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                                                 >
                                                     {msg.text || (msg.isStreaming ? "▋" : "")}
                                                 </ReactMarkdown>
-                                            )}
                                             {msg.isStreaming && <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse align-middle opacity-50"/>}
                                         </div>
                                     </div>
