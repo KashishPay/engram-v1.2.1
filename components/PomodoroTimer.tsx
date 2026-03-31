@@ -18,7 +18,7 @@ interface PomodoroTimerProps {
 
 export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ topicId, topicName, onTimeLogged, themeColor }) => {
     const { 
-        mode, duration, elapsed, isRunning, topicId: activeTopicId, activeSoundId,
+        mode, duration, elapsed, isRunning, topicId: activeTopicId, topicName: activeTopicName, activeSoundId,
         startSession, pauseSession, resumeSession, resetSession, 
         setMode, setSessionDuration, setActiveSoundId, logAndReset, formatTime 
     } = useFocus();
@@ -296,7 +296,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ topicId, topicName
 
             {!isActiveTimer && activeTopicId && (
                 <div className="absolute top-12 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full z-10 animate-pulse">
-                    Timer active for: {localStorage.getItem('focus_topicName') || 'Another Topic'}
+                    Timer active for: {activeTopicName || 'Another Topic'}
                 </div>
             )}
 

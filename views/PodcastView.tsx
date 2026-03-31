@@ -9,6 +9,9 @@ import { goBackOrFallback } from '../utils/navigation';
 import { ensureAudioContext } from '../utils/audioCue';
 import { getErrorImage, getFallbackImage } from '../utils/errorImages';
 import katex from 'katex';
+import { KeepAwake } from '@capacitor-community/keep-awake';
+import { AdManager } from '../services/admob';
+import { Capacitor } from '@capacitor/core';
 
 export const PodcastSettingsView: React.FC<{ 
     config: { language: 'English' | 'Hinglish' }; 
@@ -329,6 +332,43 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
     // Use this for rendering metadata
     const displayTopic = liveTopic || state.currentTopic;
 
+    // CONDITION FIX: If loading OR audioSrc OR ERROR, show player/status UI.
+    const showPlayerUI = !!state.currentTopic;
+
+    // Keep screen awake while playing
+    useEffect(() => {
+        const handleWakeLockError = (err: unknown) => {
+            if (err instanceof Error && err.message?.includes('disallowed by permissions policy')) {
+                console.warn('WakeLock not allowed in this environment (likely an iframe).');
+            } else {
+                console.error('WakeLock error:', err);
+            }
+        };
+
+        if (state.isPlaying) {
+            KeepAwake.keepAwake().catch(handleWakeLockError);
+        } else {
+            KeepAwake.allowSleep().catch(handleWakeLockError);
+        }
+
+        return () => {
+            KeepAwake.allowSleep().catch(handleWakeLockError);
+        };
+    }, [state.isPlaying]);
+
+    // Manage podcast banner ad visibility
+    useEffect(() => {
+        if (showPlayerUI && !showScript) {
+            AdManager.showPodcastBanner();
+        } else {
+            AdManager.hideBanner();
+        }
+
+        return () => {
+            AdManager.hideBanner();
+        };
+    }, [showPlayerUI, showScript]);
+
     // --- INTEGRITY CHECK ---
     // Scan IDB when library opens to ensure audio flags match reality
     useEffect(() => {
@@ -592,11 +632,6 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
         });
     };
 
-    // CONDITION FIX: If loading OR audioSrc OR ERROR, show player/status UI.
-    // If error, PodcastStatusOverlay will handle it.
-    // We only fallback to library if truly idle (no topic selected).
-    const showPlayerUI = !!state.currentTopic;
-
     return (
         <div className="flex flex-col grow -mx-4 -mt-4 w-[calc(100%+2rem)] h-[calc(100%+2rem)] bg-[#FDF6E3] dark:bg-gray-900 text-gray-800 dark:text-gray-100 relative z-0">
             
@@ -630,6 +665,10 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                 ) : (
                                     <p className="italic text-gray-400">Notes available in raw format only.</p>
                                 )}
+                             </div>
+                         ) : Capacitor.getPlatform() === 'web' && AdManager.getConfig()?.is_active ? (
+                             <div className="flex flex-col items-center justify-center text-white/80 z-10 w-full h-full">
+                                 {/* Ad placeholder */}
                              </div>
                          ) : (
                              <>

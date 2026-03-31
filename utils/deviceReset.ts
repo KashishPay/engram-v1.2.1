@@ -1,5 +1,6 @@
 
 import { supabase } from '../services/supabase';
+import { closeDB } from '../services/storage';
 
 export const performDeviceReset = async (keepAuth: boolean = false): Promise<void> => {
     console.debug(`[RESET] Starting device wipe (keepAuth: ${keepAuth})...`);
@@ -42,11 +43,24 @@ export const performDeviceReset = async (keepAuth: boolean = false): Promise<voi
 
     // 3. Clear IndexedDB
     try {
-        // Attempt to delete specific known DB
-        const req = window.indexedDB.deleteDatabase('EngramDB');
-        req.onsuccess = () => console.debug("[RESET] cleared indexeddb (EngramDB)");
-        req.onerror = () => console.warn("[RESET] failed to clear indexeddb");
+        await closeDB();
         
+        await new Promise<void>((resolve) => {
+            const req = window.indexedDB.deleteDatabase('EngramDB');
+            req.onsuccess = () => {
+                console.debug("[RESET] cleared indexeddb (EngramDB)");
+                resolve();
+            };
+            req.onerror = () => {
+                console.warn("[RESET] failed to clear indexeddb");
+                resolve(); // resolve anyway to continue reset
+            };
+            req.onblocked = () => {
+                console.warn("[RESET] blocked clearing indexeddb");
+                resolve(); // resolve anyway to avoid hanging forever
+            };
+        });
+
         // Attempt to clear all if API is supported
         if ('databases' in window.indexedDB) {
             const dbs = await (window.indexedDB as unknown as { databases: () => Promise<{ name: string }[]> }).databases();

@@ -26,27 +26,13 @@ export const EngramLogo: React.FC<EngramLogoProps> = ({
         setHasError(false);
     }, [targetSize]);
 
-    // 1. Detect AI Studio Preview environment
-    // These domains indicate we are running inside the Google AI Studio sandbox
-    const isAIStudioPreview =
-        window.location.hostname.includes("aistudio.google.com") ||
-        window.location.hostname.includes("ai.studio") ||
-        window.location.origin.includes("usercontent.goog") ||
-        window.location.protocol === "blob:";
-
-    // 2. Define Base URLs
-    // In production (Vercel) or Localhost, assets are served at root relative to index.html.
-    // In AI Studio Preview, we must fetch from the live production CDN.
-    const PREVIEW_ASSET_BASE = "https://engram-space.vercel.app";
-    const assetBase = isAIStudioPreview ? PREVIEW_ASSET_BASE : "";
-
-    // 3. Build canonical path
+    // 1. Build canonical path
     // The files live under public/brand/engram_logo/, so the runtime path is /brand/...
-    const path = `/brand/engram_logo/engram_logo_${targetSize}.png`;
-    
-    // 4. Construct Source
-    // If in preview, prepend the prod domain. If prod/local, use the path as-is.
-    const src = path;
+    // Use import.meta.env.BASE_URL to support subpath deployments (e.g. GitHub Pages) or relative base.
+    const basePath = import.meta.env.BASE_URL.endsWith('/') 
+        ? import.meta.env.BASE_URL.slice(0, -1) 
+        : import.meta.env.BASE_URL;
+    const src = `${basePath}/brand/engram_logo/engram_logo_${targetSize}.png`;
 
     if (hasError) {
         return (

@@ -3,14 +3,15 @@ import { GoogleGenAI, Schema } from "@google/genai";
 
 // -- USAGE LIMITS --
 const FREE_LIMIT = 50; // Monthly
-const USAGE_KEY = 'engram_usage_stats';
+const getUsageKey = () => `engram_usage_stats_${localStorage.getItem('engramCurrentUserId') || 'default'}`;
 
 export const getUsageStats = () => {
     try {
-        const customKey = localStorage.getItem('engram_custom_api_key');
+        const userId = localStorage.getItem('engramCurrentUserId') || 'default';
+        const customKey = localStorage.getItem(`engram_custom_api_key_${userId}`);
         if (customKey) return { source: 'custom', count: 0, limit: Infinity };
 
-        const raw = localStorage.getItem(USAGE_KEY);
+        const raw = localStorage.getItem(getUsageKey());
         const stats = raw ? JSON.parse(raw) : { count: 0, month: new Date().getMonth() };
         
         // Reset if new month
@@ -40,12 +41,13 @@ export const incrementUsage = () => {
     if (stats.source === 'custom') return;
     
     stats.count++;
-    localStorage.setItem(USAGE_KEY, JSON.stringify(stats));
+    localStorage.setItem(getUsageKey(), JSON.stringify(stats));
 };
 
 // -- CLIENT FACTORY --
 export const getAiClient = () => {
-    const customKey = localStorage.getItem('engram_custom_api_key');
+    const userId = localStorage.getItem('engramCurrentUserId') || 'default';
+    const customKey = localStorage.getItem(`engram_custom_api_key_${userId}`);
     
     // Priority: 1. Custom Key (LocalStorage) -> 2. Vite Env Var -> 3. Process Env (Fallback)
     // Cast import.meta to unknown then to any to avoid TS error about 'env' property
@@ -79,7 +81,8 @@ export const validateApiKey = async (key: string): Promise<boolean> => {
 // -- CONFIG HELPERS --
 export const getFeatureConfig = (featureId: string) => {
     try {
-        const all = JSON.parse(localStorage.getItem('engram_ai_preferences') || '{}');
+        const userId = localStorage.getItem('engramCurrentUserId') || 'default';
+        const all = JSON.parse(localStorage.getItem(`engram_ai_preferences_${userId}`) || '{}');
         return all[featureId] || {};
     } catch {
         return {};

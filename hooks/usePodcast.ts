@@ -354,13 +354,16 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
         if (!('mediaSession' in navigator) || !currentTopic) return;
 
         // 1. Update Metadata
+        const origin = window.location.origin;
+        const basePath = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL.slice(0, -1) : import.meta.env.BASE_URL;
+        
         navigator.mediaSession.metadata = new MediaMetadata({
             title: currentTopic.topicName,
             artist: 'Deep Dive • Kittu & Kashish',
             album: currentTopic.subject,
             artwork: [
-                { src: 'https://engram-space.vercel.app/brand/engram_logo/engram_logo_192.png', sizes: '192x192', type: 'image/png' },
-                { src: 'https://engram-space.vercel.app/brand/engram_logo/engram_logo_512.png', sizes: '512x512', type: 'image/png' },
+                { src: `${origin}${basePath}/brand/engram_logo/engram_logo_192.png`, sizes: '192x192', type: 'image/png' },
+                { src: `${origin}${basePath}/brand/engram_logo/engram_logo_512.png`, sizes: '512x512', type: 'image/png' },
             ]
         });
 

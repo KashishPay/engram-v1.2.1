@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { RefreshCw, Settings, AlertTriangle, ChevronDown, ChevronRight, Copy, Database, ArrowLeft, ImageOff } from 'lucide-react';
 import { pickEventImageIndex, getImageByIndex, getFallbackImage } from '../utils/errorImages';
+import { closeDB } from '../services/storage';
 
 interface ErrorCardProps {
   error: Error | null;
@@ -64,7 +65,13 @@ export const ErrorCard: React.FC<ErrorCardProps> = ({ error, resetErrorBoundary 
     if (confirm("This will clear your local database cache to fix the version mismatch. Your Cloud data (if synced) will remain safe. Continue?")) {
         if (window.indexedDB) {
             try {
-                await window.indexedDB.deleteDatabase('EngramDB');
+                await closeDB();
+                await new Promise<void>((resolve) => {
+                    const req = window.indexedDB.deleteDatabase('EngramDB');
+                    req.onsuccess = () => resolve();
+                    req.onerror = () => resolve();
+                    req.onblocked = () => resolve();
+                });
                 window.location.reload();
             } catch {
                 alert("Failed to reset automatically. Please clear browser site data manually.");

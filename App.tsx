@@ -2,18 +2,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RotateCw } from 'lucide-react'; 
 
-import { Topic, DateTimeSettings, UserProfile, Habit, NotificationSettings } from './types';
+import { DateTimeSettings, UserProfile, Habit, NotificationSettings } from './types';
 import { AppRouter } from './components/AppRouter';
 
 import { useAuth } from './context/AuthContext';
 import { useStudyData } from './hooks/useStudyData';
 import { usePodcast } from './hooks/usePodcast';
-import { useFocus } from './context/FocusContext';
+import { FocusProvider } from './context/FocusContext';
 import { ProcessingProvider } from './context/ProcessingContext';
 import { useNotifications } from './hooks/useNotifications';
 import { 
-    deleteTopicBodyFromIDB, 
-    deleteAudioFromIDB,
     batchGetTopicBodies,
     batchGetImages,
     batchGetOriginalImages,
@@ -29,10 +27,12 @@ import { AnalyticsService } from './services/analytics';
 import { ProfileService } from './services/profile';
 import { getFeatureConfig } from './services/gemini';
 import { SyncService, SyncPayload } from './services/sync';
+import { AdManager } from './services/admob';
 
 export const App: React.FC = () => {
     // [AUTH DIAGNOSIS] Boot Logs & Upload Diagnostics
     useEffect(() => {
+        AdManager.initialize();
         const url = new URL(window.location.href);
         const searchParams = Object.fromEntries(url.searchParams.entries());
         console.debug("================ AUTH DIAGNOSIS START ================");
@@ -56,6 +56,7 @@ export const App: React.FC = () => {
     const [userId, setUserId] = useState<string>(() => {
         return localStorage.getItem('engramCurrentUserId') || 'local-user-' + Math.floor(Math.random() * 100000);
     });
+    const [loadedSettingsUserId, setLoadedSettingsUserId] = useState<string | null>(null);
 
     // Profile Management State (Local)
     const [profiles, setProfiles] = useState<{id: string, name: string, avatar: string | null}[]>(() => {
@@ -73,11 +74,12 @@ export const App: React.FC = () => {
 
     // Profile Gate State
     const [isOnboarded, setIsOnboarded] = useState(false);
-    const [checkingProfile, setCheckingProfile] = useState(false);
+    const [checkingProfile, setCheckingProfile] = useState(true);
 
     // Global Sync State
     const [globalSyncEnabled, setGlobalSyncEnabled] = useState<boolean>(() => {
-        return localStorage.getItem('engramGlobalSyncEnabled') === 'true';
+        const uid = localStorage.getItem('engramCurrentUserId') || 'default';
+        return localStorage.getItem(`engramGlobalSyncEnabled_${uid}`) === 'true';
     });
     const [pendingSyncData, setPendingSyncData] = useState<SyncPayload | null>(null);
     const [showSyncPrompt, setShowSyncPrompt] = useState(false);
@@ -92,6 +94,7 @@ export const App: React.FC = () => {
             // 1. Sync User ID if changed
             if (currentUid !== userId) {
                 console.debug("[APP] User ID changed. Syncing...", { old: userId, new: currentUid });
+                podcast.controls.reset();
                 setUserId(currentUid);
             }
 
@@ -121,9 +124,11 @@ export const App: React.FC = () => {
             // If we have cache, we sync silently in background.
             if (!hasCachedProfile) {
                 setCheckingProfile(true);
+            } else {
+                setCheckingProfile(false);
             }
 
-            ProfileService.getCurrentProfile().then(profile => {
+            ProfileService.getCurrentProfile(user.uid).then(profile => {
                 console.debug("[APP] Fetched profile from Supabase:", profile);
                 if (profile) {
                     const mappedProfile = {
@@ -152,6 +157,7 @@ export const App: React.FC = () => {
             const storedId = localStorage.getItem('engramCurrentUserId');
             if (!storedId || !storedId.startsWith('local-')) {
                 const newId = 'local-user-' + Math.floor(Math.random() * 100000);
+                podcast.controls.reset();
                 setUserId(newId);
             }
             setIsOnboarded(true); // Guests bypass Supabase onboarding
@@ -197,16 +203,14 @@ export const App: React.FC = () => {
         }
     }, [userId, loadingData, studyLog]);
     
-    // Focus Context
-    const focusState = useFocus();
-
     // Global UI Settings
     const [currentTheme, setCurrentTheme] = useState<string>('amber'); 
     const [themeIntensity, setThemeIntensity] = useState<string>('50');
     
     // Theme Management
     const [appMode, setAppMode] = useState<string>(() => {
-        return localStorage.getItem('engramAppMode') || 'light';
+        const uid = localStorage.getItem('engramCurrentUserId') || 'default';
+        return localStorage.getItem(`engramAppMode_${uid}`) || 'light';
     });
 
     useEffect(() => {
@@ -220,14 +224,16 @@ export const App: React.FC = () => {
 
         // Apply theme immediately
         applyTheme();
-        localStorage.setItem('engramAppMode', appMode);
+        if (loadedSettingsUserId === userId) {
+            localStorage.setItem(`engramAppMode_${userId}`, appMode);
+        }
 
         // Listen for OS changes only if system mode is selected
         if (appMode === 'system') {
             mq.addEventListener('change', applyTheme);
             return () => mq.removeEventListener('change', applyTheme);
         }
-    }, [appMode]);
+    }, [appMode, userId, loadedSettingsUserId]);
     
     const [podcastConfig, setPodcastConfig] = useState<{ language: 'English' | 'Hinglish' }>({ language: 'Hinglish' });
     
@@ -324,10 +330,10 @@ export const App: React.FC = () => {
                 localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(heavy.flashcardHistory));
             }
             if (heavy.tasks) {
-                localStorage.setItem('engramTasks', JSON.stringify(heavy.tasks));
+                localStorage.setItem(`engramTasks_${userId}`, JSON.stringify(heavy.tasks));
             }
             if (heavy.matrix) {
-                localStorage.setItem('engramMatrix', JSON.stringify(heavy.matrix));
+                localStorage.setItem(`engramMatrix_${userId}`, JSON.stringify(heavy.matrix));
             }
         }
         
@@ -412,13 +418,13 @@ export const App: React.FC = () => {
 
             let tasks = [];
             try {
-                const raw = localStorage.getItem('engramTasks');
+                const raw = localStorage.getItem(`engramTasks_${userId}`);
                 if (raw) tasks = JSON.parse(raw);
             } catch { /* ignore */ }
 
             let matrix = [];
             try {
-                const raw = localStorage.getItem('engramMatrix');
+                const raw = localStorage.getItem(`engramMatrix_${userId}`);
                 if (raw) matrix = JSON.parse(raw);
             } catch { /* ignore */ }
 
@@ -581,12 +587,32 @@ export const App: React.FC = () => {
         localStorage.setItem('engramProfiles', JSON.stringify(profiles));
     }, [profiles]);
 
+    // Sync current user profile to the profiles array
+    useEffect(() => {
+        if (!userId || !userProfile.name) return;
+        
+        // Don't add default 'Guest User' unless it's explicitly saved
+        if (userProfile.name === 'Guest User' && !localStorage.getItem(`engramProfile_${userId}`)) return;
+
+        setProfiles(prev => {
+            const exists = prev.some(p => p.id === userId);
+            if (exists) {
+                const current = prev.find(p => p.id === userId);
+                if (current?.name === userProfile.name && current?.avatar === userProfile.avatar) return prev;
+                return prev.map(p => p.id === userId ? { ...p, name: userProfile.name, avatar: userProfile.avatar } : p);
+            } else {
+                return [...prev, { id: userId, name: userProfile.name, avatar: userProfile.avatar }];
+            }
+        });
+    }, [userId, userProfile.name, userProfile.avatar]);
+
     const handleLoginComplete = (guestName: string, guestAvatar: string | null) => {
         continueAsGuest();
         const trimmedName = guestName.trim();
         if (!trimmedName) return;
 
-        if (userProfile && userProfile.name && userProfile.name.toLowerCase() === trimmedName.toLowerCase()) {
+        // Only allow continuing with current profile if it's a guest profile
+        if (userId.startsWith('local-') && userProfile && userProfile.name && userProfile.name.toLowerCase() === trimmedName.toLowerCase()) {
             const updatedProfile = { ...userProfile, avatar: guestAvatar || userProfile.avatar };
             setUserProfile(updatedProfile);
             setProfiles(prev => {
@@ -600,14 +626,19 @@ export const App: React.FC = () => {
             return;
         }
 
-        const existingProfile = profiles.find(p => p.name.toLowerCase() === trimmedName.toLowerCase());
+        // Only match existing guest profiles
+        const existingProfile = profiles.find(p => p.id.startsWith('local-') && p.name.toLowerCase() === trimmedName.toLowerCase());
         if (existingProfile) {
+            podcast.controls.reset();
+            localStorage.setItem('engramCurrentUserId', existingProfile.id);
             setUserId(existingProfile.id);
             setIsOnboarded(true);
             return;
         }
 
         const newId = 'local-user-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+        podcast.controls.reset();
+        localStorage.setItem('engramCurrentUserId', newId);
         setUserId(newId);
         setUserProfile({ name: trimmedName, avatar: guestAvatar });
         setHabits([]); 
@@ -627,15 +658,36 @@ export const App: React.FC = () => {
         window.location.hash = '#/home';
     };
 
-    const handleSwitchProfile = (id: string) => {
+    const handleSwitchProfile = async (id: string) => {
         const target = profiles.find(p => p.id === id);
         if (target) {
-            setUserId(target.id);
+            if (id.startsWith('local-')) {
+                if (user) await authLogout();
+                localStorage.setItem('engramCurrentUserId', target.id);
+                if (!isGuest) continueAsGuest();
+                podcast.controls.reset();
+                setUserId(target.id);
+            } else {
+                if (user && user.uid === id) {
+                    localStorage.setItem('engramCurrentUserId', target.id);
+                    podcast.controls.reset();
+                    setUserId(target.id);
+                } else {
+                    localStorage.setItem('engramCurrentUserId', target.id);
+                    await handleSignOut();
+                }
+            }
         }
     };
 
-    const handleAddProfile = () => {
-        handleSignOut();
+    const handleAddProfile = async () => {
+        if (user) await authLogout();
+        if (isGuest) await authLogout();
+        localStorage.removeItem('engramCurrentUserId');
+        setIsOnboarded(false);
+        setCheckingProfile(false);
+        setUserProfile({ name: 'Guest User', avatar: null });
+        podcast.controls.reset();
     };
 
     const handleAllowPermissions = async () => {
@@ -668,12 +720,15 @@ export const App: React.FC = () => {
 
     // Initial Load Settings
     useEffect(() => {
+        setLoadedSettingsUserId(null);
         try {
-            const storedTheme = localStorage.getItem('engramTheme');
-            const storedIntensity = localStorage.getItem('engramThemeIntensity');
-            const storedTabs = localStorage.getItem('engramTabs');
-            const storedDateTime = localStorage.getItem('engramDateTime');
-            const storedNotifications = localStorage.getItem('engramNotifications');
+            const storedTheme = localStorage.getItem(`engramTheme_${userId}`);
+            const storedIntensity = localStorage.getItem(`engramThemeIntensity_${userId}`);
+            const storedTabs = localStorage.getItem(`engramTabs_${userId}`);
+            const storedDateTime = localStorage.getItem(`engramDateTime_${userId}`);
+            const storedNotifications = localStorage.getItem(`engramNotifications_${userId}`);
+            const storedSync = localStorage.getItem(`engramGlobalSyncEnabled_${userId}`);
+            const storedAppMode = localStorage.getItem(`engramAppMode_${userId}`);
             
             const storedProfile = localStorage.getItem(`engramProfile_${userId}`);
             const storedHabits = localStorage.getItem(`engramHabits_${userId}`);
@@ -682,38 +737,42 @@ export const App: React.FC = () => {
             if (storedIntensity) setThemeIntensity(storedIntensity);
             if (storedTabs) setEnabledTabs(JSON.parse(storedTabs).filter((t: string) => t !== 'settings'));
             if (storedDateTime) setDateTimeSettings(JSON.parse(storedDateTime));
+            if (storedSync) setGlobalSyncEnabled(storedSync === 'true');
+            if (storedAppMode) setAppMode(storedAppMode);
             
             if (storedNotifications) {
                 const parsed = JSON.parse(storedNotifications);
                 
                 // MIGRATION START
-                // 1. Single time string -> Array of strings
-                if (parsed.reminderTime && !parsed.reminderTimes) {
-                    parsed.reminderTimes = [parsed.reminderTime];
-                    delete parsed.reminderTime;
-                }
+                if (typeof parsed === 'object' && parsed !== null) {
+                    // 1. Single time string -> Array of strings
+                    if (parsed.reminderTime && !parsed.reminderTimes) {
+                        parsed.reminderTimes = [parsed.reminderTime];
+                        delete parsed.reminderTime;
+                    }
 
-                // 2. Array of strings -> Array of ReminderConfig objects
-                if (parsed.reminderTimes && !parsed.reminders) {
-                    const globalLabel = parsed.customLabel || "Time to Study!";
-                    parsed.reminders = parsed.reminderTimes.map((t: string) => ({
-                        time: t,
-                        label: globalLabel
-                    }));
-                    delete parsed.reminderTimes;
-                    delete parsed.customLabel;
-                }
-                
-                // 3. Fallback if still empty
-                if (!parsed.reminders || !Array.isArray(parsed.reminders)) {
-                    parsed.reminders = [{ time: '09:00', label: 'Time to Study!' }];
+                    // 2. Array of strings -> Array of ReminderConfig objects
+                    if (parsed.reminderTimes && !parsed.reminders) {
+                        const globalLabel = parsed.customLabel || "Time to Study!";
+                        parsed.reminders = parsed.reminderTimes.map((t: string) => ({
+                            time: t,
+                            label: globalLabel
+                        }));
+                        delete parsed.reminderTimes;
+                        delete parsed.customLabel;
+                    }
+                    
+                    // 3. Fallback if still empty
+                    if (!parsed.reminders || !Array.isArray(parsed.reminders)) {
+                        parsed.reminders = [{ time: '09:00', label: 'Time to Study!' }];
+                    }
                 }
                 // MIGRATION END
 
                 setNotificationSettings(parsed);
             }
             
-            if (!user && storedProfile) {
+            if (storedProfile) {
                 const parsedProfile = JSON.parse(storedProfile);
                 setUserProfile(parsedProfile);
             } else if (!user && !storedProfile) {
@@ -727,65 +786,65 @@ export const App: React.FC = () => {
                 setHabits([]);
             }
 
+            setLoadedSettingsUserId(userId);
         } catch (e) {
             console.error("Failed to load settings", e);
         }
     }, [userId, user]); 
 
     // Persistence Effects
-    useEffect(() => { localStorage.setItem('engramTheme', currentTheme); }, [currentTheme]);
-    useEffect(() => { localStorage.setItem('engramThemeIntensity', themeIntensity); }, [themeIntensity]);
-    useEffect(() => { localStorage.setItem('engramTabs', JSON.stringify(enabledTabs)); }, [enabledTabs]);
-    useEffect(() => { localStorage.setItem('engramDateTime', JSON.stringify(dateTimeSettings)); }, [dateTimeSettings]);
-    useEffect(() => { localStorage.setItem('engramNotifications', JSON.stringify(notificationSettings)); }, [notificationSettings]);
+    useEffect(() => { if (loadedSettingsUserId === userId) localStorage.setItem(`engramTheme_${userId}`, currentTheme); }, [currentTheme, userId, loadedSettingsUserId]);
+    useEffect(() => { if (loadedSettingsUserId === userId) localStorage.setItem(`engramThemeIntensity_${userId}`, themeIntensity); }, [themeIntensity, userId, loadedSettingsUserId]);
+    useEffect(() => { if (loadedSettingsUserId === userId) localStorage.setItem(`engramTabs_${userId}`, JSON.stringify(enabledTabs)); }, [enabledTabs, userId, loadedSettingsUserId]);
+    useEffect(() => { if (loadedSettingsUserId === userId) localStorage.setItem(`engramDateTime_${userId}`, JSON.stringify(dateTimeSettings)); }, [dateTimeSettings, userId, loadedSettingsUserId]);
+    useEffect(() => { if (loadedSettingsUserId === userId) localStorage.setItem(`engramNotifications_${userId}`, JSON.stringify(notificationSettings)); }, [notificationSettings, userId, loadedSettingsUserId]);
     
-    useEffect(() => { if(!loadingData) localStorage.setItem(`engramProfile_${userId}`, JSON.stringify(userProfile)); }, [userProfile, loadingData, userId]);
-    useEffect(() => { if(!loadingData) localStorage.setItem(`engramHabits_${userId}`, JSON.stringify(habits)); }, [habits, loadingData, userId]);
+    useEffect(() => { if(!loadingData && loadedSettingsUserId === userId) localStorage.setItem(`engramProfile_${userId}`, JSON.stringify(userProfile)); }, [userProfile, loadingData, userId, loadedSettingsUserId]);
+    useEffect(() => { if(!loadingData && loadedSettingsUserId === userId) localStorage.setItem(`engramHabits_${userId}`, JSON.stringify(habits)); }, [habits, loadingData, userId, loadedSettingsUserId]);
 
     const handleSignOut = async () => {
-        if (isGuest && userId.startsWith('local-user-')) {
-            try {
-                const dataKey = `engramData_${userId}`;
-                const storedData = localStorage.getItem(dataKey);
-                if (storedData) {
-                    const topics: Topic[] = JSON.parse(storedData);
-                    for (const t of topics) {
-                        await deleteTopicBodyFromIDB(userId, t.id);
-                        if (t.hasSavedAudio) {
-                            await deleteAudioFromIDB(t.id);
-                        }
-                    }
-                }
-
-                const keysToRemove = [
-                    `engramData_${userId}`,
-                    `engramSubjects_${userId}`,
-                    `engramProfile_${userId}`,
-                    `engramHabits_${userId}`,
-                    `engramCalendarAgg_${userId}`,
-                    `engram-flashcard-history_${userId}`,
-                    `engram_migration_v2_complete_${userId}`
-                ];
-                keysToRemove.forEach(k => localStorage.removeItem(k));
-
-                const updatedProfiles = profiles.filter(p => p.id !== userId);
-                setProfiles(updatedProfiles); 
-                localStorage.setItem('engramProfiles', JSON.stringify(updatedProfiles));
-            
-            } catch (e) {
-                console.error("Guest cleanup failed", e);
-            }
-        }
-
         localStorage.removeItem('engramHasLoggedIn');
         if (user) await authLogout();
         if (isGuest) await authLogout(); 
         
         setIsOnboarded(false);
         setCheckingProfile(false);
+        setUserProfile({ name: 'Guest User', avatar: null });
         podcast.controls.reset();
         
-        setUserId('local-user-' + Math.floor(Math.random() * 100000));
+        // We do not delete the profile data here, so users can switch back to it.
+        // If they want to create a new profile, they can use "Add New Profile".
+    };
+
+    const handleDeleteProfile = async (idToDelete: string) => {
+        // Remove from profiles list
+        setProfiles(prev => prev.filter(p => p.id !== idToDelete));
+        
+        // Clear local storage data for this profile
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.endsWith(`_${idToDelete}`)) {
+                keysToRemove.push(key);
+            }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+        
+        // If the deleted profile is the current one
+        if (idToDelete === userId) {
+            // Find another profile to switch to
+            const remainingProfiles = profiles.filter(p => p.id !== idToDelete);
+            if (remainingProfiles.length > 0) {
+                // Switch to the first available profile (preferring non-guest if possible)
+                const nextProfile = remainingProfiles.find(p => !p.id.startsWith('local-')) || remainingProfiles[0];
+                handleSwitchProfile(nextProfile.id);
+            } else {
+                // No profiles left, clear everything and sign out
+                await handleSignOut();
+                localStorage.removeItem('engramCurrentUserId');
+                setUserId('local-user-' + Math.floor(Math.random() * 100000));
+            }
+        }
     };
 
     const handleSyncChoice = (choice: 'merge' | 'keep_local' | 'download_cloud') => {
@@ -797,8 +856,8 @@ export const App: React.FC = () => {
             localStorage.removeItem(`engramSubjects_${userId}`);
             localStorage.removeItem(`engramHabits_${userId}`);
             localStorage.removeItem(`engram-flashcard-history_${userId}`);
-            localStorage.removeItem('engramTasks');
-            localStorage.removeItem('engramMatrix');
+            localStorage.removeItem(`engramTasks_${userId}`);
+            localStorage.removeItem(`engramMatrix_${userId}`);
             
             // We can't easily clear IDB here synchronously, but handleIncomingSyncPayload will overwrite keys.
             // For a true overwrite, we should set state to empty first.
@@ -844,6 +903,7 @@ export const App: React.FC = () => {
                     </div>
                 </div>
             )}
+            <FocusProvider userId={userId} key={userId}>
             <AppRouter 
                 user={user}
                 isGuest={isGuest}
@@ -860,6 +920,7 @@ export const App: React.FC = () => {
                 onSignOut={handleSignOut}
                 onSwitchProfile={handleSwitchProfile}
                 onAddProfile={handleAddProfile}
+                onDeleteProfile={handleDeleteProfile}
 
                 studyLog={studyLog}
                 userSubjects={userSubjects}
@@ -897,8 +958,8 @@ export const App: React.FC = () => {
                 podcastConfig={podcastConfig}
                 setPodcastConfig={setPodcastConfig}
                 podcast={podcast}
-                focusState={focusState}
             />
+        </FocusProvider>
         </ProcessingProvider>
     );
 };

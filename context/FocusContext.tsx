@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { AMBIENT_SOUNDS } from '../constants';
 import { scheduleFinishNotification, cancelFinishNotification } from '../utils/notifications';
 
@@ -45,38 +45,40 @@ const workerBlob = new Blob([`
 
 const workerUrl = URL.createObjectURL(workerBlob);
 
-export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string }> = ({ children, userId }) => {
+    const getFocusKey = useCallback((key: string) => `focus_${key}_${userId}`, [userId]);
+
     // Initial state from localStorage or defaults
     const [mode, setModeState] = useState<'stopwatch' | 'pomodoro'>(() => 
-        (localStorage.getItem('focus_mode') as 'stopwatch' | 'pomodoro' | null) || 'stopwatch');
+        (localStorage.getItem(`focus_mode_${userId}`) as 'stopwatch' | 'pomodoro' | null) || 'stopwatch');
     const [duration, setDurationState] = useState<number>(() => 
-        parseInt(localStorage.getItem('focus_duration') || '25'));
+        parseInt(localStorage.getItem(`focus_duration_${userId}`) || '25'));
     const [elapsed, setElapsed] = useState<number>(() => 
-        parseFloat(localStorage.getItem('focus_elapsed') || '0'));
+        parseFloat(localStorage.getItem(`focus_elapsed_${userId}`) || '0'));
     const [isRunning, setIsRunning] = useState<boolean>(() => 
-        localStorage.getItem('focus_running') === 'true');
+        localStorage.getItem(`focus_running_${userId}`) === 'true');
     const [topicId, setTopicId] = useState<string | null>(() => 
-        localStorage.getItem('focus_topicId') || null);
+        localStorage.getItem(`focus_topicId_${userId}`) || null);
     const [topicName, setTopicName] = useState<string | null>(() => 
-        localStorage.getItem('focus_topicName') || null);
+        localStorage.getItem(`focus_topicName_${userId}`) || null);
     const [activeSoundId, setActiveSoundId] = useState<string | null>(null);
     
     // We store the timestamp of the last "tick" or start to calculate real time
-    const lastTickRef = useRef<number>(parseFloat(localStorage.getItem('focus_lastTick') || '0'));
+    const lastTickRef = useRef<number>(parseFloat(localStorage.getItem(`focus_lastTick_${userId}`) || '0'));
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     // Persist helpers
-    useEffect(() => localStorage.setItem('focus_mode', mode), [mode]);
-    useEffect(() => localStorage.setItem('focus_duration', duration.toString()), [duration]);
-    useEffect(() => localStorage.setItem('focus_elapsed', elapsed.toString()), [elapsed]);
-    useEffect(() => localStorage.setItem('focus_running', String(isRunning)), [isRunning]);
+    useEffect(() => localStorage.setItem(getFocusKey('mode'), mode), [mode]);
+    useEffect(() => localStorage.setItem(getFocusKey('duration'), duration.toString()), [duration]);
+    useEffect(() => localStorage.setItem(getFocusKey('elapsed'), elapsed.toString()), [elapsed]);
+    useEffect(() => localStorage.setItem(getFocusKey('running'), String(isRunning)), [isRunning]);
     useEffect(() => {
-        if(topicId) localStorage.setItem('focus_topicId', topicId);
-        else localStorage.removeItem('focus_topicId');
+        if(topicId) localStorage.setItem(getFocusKey('topicId'), topicId);
+        else localStorage.removeItem(getFocusKey('topicId'));
     }, [topicId]);
     useEffect(() => {
-        if(topicName) localStorage.setItem('focus_topicName', topicName);
-        else localStorage.removeItem('focus_topicName');
+        if(topicName) localStorage.setItem(getFocusKey('topicName'), topicName);
+        else localStorage.removeItem(getFocusKey('topicName'));
     }, [topicName]);
 
     // Audio Logic
@@ -160,7 +162,7 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     // If pomodoro and time is up
                     if (mode === 'pomodoro' && next >= duration * 60) {
                         setIsRunning(false);
-                        localStorage.setItem('focus_running', 'false');
+                        localStorage.setItem(getFocusKey('running'), 'false');
                         cancelFinishNotification(); // Clear any pending schedule
                         // Return exactly the duration to avoid overshoot visual
                         return duration * 60;
@@ -169,14 +171,14 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 });
                 
                 // Save tick timestamp for resilience (page reload)
-                localStorage.setItem('focus_lastTick', now.toString());
+                localStorage.setItem(getFocusKey('lastTick'), now.toString());
             };
 
             worker.postMessage('start');
         } else {
             // Not running, reset tick reference
             lastTickRef.current = 0;
-            localStorage.setItem('focus_lastTick', '0');
+            localStorage.setItem(getFocusKey('lastTick'), '0');
         }
 
         return () => {
@@ -189,8 +191,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Recover from background throttling/tab closes (Resume logic)
     useEffect(() => {
-        const savedTick = parseFloat(localStorage.getItem('focus_lastTick') || '0');
-        const wasRunning = localStorage.getItem('focus_running') === 'true';
+        const savedTick = parseFloat(localStorage.getItem(getFocusKey('lastTick')) || '0');
+        const wasRunning = localStorage.getItem(getFocusKey('running')) === 'true';
         
         if (wasRunning && savedTick > 0) {
             const now = Date.now();
@@ -240,7 +242,7 @@ export const FocusProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setTopicId(null);
         setTopicName(null);
         lastTickRef.current = 0;
-        localStorage.setItem('focus_lastTick', '0');
+        localStorage.setItem(getFocusKey('lastTick'), '0');
         cancelFinishNotification();
     };
 

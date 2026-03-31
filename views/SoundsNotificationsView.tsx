@@ -72,9 +72,11 @@ export const SoundsNotificationsView: React.FC<SoundsNotificationsViewProps> = (
                     }]
                 });
             } else {
+                const origin = window.location.origin;
+                const basePath = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL.slice(0, -1) : import.meta.env.BASE_URL;
                 new Notification("Notifications Active", { 
                     body: "Great! You'll receive study reminders here.",
-                    icon: 'https://engram-space.vercel.app/brand/engram_logo/engram_logo_192.png'
+                    icon: `${origin}${basePath}/brand/engram_logo/engram_logo_192.png`
                 });
             }
 
@@ -98,7 +100,7 @@ export const SoundsNotificationsView: React.FC<SoundsNotificationsViewProps> = (
     };
 
     const removeTimeSlot = (index: number) => {
-        const newReminders = settings.reminders.filter((_, i) => i !== index);
+        const newReminders = (settings.reminders || []).filter((_, i) => i !== index);
         onUpdateSettings({ ...settings, reminders: newReminders });
     };
 

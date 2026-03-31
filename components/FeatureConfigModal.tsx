@@ -28,7 +28,8 @@ export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, 
     useEffect(() => {
         if (isOpen) {
             try {
-                const stored = localStorage.getItem('engram_ai_preferences');
+                const userId = localStorage.getItem('engramCurrentUserId') || 'default';
+                const stored = localStorage.getItem(`engram_ai_preferences_${userId}`);
                 if (stored) {
                     const allPrefs = JSON.parse(stored);
                     setPrefs(allPrefs[featureId] || {});
@@ -44,10 +45,11 @@ export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, 
 
     const handleSave = () => {
         try {
-            const stored = localStorage.getItem('engram_ai_preferences');
+            const userId = localStorage.getItem('engramCurrentUserId') || 'default';
+            const stored = localStorage.getItem(`engram_ai_preferences_${userId}`);
             const allPrefs = stored ? JSON.parse(stored) : {};
             allPrefs[featureId] = prefs;
-            localStorage.setItem('engram_ai_preferences', JSON.stringify(allPrefs));
+            localStorage.setItem(`engram_ai_preferences_${userId}`, JSON.stringify(allPrefs));
             onClose();
         } catch (e: unknown) {
             console.error("Failed to save preferences", e);

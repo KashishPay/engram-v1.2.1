@@ -1,8 +1,10 @@
 
 import { PomodoroSession, TopicSession, SessionLog } from '../types';
 
-const KEY_POMODORO = 'engram_pomodoro_logs';
-const KEY_TOPIC = 'engram_topic_logs';
+const getUserId = () => localStorage.getItem('engramCurrentUserId') || 'default';
+
+const getKeyPomodoro = () => `engram_pomodoro_logs_${getUserId()}`;
+const getKeyTopic = () => `engram_topic_logs_${getUserId()}`;
 const KEY_LEGACY = 'engramGlobalFocusLogs';
 
 // Helper: Get Local Date as ISO String (YYYY-MM-DD)
@@ -55,10 +57,10 @@ const migrateLegacyLogs = () => {
         const existingTopic = getTopicLogs();
 
         if (pomodoroLogs.length > 0) {
-            localStorage.setItem(KEY_POMODORO, JSON.stringify([...existingPomo, ...pomodoroLogs]));
+            localStorage.setItem(getKeyPomodoro(), JSON.stringify([...existingPomo, ...pomodoroLogs]));
         }
         if (topicLogs.length > 0) {
-            localStorage.setItem(KEY_TOPIC, JSON.stringify([...existingTopic, ...topicLogs]));
+            localStorage.setItem(getKeyTopic(), JSON.stringify([...existingTopic, ...topicLogs]));
         }
         
         // Remove legacy key to complete migration
@@ -74,19 +76,19 @@ migrateLegacyLogs();
 
 export const getPomodoroLogs = (): PomodoroSession[] => {
     try {
-        const raw = localStorage.getItem(KEY_POMODORO);
+        const raw = localStorage.getItem(getKeyPomodoro());
         return raw ? JSON.parse(raw) : [];
     } catch { return []; }
 };
 
 export const savePomodoroLogs = (logs: PomodoroSession[]) => {
-    localStorage.setItem(KEY_POMODORO, JSON.stringify(logs));
+    localStorage.setItem(getKeyPomodoro(), JSON.stringify(logs));
     window.dispatchEvent(new Event('focus-log-updated'));
 };
 
 export const getTopicLogs = (): TopicSession[] => {
     try {
-        const raw = localStorage.getItem(KEY_TOPIC);
+        const raw = localStorage.getItem(getKeyTopic());
         return raw ? JSON.parse(raw) : [];
     } catch { return []; }
 };
@@ -151,7 +153,7 @@ export const logPomodoroSession = (minutes: number) => {
         subject: 'General'
     };
     
-    localStorage.setItem(KEY_POMODORO, JSON.stringify([session, ...logs]));
+    localStorage.setItem(getKeyPomodoro(), JSON.stringify([session, ...logs]));
     
     // Dispatch event specifically for Pomodoro UI
     window.dispatchEvent(new Event('focus-log-updated'));
@@ -163,7 +165,7 @@ export const updatePomodoroLog = (createdAt: number, updates: Partial<PomodoroSe
     const index = logs.findIndex(l => l.createdAt === createdAt);
     if (index !== -1) {
         logs[index] = { ...logs[index], ...updates };
-        localStorage.setItem(KEY_POMODORO, JSON.stringify(logs));
+        localStorage.setItem(getKeyPomodoro(), JSON.stringify(logs));
         window.dispatchEvent(new Event('focus-log-updated'));
     }
 };
@@ -188,7 +190,7 @@ export const logTopicSession = (minutes: number, topicName: string, subject: str
         subject
     };
 
-    localStorage.setItem(KEY_TOPIC, JSON.stringify([session, ...logs]));
+    localStorage.setItem(getKeyTopic(), JSON.stringify([session, ...logs]));
     
     // Optional: Event if we build a global history view later
     window.dispatchEvent(new Event('focus-log-updated')); // Fire global focus update so PomoHistoryView sees it

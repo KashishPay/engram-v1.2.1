@@ -11,6 +11,7 @@ import { Topic, User } from '../types';
 import { PodcastState, PodcastControls } from '../hooks/usePodcast';
 import { GlobalNotificationService, GlobalNotification } from '../services/globalNotifications';
 import { triggerHaptic } from '../utils/haptics';
+import { checkGuestStatus } from '../utils/guestLimit';
 
 interface AppShellProps {
     children: React.ReactNode;

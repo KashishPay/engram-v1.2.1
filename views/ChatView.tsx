@@ -4,6 +4,7 @@ import { Send, ArrowLeft, Sparkles, StopCircle, Copy, Check, RotateCw, ChevronDo
 import { Topic } from '../types';
 import { chatWithNotesStream } from '../services/gemini';
 import { ensureTopicContent, getChatFromIDB, saveChatToIDB } from '../services/storage';
+import { AdManager } from '../services/admob';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -18,10 +19,16 @@ interface ChatViewProps {
 
 interface Message {
     id: string;
-    role: 'user' | 'model';
+    role: 'user' | 'model' | 'ad';
     text: string;
     timestamp?: number;
     isStreaming?: boolean;
+    adContent?: {
+        imageUrl?: string;
+        title?: string;
+        description?: string;
+        link?: string;
+    };
 }
 
 const CopyButton = ({ text }: { text: string }) => {
@@ -128,14 +135,56 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
         if (!input.trim() || !topic || isTyping) return;
 
         const userMsg: Message = { id: Date.now().toString(), role: 'user', text: input.trim(), timestamp: Date.now() };
+        
+        // Determine if we should show an ad (e.g., every 2nd question, or every question)
+        // The user suggested "at adequate intervals may be like after every question user asks"
+        // Let's do it every 2 questions to be "adequate" but frequent enough, or every question.
+        // Let's do every 2 questions to avoid overwhelming, but we can do every question if preferred.
+        // The user said "adequate intervals may be like after every question user asks"
+        const questionsCount = userQuestions.length + 1;
+        const shouldShowAd = true; // Show after every question as requested
+
+        const newMessages: Message[] = [userMsg];
+
+        if (shouldShowAd) {
+            const adMsgId = `ad-${Date.now()}`;
+            // Simulate fetching ad from server side
+            const adMsg: Message = {
+                id: adMsgId,
+                role: 'ad',
+                text: 'Loading advertisement...',
+                timestamp: Date.now()
+            };
+            newMessages.push(adMsg);
+        }
+
         const botMsgId = (Date.now() + 1).toString();
         const initialBotMsg: Message = { id: botMsgId, role: 'model', text: '', timestamp: Date.now(), isStreaming: true };
+        newMessages.push(initialBotMsg);
         
-        setMessages(prev => [...prev, userMsg, initialBotMsg]);
+        setMessages(prev => [...prev, ...newMessages]);
         setInput('');
         setIsTyping(true);
 
-        const history = messages.map(m => ({ role: m.role, text: m.text }));
+        if (shouldShowAd) {
+            // Fetch ad content from server
+            AdManager.fetchChatAd().then(adContent => {
+                if (adContent) {
+                    setMessages(prev => prev.map(msg => {
+                        if (msg.id === newMessages[1].id) {
+                            return {
+                                ...msg,
+                                text: '',
+                                adContent
+                            };
+                        }
+                        return msg;
+                    }));
+                }
+            });
+        }
+
+        const history = messages.filter(m => m.role !== 'ad').map(m => ({ role: m.role, text: m.text }));
 
         try {
             let accumulatedText = "";
@@ -248,6 +297,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                     <>
                         {messages.map((msg, idx) => {
                             const isUser = msg.role === 'user';
+                            const isAd = msg.role === 'ad';
                             // Determine Question Number
                             const qIndex = isUser ? userQuestions.findIndex(q => q.id === msg.id) + 1 : null;
 
@@ -255,7 +305,10 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                                 <div 
                                     id={`msg-${msg.id}`}
                                     key={msg.id || idx} 
-                                    className={`w-full py-3 px-4 border-b border-gray-50 dark:border-gray-800/50 transition-colors duration-1000 ${isUser ? 'bg-gray-50/50 dark:bg-gray-800/20' : 'bg-white dark:bg-gray-900'}`}
+                                    className={`w-full py-3 px-4 border-b border-gray-50 dark:border-gray-800/50 transition-colors duration-1000 ${
+                                        isUser ? 'bg-gray-50/50 dark:bg-gray-800/20' : 
+                                        isAd ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'bg-white dark:bg-gray-900'
+                                    }`}
                                 >
                                     <div className="max-w-4xl mx-auto">
                                         {/* Inline Header Row */}
@@ -263,54 +316,88 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                                             <span className={`text-xs font-bold uppercase tracking-wide flex items-center ${
                                                 isUser 
                                                 ? `text-${themeColor}-600 dark:text-${themeColor}-400`
+                                                : isAd
+                                                ? 'text-gray-400 dark:text-gray-500'
                                                 : 'text-indigo-600 dark:text-indigo-400'
                                             }`}>
-                                                {isUser ? 'You' : 'AI Tutor'}
+                                                {isUser ? 'You' : isAd ? 'Sponsored' : 'AI Tutor'}
                                                 {isUser && qIndex && (
                                                     <span className={`ml-2 text-[9px] bg-${themeColor}-100 text-${themeColor}-700 dark:bg-${themeColor}-900 dark:text-${themeColor}-300 px-1.5 py-0.5 rounded-md font-mono`}>
                                                         #{qIndex}
                                                     </span>
                                                 )}
                                             </span>
-                                            {!isUser && !msg.isStreaming && <CopyButton text={msg.text} />}
+                                            {!isUser && !isAd && !msg.isStreaming && <CopyButton text={msg.text} />}
                                         </div>
 
                                         {/* Full Width Content */}
                                         <div className="markdown-body text-gray-800 dark:text-gray-200 text-sm leading-relaxed break-words pl-0">
-                                            <ReactMarkdown 
-                                                remarkPlugins={[remarkGfm, remarkMath]}
-                                                rehypePlugins={[rehypeKatex]}
-                                                components={{
-                                                    table: ({node, ...props}: React.ComponentPropsWithoutRef<'table'> & {node?: unknown}) => { void node; return <div className="overflow-x-auto my-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" {...props} /></div> },
-                                                    th: ({node, ...props}: React.ComponentPropsWithoutRef<'th'> & {node?: unknown}) => { void node; return <th className="px-3 py-2 bg-gray-50 dark:bg-gray-800 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700" {...props} /> },
-                                                    td: ({node, ...props}: React.ComponentPropsWithoutRef<'td'> & {node?: unknown}) => { void node; return <td className="px-3 py-2 text-sm border-b border-gray-100 dark:border-gray-800 last:border-0 text-gray-700 dark:text-gray-300" {...props} /> },
-                                                    code: ({node, className, children, ...props}: React.ComponentPropsWithoutRef<'code'> & {node?: unknown}) => {
-                                                        void node;
-                                                        const match = /language-(\w+)/.exec(className || '')
-                                                        return match ? (
-                                                            <div className="rounded-lg bg-gray-900 text-gray-100 overflow-hidden my-3 shadow-sm border border-gray-800 text-xs">
-                                                                <div className="px-3 py-1 bg-gray-800 text-[9px] uppercase font-bold text-gray-400 border-b border-gray-700">
-                                                                    {match[1]}
-                                                                </div>
-                                                                <div className="p-3 overflow-x-auto">
-                                                                    <code className={className} {...props}>{children}</code>
-                                                                </div>
+                                            {isAd ? (
+                                                msg.adContent ? (
+                                                    <a 
+                                                        href={msg.adContent.link} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="block mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition group"
+                                                    >
+                                                        {msg.adContent.imageUrl && (
+                                                            <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+                                                                <img 
+                                                                    src={msg.adContent.imageUrl} 
+                                                                    alt="Advertisement" 
+                                                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                                                                    referrerPolicy="no-referrer"
+                                                                />
+                                                                <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Ad</div>
                                                             </div>
-                                                        ) : (
-                                                            <code className="px-1 py-0.5 rounded font-mono text-xs bg-gray-100 dark:bg-gray-800 text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700" {...props}>{children}</code>
-                                                        )
-                                                    },
-                                                    p: ({node, ...props}: React.ComponentPropsWithoutRef<'p'> & {node?: unknown}) => { void node; return <p className="mb-2 last:mb-0" {...props} /> },
-                                                    ul: ({node, ...props}: React.ComponentPropsWithoutRef<'ul'> & {node?: unknown}) => { void node; return <ul className="list-disc list-outside ml-4 mb-2 space-y-1" {...props} /> },
-                                                    ol: ({node, ...props}: React.ComponentPropsWithoutRef<'ol'> & {node?: unknown}) => { void node; return <ol className="list-decimal list-outside ml-4 mb-2 space-y-1" {...props} /> },
-                                                    li: ({node, ...props}: React.ComponentPropsWithoutRef<'li'> & {node?: unknown}) => { void node; return <li className="pl-1" {...props} /> },
-                                                    a: ({node, ...props}: React.ComponentPropsWithoutRef<'a'> & {node?: unknown}) => { void node; return <a className={`underline text-${themeColor}-600 dark:text-${themeColor}-400 hover:text-${themeColor}-700`} {...props} /> },
-                                                    blockquote: ({node, ...props}: React.ComponentPropsWithoutRef<'blockquote'> & {node?: unknown}) => { void node; return <blockquote className="border-l-2 border-gray-300 dark:border-gray-600 pl-3 italic my-2 text-gray-500 dark:text-gray-400" {...props} /> },
-                                                    hr: ({node, ...props}: React.ComponentPropsWithoutRef<'hr'> & {node?: unknown}) => { void node; return <hr className="my-4 border-gray-200 dark:border-gray-800" {...props} /> },
-                                                }}
-                                            >
-                                                {msg.text || (msg.isStreaming ? "▋" : "")}
-                                            </ReactMarkdown>
+                                                        )}
+                                                        <div className="p-3">
+                                                            <h4 className={`font-bold text-${themeColor}-600 dark:text-${themeColor}-400 mb-1`}>{msg.adContent.title}</h4>
+                                                            <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">{msg.adContent.description}</p>
+                                                        </div>
+                                                    </a>
+                                                ) : (
+                                                    <div className="flex items-center space-x-2 text-gray-400 dark:text-gray-500 text-xs italic py-2">
+                                                        <RotateCw size={12} className="animate-spin" />
+                                                        <span>{msg.text}</span>
+                                                    </div>
+                                                )
+                                            ) : (
+                                                <ReactMarkdown 
+                                                    remarkPlugins={[remarkGfm, remarkMath]}
+                                                    rehypePlugins={[rehypeKatex]}
+                                                    components={{
+                                                        table: ({node, ...props}: React.ComponentPropsWithoutRef<'table'> & {node?: unknown}) => { void node; return <div className="overflow-x-auto my-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900" {...props} /></div> },
+                                                        th: ({node, ...props}: React.ComponentPropsWithoutRef<'th'> & {node?: unknown}) => { void node; return <th className="px-3 py-2 bg-gray-50 dark:bg-gray-800 text-left text-xs font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700" {...props} /> },
+                                                        td: ({node, ...props}: React.ComponentPropsWithoutRef<'td'> & {node?: unknown}) => { void node; return <td className="px-3 py-2 text-sm border-b border-gray-100 dark:border-gray-800 last:border-0 text-gray-700 dark:text-gray-300" {...props} /> },
+                                                        code: ({node, className, children, ...props}: React.ComponentPropsWithoutRef<'code'> & {node?: unknown}) => {
+                                                            void node;
+                                                            const match = /language-(\w+)/.exec(className || '')
+                                                            return match ? (
+                                                                <div className="rounded-lg bg-gray-900 text-gray-100 overflow-hidden my-3 shadow-sm border border-gray-800 text-xs">
+                                                                    <div className="px-3 py-1 bg-gray-800 text-[9px] uppercase font-bold text-gray-400 border-b border-gray-700">
+                                                                        {match[1]}
+                                                                    </div>
+                                                                    <div className="p-3 overflow-x-auto">
+                                                                        <code className={className} {...props}>{children}</code>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <code className="px-1 py-0.5 rounded font-mono text-xs bg-gray-100 dark:bg-gray-800 text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700" {...props}>{children}</code>
+                                                            )
+                                                        },
+                                                        p: ({node, ...props}: React.ComponentPropsWithoutRef<'p'> & {node?: unknown}) => { void node; return <p className="mb-2 last:mb-0" {...props} /> },
+                                                        ul: ({node, ...props}: React.ComponentPropsWithoutRef<'ul'> & {node?: unknown}) => { void node; return <ul className="list-disc list-outside ml-4 mb-2 space-y-1" {...props} /> },
+                                                        ol: ({node, ...props}: React.ComponentPropsWithoutRef<'ol'> & {node?: unknown}) => { void node; return <ol className="list-decimal list-outside ml-4 mb-2 space-y-1" {...props} /> },
+                                                        li: ({node, ...props}: React.ComponentPropsWithoutRef<'li'> & {node?: unknown}) => { void node; return <li className="pl-1" {...props} /> },
+                                                        a: ({node, ...props}: React.ComponentPropsWithoutRef<'a'> & {node?: unknown}) => { void node; return <a className={`underline text-${themeColor}-600 dark:text-${themeColor}-400 hover:text-${themeColor}-700`} {...props} /> },
+                                                        blockquote: ({node, ...props}: React.ComponentPropsWithoutRef<'blockquote'> & {node?: unknown}) => { void node; return <blockquote className="border-l-2 border-gray-300 dark:border-gray-600 pl-3 italic my-2 text-gray-500 dark:text-gray-400" {...props} /> },
+                                                        hr: ({node, ...props}: React.ComponentPropsWithoutRef<'hr'> & {node?: unknown}) => { void node; return <hr className="my-4 border-gray-200 dark:border-gray-800" {...props} /> },
+                                                    }}
+                                                >
+                                                    {msg.text || (msg.isStreaming ? "▋" : "")}
+                                                </ReactMarkdown>
+                                            )}
                                             {msg.isStreaming && <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse align-middle opacity-50"/>}
                                         </div>
                                     </div>

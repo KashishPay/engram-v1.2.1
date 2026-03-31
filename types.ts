@@ -97,8 +97,16 @@ export interface Habit {
 }
 
 export interface ChatMessage {
-    role: 'user' | 'model';
+    id?: string;
+    role: 'user' | 'model' | 'ad';
     text: string;
+    timestamp?: number;
+    adContent?: {
+        imageUrl?: string;
+        title?: string;
+        description?: string;
+        link?: string;
+    };
 }
 
 export interface User {
@@ -135,6 +143,7 @@ export interface FlashCard {
     topicName?: string;
     createdAt?: string;
     lastResult?: 'known' | 'unknown';
+    isAd?: boolean;
 }
 
 // Global variable declarations for Canvas/Runtime environment

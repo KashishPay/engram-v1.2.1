@@ -10,7 +10,8 @@ export interface GlobalNotification {
     is_active: boolean;
 }
 
-const DISMISSED_KEY = 'engram_dismissed_notifications';
+const getUserId = () => localStorage.getItem('engramCurrentUserId') || 'default';
+const getDismissedKey = () => `engram_dismissed_notifications_${getUserId()}`;
 
 export const GlobalNotificationService = {
     /**
@@ -37,7 +38,7 @@ export const GlobalNotificationService = {
      */
     getDismissedIds: (): string[] => {
         try {
-            const raw = localStorage.getItem(DISMISSED_KEY);
+            const raw = localStorage.getItem(getDismissedKey());
             return raw ? JSON.parse(raw) : [];
         } catch {
             return [];
@@ -50,7 +51,7 @@ export const GlobalNotificationService = {
     dismissNotifications: (ids: string[]) => {
         const current = GlobalNotificationService.getDismissedIds();
         const newSet = new Set([...current, ...ids]);
-        localStorage.setItem(DISMISSED_KEY, JSON.stringify(Array.from(newSet)));
+        localStorage.setItem(getDismissedKey(), JSON.stringify(Array.from(newSet)));
     },
 
     /**

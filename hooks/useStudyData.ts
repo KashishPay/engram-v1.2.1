@@ -7,10 +7,14 @@ export const useStudyData = (userId: string) => {
     const [studyLog, setStudyLog] = useState<Topic[]>([]);
     const [userSubjects, setUserSubjects] = useState<Subject[]>([]);
     const [loadingData, setLoadingData] = useState(true);
+    const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
     // Initial Load & Migration Logic
     useEffect(() => {
         setLoadingData(true);
+        setStudyLog([]);
+        setUserSubjects([]);
+        setLoadedUserId(null);
         performance.mark('boot_start');
 
         // Async hydration wrapped in a timeout to yield to main thread immediately
@@ -126,6 +130,7 @@ export const useStudyData = (userId: string) => {
                 setUserSubjects([]);
             } finally {
                 setLoadingData(false);
+                setLoadedUserId(userId);
                 performance.mark('boot_end');
             }
         }, 0);
@@ -135,7 +140,7 @@ export const useStudyData = (userId: string) => {
 
     // Save Logic (Effects) with scoped keys
     useEffect(() => {
-        if (!loadingData && userId) {
+        if (!loadingData && userId && loadedUserId === userId) {
             // Strip heavy audio AND body text before saving to localStorage index
             const indexLog = studyLog.map(topic => {
                 const rest = { ...topic };
@@ -151,13 +156,13 @@ export const useStudyData = (userId: string) => {
                 console.error("Failed to save to localStorage", e);
             }
         }
-    }, [studyLog, loadingData, userId]);
+    }, [studyLog, loadingData, userId, loadedUserId]);
 
     useEffect(() => {
-        if (!loadingData && userId) {
+        if (!loadingData && userId && loadedUserId === userId) {
             localStorage.setItem(`engramSubjects_${userId}`, JSON.stringify(userSubjects));
         }
-    }, [userSubjects, loadingData, userId]);
+    }, [userSubjects, loadingData, userId, loadedUserId]);
 
     // Handlers
     const handleUpdateTopic = useCallback(async (updatedTopic: Topic) => {

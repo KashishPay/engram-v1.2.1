@@ -518,12 +518,26 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                             </h3>
                             
                             {currentJob.status === 'error' && (
-                                <button 
-                                    onClick={() => clearJob(topic.id)}
-                                    className="mt-4 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-full text-sm font-bold shadow-sm hover:bg-red-50 transition"
-                                >
-                                    Dismiss
-                                </button>
+                                <div className="mt-4 flex flex-col items-center">
+                                    {(currentJob.message?.includes('API Key') || currentJob.message?.includes('quota')) && (
+                                        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 max-w-xs">
+                                            <p className="font-bold mb-1">AI Setup Required</p>
+                                            <p>To use AI features, please add your **Gemini API Key** in Settings. It's free to get from Google AI Studio.</p>
+                                            <button 
+                                                onClick={() => navigateTo('settings')}
+                                                className="mt-2 text-amber-900 font-bold underline"
+                                            >
+                                                Go to Settings
+                                            </button>
+                                        </div>
+                                    )}
+                                    <button 
+                                        onClick={() => clearJob(topic.id)}
+                                        className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-full text-sm font-bold shadow-sm hover:bg-red-50 transition"
+                                    >
+                                        Dismiss
+                                    </button>
+                                </div>
                             )}
                             
                             {currentJob.status === 'processing' && (
@@ -544,7 +558,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                                     </div>
                                     {(currentJob.status === 'processing' || currentJob.status === 'uploading') && (
                                         <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 italic animate-pulse">
-                                            Estimated time: ~{Math.max(5, currentJob.stats.pages * 5)}s
+                                            Estimated time: ~{Math.max(15, currentJob.stats.pages * 15)}s
                                         </p>
                                     )}
                                 </>

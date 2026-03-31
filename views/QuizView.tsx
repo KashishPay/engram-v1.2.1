@@ -202,7 +202,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             let model = 'gemini-3-flash-preview'; // Safe Default
             let persona = "";
             try {
-                const prefs = JSON.parse(localStorage.getItem('engram_ai_preferences') || '{}');
+                const prefs = JSON.parse(localStorage.getItem(`engram_ai_preferences_${userId}`) || '{}');
                 const quizPrefs = prefs.quiz || {};
                 if (quizPrefs.model) {
                     if (quizPrefs.model === 'flash') model = 'gemini-3-flash-preview';

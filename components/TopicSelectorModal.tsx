@@ -21,6 +21,14 @@ export const TopicSelectorModal: React.FC<TopicSelectorModalProps> = ({
     const [filterSubject, setFilterSubject] = useState<string>('all');
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+    React.useEffect(() => {
+        if (isOpen) {
+            setSelectedIds(new Set(initialSelection));
+            setSearchQuery('');
+            setFilterSubject('all');
+        }
+    }, [isOpen, initialSelection]);
+
     // Filter Logic
     const filteredTopics = useMemo(() => {
         let result = topics;

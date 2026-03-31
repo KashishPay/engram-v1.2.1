@@ -38,16 +38,13 @@ export const ProfileService = {
     /**
      * Fetches the profile for the *currently authenticated* user.
      */
-    getCurrentProfile: async () => {
+    getCurrentProfile: async (userId: string) => {
         if (!supabase) return null;
         
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return null;
-
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
-            .eq('user_id', session.user.id)
+            .eq('user_id', userId)
             .single();
 
         if (error) {

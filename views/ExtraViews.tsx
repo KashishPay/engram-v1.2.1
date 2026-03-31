@@ -378,7 +378,7 @@ export const CalendarView: React.FC<ExtraViewProps> = ({ themeColor, settings, s
     );
 };
 
-export const TaskView: React.FC<ExtraViewProps> = ({ themeColor, settings }) => {
+export const TaskView: React.FC<ExtraViewProps> = ({ themeColor, settings, userId }) => {
 // ... rest of TaskView remains identical ...
     const [tasks, setTasks] = useState<{ id: number, text: string, done: boolean, dueDate: string }[]>([
         { id: 1, text: 'Review Network Theory', done: false, dueDate: new Date(Date.now() + 86400000).toISOString() }, // Tomorrow
@@ -389,6 +389,7 @@ export const TaskView: React.FC<ExtraViewProps> = ({ themeColor, settings }) => 
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [calendarMonth, setCalendarMonth] = useState(new Date());
     const [showCompletedFolder, setShowCompletedFolder] = useState(false);
+    const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
     const countdownMode = settings?.countdownMode || false;
 
@@ -404,13 +405,20 @@ export const TaskView: React.FC<ExtraViewProps> = ({ themeColor, settings }) => 
 
     // Persist tasks
     useEffect(() => {
-        const stored = localStorage.getItem('engramTasks');
-        if (stored) setTasks(JSON.parse(stored));
-    }, []);
+        const stored = localStorage.getItem(`engramTasks_${userId}`);
+        if (stored) {
+            setTasks(JSON.parse(stored));
+        } else {
+            setTasks([]);
+        }
+        setLoadedUserId(userId);
+    }, [userId]);
 
     useEffect(() => {
-        localStorage.setItem('engramTasks', JSON.stringify(tasks));
-    }, [tasks]);
+        if (loadedUserId === userId) {
+            localStorage.setItem(`engramTasks_${userId}`, JSON.stringify(tasks));
+        }
+    }, [tasks, userId, loadedUserId]);
 
     const getDueDisplay = (isoDate: string) => {
         if (!isoDate) return '';
@@ -646,13 +654,14 @@ export const TaskView: React.FC<ExtraViewProps> = ({ themeColor, settings }) => 
     );
 };
 
-export const EisenhowerMatrixView: React.FC<ExtraViewProps> = ({ themeColor }) => {
+export const EisenhowerMatrixView: React.FC<ExtraViewProps> = ({ themeColor, userId }) => {
     // ... Eisenhower Matrix implementation unchanged ...
     const [tasks, setTasks] = useState<{ id: string; text: string; q: number; done?: boolean }[]>([]);
     const [input, setInput] = useState<{ [key: number]: string }>({ 1: '', 2: '', 3: '', 4: '' });
+    const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
     useEffect(() => {
-        const stored = localStorage.getItem('engramMatrix');
+        const stored = localStorage.getItem(`engramMatrix_${userId}`);
         if (stored) {
             try {
                 const parsed = JSON.parse(stored);
@@ -660,12 +669,17 @@ export const EisenhowerMatrixView: React.FC<ExtraViewProps> = ({ themeColor }) =
             } catch {
                 setTasks([]);
             }
+        } else {
+            setTasks([]);
         }
-    }, []);
+        setLoadedUserId(userId);
+    }, [userId]);
 
     useEffect(() => {
-        localStorage.setItem('engramMatrix', JSON.stringify(tasks));
-    }, [tasks]);
+        if (loadedUserId === userId) {
+            localStorage.setItem(`engramMatrix_${userId}`, JSON.stringify(tasks));
+        }
+    }, [tasks, userId, loadedUserId]);
 
     const addTask = (q: number) => {
         const text = input[q]?.trim();

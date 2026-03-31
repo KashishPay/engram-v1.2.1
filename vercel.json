@@ -2,6 +2,8 @@
 {
   "rewrites": [
     { "source": "/images/(.*)", "destination": "/images/$1" },
+    { "source": "/brand/(.*)", "destination": "/brand/$1" },
+    { "source": "/pdf.worker.min.js", "destination": "/pdf.worker.min.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

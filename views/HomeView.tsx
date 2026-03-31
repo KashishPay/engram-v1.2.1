@@ -11,6 +11,44 @@ import { TopicSelectorModal } from '../components/TopicSelectorModal';
 import katex from 'katex';
 import DOMPurify from 'dompurify';
 import { triggerHaptic } from '../utils/haptics';
+import { AdManager } from '../services/admob';
+
+const injectAdCards = (cards: FlashCard[]): FlashCard[] => {
+    let config = AdManager.getConfig();
+    
+    // Fallback config if network hasn't finished loading yet
+    if (!config) {
+        config = {
+            banner_ad_unit_id: 'ca-app-pub-3940256099942544/6300978111',
+            min_interval: 3,
+            max_interval: 5,
+            is_active: true
+        };
+    }
+
+    if (!config.is_active || cards.length === 0) return cards;
+
+    const newCards: FlashCard[] = [];
+    let nextAdIndex = Math.floor(Math.random() * (config.max_interval - config.min_interval + 1)) + config.min_interval;
+    let cardsSinceLastAd = 0;
+
+    for (let i = 0; i < cards.length; i++) {
+        newCards.push(cards[i]);
+        cardsSinceLastAd++;
+
+        if (cardsSinceLastAd >= nextAdIndex && i !== cards.length - 1) {
+            newCards.push({
+                id: `ad-${Date.now()}-${i}`,
+                front: 'AD_PLACEHOLDER',
+                back: 'AD_PLACEHOLDER',
+                isAd: true
+            });
+            cardsSinceLastAd = 0;
+            nextAdIndex = Math.floor(Math.random() * (config.max_interval - config.min_interval + 1)) + config.min_interval;
+        }
+    }
+    return newCards;
+};
 
 interface HomeViewProps {
     studyLog: Topic[];
@@ -50,6 +88,7 @@ const FlashCardDeck: React.FC<{
     const [loading, setLoading] = useState(false);
     const [isFlipped, setIsFlipped] = useState(false);
     const [swipe, setSwipe] = useState<'left' | 'right' | null>(null);
+    const [adDelay, setAdDelay] = useState(0);
     const [completed, setCompleted] = useState(false);
     const [cardHistory, setCardHistory] = useState<FlashCard[]>(() => {
         try {
@@ -62,13 +101,13 @@ const FlashCardDeck: React.FC<{
     
     // Config State
     const [showSelector, setShowSelector] = useState(false);
-    const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]); // Empty = All (Mixed)
+    const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
     const [showRevisitOptions, setShowRevisitOptions] = useState(false);
 
     // Font Size State (Persisted)
     const [fontScale, setFontScale] = useState<number>(() => {
         try {
-            return parseFloat(localStorage.getItem('engram_fc_font') || '1.25'); // Default 1.25rem (~text-xl)
+            return parseFloat(localStorage.getItem(`engram_fc_font_${userId}`) || '1.25'); // Default 1.25rem (~text-xl)
         } catch { return 1.25; }
     });
 
@@ -76,11 +115,10 @@ const FlashCardDeck: React.FC<{
     const [deletedCard, setDeletedCard] = useState<{ card: FlashCard, index: number } | null>(null);
     const undoTimeoutRef = useRef<number | null>(null);
 
-    // Initial Selection Sync: If user has topics but no selection, it implicitly means ALL
-    // But for the modal to work, we need to pass explicit IDs if the state is empty.
+    // Initial Selection Sync: Empty means nothing selected.
     const effectiveSelectionForModal = useMemo(() => {
-        return selectedTopicIds.length > 0 ? selectedTopicIds : topics.map(t => t.id);
-    }, [selectedTopicIds, topics]);
+        return selectedTopicIds;
+    }, [selectedTopicIds]);
 
     useEffect(() => {
         try {
@@ -101,17 +139,16 @@ const FlashCardDeck: React.FC<{
         triggerHaptic.selection();
         setFontScale(prev => {
             const next = Math.min(Math.max(0.75, prev + delta), 3.0); // Clamp between 0.75rem and 3.0rem
-            localStorage.setItem('engram_fc_font', next.toString());
+            localStorage.setItem(`engram_fc_font_${userId}`, next.toString());
             return next;
         });
     };
 
-    const generateCards = async () => {
-        const effectiveIds = selectedTopicIds.length > 0 ? selectedTopicIds : topics.map(t => t.id);
-        const pool = topics.filter(t => effectiveIds.includes(t.id));
+    const generateCards = async (overrideIds?: string[]) => {
+        const idsToUse = Array.isArray(overrideIds) ? overrideIds : selectedTopicIds;
+        const pool = topics.filter(t => idsToUse.includes(t.id));
         
         if (pool.length === 0) {
-            alert("Please select at least one topic to generate cards.");
             setShowSelector(true);
             return;
         }
@@ -119,7 +156,7 @@ const FlashCardDeck: React.FC<{
         let desiredCount = 5;
         let persona = "";
         try {
-            const prefsRaw = localStorage.getItem('engram_ai_preferences') || '{}';
+            const prefsRaw = localStorage.getItem(`engram_ai_preferences_${userId}`) || '{}';
             const prefs = JSON.parse(prefsRaw);
             desiredCount = Number(prefs?.flashcards?.cardsPerDeck) || 5;
             if (prefs?.flashcards?.persona) {
@@ -213,7 +250,7 @@ const FlashCardDeck: React.FC<{
                     lastResult: undefined
                 }));
                 
-                setCards(newCards);
+                setCards(injectAdCards(newCards));
                 triggerHaptic.notification('Success');
                 const updatedHistory = [...cardHistory, ...newCards];
                 if (updatedHistory.length > 200) updatedHistory.splice(0, updatedHistory.length - 200);
@@ -251,7 +288,7 @@ const FlashCardDeck: React.FC<{
         }
 
         const shuffled = [...historyPool].sort(() => 0.5 - Math.random());
-        setCards(shuffled);
+        setCards(injectAdCards(shuffled));
         setIndex(0);
         setCompleted(false);
         setIsFlipped(false);
@@ -265,7 +302,7 @@ const FlashCardDeck: React.FC<{
         triggerHaptic.impact('Medium'); // Swipe haptic
         
         const currentCard = cards[index];
-        if (currentCard) {
+        if (currentCard && !currentCard.isAd) {
             const updatedCard: FlashCard = { ...currentCard, lastResult: direction === 'left' ? 'unknown' : 'known' };
             const newCards = [...cards];
             newCards[index] = updatedCard;
@@ -348,6 +385,34 @@ const FlashCardDeck: React.FC<{
         }
     };
 
+    useEffect(() => {
+        const currentCard = cards[index];
+        if (currentCard?.isAd && !completed) {
+            AdManager.showFlashcardBanner();
+            setAdDelay(3); // 3 seconds delay for ads
+            const timer = setInterval(() => {
+                setAdDelay(prev => {
+                    if (prev <= 1) {
+                        clearInterval(timer);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+            return () => {
+                clearInterval(timer);
+                AdManager.hideBanner();
+            };
+        } else {
+            setAdDelay(0);
+            AdManager.hideBanner();
+        }
+        
+        return () => {
+            AdManager.hideBanner();
+        };
+    }, [index, cards, completed]);
+
     const renderCardContent = (text: string) => {
         if (!text) return "";
         
@@ -409,16 +474,21 @@ const FlashCardDeck: React.FC<{
         const totalHistoryCount = cardHistory.length;
         const missedCount = cardHistory.filter(c => c.lastResult === 'unknown').length;
         const savedCount = totalHistoryCount - missedCount;
-        const selectionLabel = selectedTopicIds.length === topics.length 
-            ? 'All Subjects' 
-            : `${selectedTopicIds.length} Selected`;
+        const selectionLabel = selectedTopicIds.length === 0
+            ? 'Select Topics'
+            : selectedTopicIds.length === topics.length 
+                ? 'All Subjects' 
+                : `${selectedTopicIds.length} Selected`;
 
         return (
             <div className="p-6 text-center">
                 <TopicSelectorModal 
                     isOpen={showSelector}
                     onClose={() => setShowSelector(false)}
-                    onConfirm={setSelectedTopicIds}
+                    onConfirm={(ids) => {
+                        setSelectedTopicIds(ids);
+                        generateCards(ids);
+                    }}
                     topics={topics}
                     subjects={allSubjects}
                     initialSelection={effectiveSelectionForModal}
@@ -457,11 +527,11 @@ const FlashCardDeck: React.FC<{
                                 <Settings2 size={16} />
                             </button>
                             <button 
-                                onClick={generateCards} 
+                                onClick={() => generateCards()} 
                                 disabled={topics.length === 0} 
                                 className={`flex-1 py-3 px-4 bg-${themeColor}-500 text-white rounded-xl font-bold shadow-lg hover:bg-${themeColor}-600 transition disabled:opacity-50 text-sm`}
                             >
-                                {topics.length === 0 ? "Add Topics" : "Generate Cards"}
+                                {topics.length === 0 ? "Add Topics" : selectedTopicIds.length === 0 ? "Select Topics" : "Generate Cards"}
                             </button>
                         </div>
                     )}
@@ -505,53 +575,70 @@ const FlashCardDeck: React.FC<{
                 {index + 1 < cards.length && <div className="absolute inset-0 bg-gray-100 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 transform scale-95 translate-y-3 z-0"></div>}
                 
                 {/* ACTIVE CARD FACE */}
-                <div onClick={() => { triggerHaptic.selection(); setIsFlipped(!isFlipped); }} className={`absolute inset-0 z-10 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 ${swipe === 'left' ? '-translate-x-[150%] rotate-[-15deg] opacity-0' : ''} ${swipe === 'right' ? 'translate-x-[150%] rotate-[15deg] opacity-0' : ''}`}>
+                <div onClick={() => { if (!currentCard.isAd) { triggerHaptic.selection(); setIsFlipped(!isFlipped); } }} className={`absolute inset-0 z-10 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 flex flex-col items-center justify-center text-center ${!currentCard.isAd ? 'cursor-pointer' : ''} transition-all duration-300 ${swipe === 'left' ? '-translate-x-[150%] rotate-[-15deg] opacity-0' : ''} ${swipe === 'right' ? 'translate-x-[150%] rotate-[15deg] opacity-0' : ''}`}>
                     
                     {/* Header Row: Q/A & Status */}
                     <div className="absolute top-4 left-4 flex items-center space-x-2 text-[10px] font-bold text-gray-400 tracking-widest uppercase z-20">
-                        <span>{isFlipped ? 'ANSWER' : 'QUESTION'}</span>
-                        {currentCard.lastResult === 'unknown' && <span className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-[9px] font-bold flex items-center"><X size={8} className="mr-0.5"/> Missed</span>}
-                        {currentCard.lastResult === 'known' && <span className="px-1.5 py-0.5 bg-green-100 text-green-600 rounded text-[9px] font-bold flex items-center"><Check size={8} className="mr-0.5"/> Known</span>}
+                        <span>{currentCard.isAd ? 'SPONSORED' : (isFlipped ? 'ANSWER' : 'QUESTION')}</span>
+                        {!currentCard.isAd && currentCard.lastResult === 'unknown' && <span className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-[9px] font-bold flex items-center"><X size={8} className="mr-0.5"/> Missed</span>}
+                        {!currentCard.isAd && currentCard.lastResult === 'known' && <span className="px-1.5 py-0.5 bg-green-100 text-green-600 rounded text-[9px] font-bold flex items-center"><Check size={8} className="mr-0.5"/> Known</span>}
                     </div>
 
                     {/* FONT CONTROLS - Top Right */}
-                    <div className="absolute top-3 right-3 flex items-center space-x-1 z-30" onClick={e => e.stopPropagation()}>
-                        <button onClick={(e) => handleFontChange(-0.125, e)} className="w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition shadow-sm" title="Smaller Text">A-</button>
-                        <button onClick={(e) => handleFontChange(0.125, e)} className="w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition shadow-sm" title="Larger Text">A+</button>
-                    </div>
+                    {!currentCard.isAd && (
+                        <div className="absolute top-3 right-3 flex items-center space-x-1 z-30" onClick={e => e.stopPropagation()}>
+                            <button onClick={(e) => handleFontChange(-0.125, e)} className="w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition shadow-sm" title="Smaller Text">A-</button>
+                            <button onClick={(e) => handleFontChange(0.125, e)} className="w-8 h-8 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition shadow-sm" title="Larger Text">A+</button>
+                        </div>
+                    )}
 
                     {/* Card Content Area */}
                     <div className="flex-1 flex items-center justify-center w-full overflow-hidden mt-10 mb-6">
-                         <div className="max-h-full overflow-y-auto no-scrollbar w-full px-2">
-                             <div 
-                                style={{ fontSize: `${fontScale}rem` }}
-                                className={`font-medium leading-relaxed text-gray-800 dark:text-gray-100 break-words ${isFlipped ? `text-${themeColor}-600 dark:text-${themeColor}-400 font-semibold` : ''}`} 
-                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderCardContent(isFlipped ? (currentCard.back || "") : (currentCard.front || ""))) }} 
-                             />
-                         </div>
+                        {currentCard.isAd ? (
+                            <div className="text-gray-400 text-sm flex flex-col items-center">
+                                <span className="mb-2">Advertisement</span>
+                                <span className="text-xs opacity-50">Loading...</span>
+                            </div>
+                        ) : (
+                            <div className="max-h-full overflow-y-auto no-scrollbar w-full px-2">
+                                <div 
+                                    style={{ fontSize: `${fontScale}rem` }}
+                                    className={`font-medium leading-relaxed text-gray-800 dark:text-gray-100 break-words ${isFlipped ? `text-${themeColor}-600 dark:text-${themeColor}-400 font-semibold` : ''}`} 
+                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderCardContent(isFlipped ? (currentCard.back || "") : (currentCard.front || ""))) }} 
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {/* Footer Info: Subject & Hint */}
                     <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none">
-                        {currentCard.subject && <span className={`text-[10px] font-bold text-${themeColor}-400 uppercase tracking-wider`}>{currentCard.subject}</span>}
-                        <span className="text-[10px] text-gray-300">Tap to flip</span>
+                        {!currentCard.isAd && currentCard.subject && <span className={`text-[10px] font-bold text-${themeColor}-400 uppercase tracking-wider`}>{currentCard.subject}</span>}
+                        {!currentCard.isAd && <span className="text-[10px] text-gray-300">Tap to flip</span>}
                     </div>
                 </div>
             </div>
 
             {/* Controls */}
             <div className="flex items-center justify-center w-full mt-6 z-20 gap-4">
-                <button 
-                    onClick={handleDeleteCard}
-                    className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full shadow-sm text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition flex items-center justify-center active:scale-95"
-                    title="Delete Saved Card"
-                >
-                    <Trash2 size={18} />
-                </button>
+                {!currentCard.isAd ? (
+                    <button 
+                        onClick={handleDeleteCard}
+                        className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full shadow-sm text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition flex items-center justify-center active:scale-95"
+                        title="Delete Saved Card"
+                    >
+                        <Trash2 size={18} />
+                    </button>
+                ) : (
+                    <div className="w-10 h-10"></div>
+                )}
                 <div className="flex items-center space-x-6">
-                    <button onClick={() => handleSwipe('left')} disabled={!!swipe} className="w-14 h-14 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-100 dark:border-gray-700 text-red-500 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/20 hover:scale-110 transition disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed"><X size={24} strokeWidth={3} /></button>
+                    <button onClick={() => handleSwipe('left')} disabled={!!swipe || adDelay > 0} className={`w-14 h-14 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-100 dark:border-gray-700 text-red-500 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-900/20 hover:scale-110 transition disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed ${adDelay > 0 ? 'opacity-50' : ''}`}>
+                        {adDelay > 0 ? <span className="text-lg font-bold text-gray-400">{adDelay}</span> : <X size={24} strokeWidth={3} />}
+                    </button>
                     <div className="text-xs font-medium text-gray-400">{index + 1} / {cards.length}</div>
-                    <button onClick={() => handleSwipe('right')} disabled={!!swipe} className="w-14 h-14 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-100 dark:border-gray-700 text-green-500 flex items-center justify-center hover:bg-green-50 dark:hover:bg-green-900/20 hover:scale-110 transition disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed"><Check size={24} strokeWidth={3} /></button>
+                    <button onClick={() => handleSwipe('right')} disabled={!!swipe || adDelay > 0} className={`w-14 h-14 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-100 dark:border-gray-700 text-green-500 flex items-center justify-center hover:bg-green-50 dark:hover:bg-green-900/20 hover:scale-110 transition disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed ${adDelay > 0 ? 'opacity-50' : ''}`}>
+                        {adDelay > 0 ? <span className="text-lg font-bold text-gray-400">{adDelay}</span> : <Check size={24} strokeWidth={3} />}
+                    </button>
                 </div>
             </div>
         </div>

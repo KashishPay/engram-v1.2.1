@@ -118,9 +118,15 @@ if (!(Test-Path $LogoSource)) {
     $found = Get-ChildItem "public\brand\*" -Include *.png -Recurse | Select-Object -First 1
     if ($found) { $LogoSource = $found.FullName }
 }
+# Fallback to searching the entire repo if public/brand fails
+if (!(Test-Path $LogoSource)) {
+    $found = Get-ChildItem ".\*" -Include engram_logo_1024.png, engram_logo_512.png -Recurse | Select-Object -First 1
+    if ($found) { $LogoSource = $found.FullName }
+}
 
 if (Test-Path $LogoSource) {
     Write-Output "Using logo source: $LogoSource"
+    if (!(Test-Path "assets")) { New-Item -ItemType Directory -Force -Path "assets" | Out-Null }
     Copy-Item $LogoSource "assets\icon-only.png" -Force
     Copy-Item $LogoSource "assets\icon-foreground.png" -Force
     Copy-Item $LogoSource "assets\icon-background.png" -Force

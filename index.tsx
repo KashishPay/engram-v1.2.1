@@ -3,7 +3,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import { AuthProvider } from './context/AuthContext';
-import { FocusProvider } from './context/FocusContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { normalizeDoubleHashToQuery } from './utils/urlSanitizer';
 import { logAuthPayloadDebug } from './utils/authPayload';
@@ -50,9 +49,7 @@ const root = ReactDOM.createRoot(rootElement);
 const app = (
   <ErrorBoundary>
     <AuthProvider>
-      <FocusProvider>
-         <App />
-      </FocusProvider>
+      <App />
     </AuthProvider>
   </ErrorBoundary>
 );

@@ -54,6 +54,8 @@ import { ObservationsView } from '../views/ObservationsView';
 import { PomoHistoryView } from '../views/PomoHistoryView';
 import { FlashcardHubView } from '../views/FlashcardHubView';
 
+import { useFocus } from '../context/FocusContext';
+
 interface AppRouterProps {
     user: unknown;
     isGuest: boolean;
@@ -70,6 +72,7 @@ interface AppRouterProps {
     onSignOut: () => void;
     onSwitchProfile: (id: string) => void;
     onAddProfile: () => void;
+    onDeleteProfile: (id: string) => void;
 
     studyLog: Topic[];
     userSubjects: Subject[];
@@ -107,7 +110,6 @@ interface AppRouterProps {
     podcastConfig: { language: 'English' | 'Hinglish' };
     setPodcastConfig: (config: { language: 'English' | 'Hinglish' }) => void;
     podcast: unknown;
-    focusState: unknown;
 }
 
 // Helper for safe JSON reading
@@ -208,6 +210,8 @@ const isBlobSandbox = () => {
 };
 
 export const AppRouter: React.FC<AppRouterProps> = (props) => {
+    const focusState = useFocus();
+    
     // Router State
     const [currentView, setCurrentView] = useState<string>('home');
     
@@ -718,7 +722,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
 
     // Handle Floating Timer Log
     const handleFloatingLog = useCallback((minutes: number) => {
-        const { topicId, topicName } = props.focusState;
+        const { topicId, topicName } = focusState;
         
         console.debug("[APP] handleFloatingLog", { topicId, minutes });
 
@@ -748,7 +752,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             };
             props.handleUpdateTopic(updatedTopic);
         }
-    }, [props.studyLog, props.focusState.topicId, props.focusState.topicName, props.userId, props.handleUpdateTopic]);
+    }, [props.studyLog, focusState.topicId, focusState.topicName, props.userId, props.handleUpdateTopic]);
 
     // Import/Export Handlers
     const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -786,9 +790,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
 
                 // 4. Restore Preferences (Overwrites)
                 if (data.preferences) {
-                    if (data.preferences.ai) localStorage.setItem('engram_ai_preferences', JSON.stringify(data.preferences.ai));
+                    if (data.preferences.ai) localStorage.setItem(`engram_ai_preferences_${props.userId}`, JSON.stringify(data.preferences.ai));
                     if (data.preferences.appMode) {
-                        localStorage.setItem('engramAppMode', data.preferences.appMode);
+                        localStorage.setItem(`engramAppMode_${props.userId}`, data.preferences.appMode);
                         props.setAppMode(data.preferences.appMode);
                     }
                     if (data.preferences.themeColor) props.setCurrentTheme(data.preferences.themeColor);
@@ -800,15 +804,15 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 
                 // 5. Restore Tasks, Matrix, Habits (SMART MERGE)
                 if (data.tasks) {
-                    const localTasks = safeReadJSON('engramTasks', []);
+                    const localTasks = safeReadJSON(`engramTasks_${props.userId}`, []);
                     const mergedTasks = mergeTasksSmart(localTasks, data.tasks, 'text');
-                    localStorage.setItem('engramTasks', JSON.stringify(mergedTasks));
+                    localStorage.setItem(`engramTasks_${props.userId}`, JSON.stringify(mergedTasks));
                 }
 
                 if (data.matrix) {
-                    const localMatrix = safeReadJSON('engramMatrix', []);
+                    const localMatrix = safeReadJSON(`engramMatrix_${props.userId}`, []);
                     const mergedMatrix = mergeTasksSmart(localMatrix, data.matrix, 'text');
-                    localStorage.setItem('engramMatrix', JSON.stringify(mergedMatrix));
+                    localStorage.setItem(`engramMatrix_${props.userId}`, JSON.stringify(mergedMatrix));
                 }
 
                 if (data.habits && Array.isArray(data.habits)) {
@@ -894,7 +898,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
 
             let aiPrefs = {};
             try {
-                const raw = localStorage.getItem('engram_ai_preferences');
+                const raw = localStorage.getItem(`engram_ai_preferences_${props.userId}`);
                 if (raw) aiPrefs = JSON.parse(raw);
             } catch (e) {
                 console.warn("[Router] Failed to parse AI preferences", e);
@@ -915,13 +919,13 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 chatHistoryByTopicId, // Chat history (text)
                 flashcardHistory,   // Flashcards
                 habits: props.habits,
-                tasks: safeReadJSON('engramTasks', []),
-                matrix: safeReadJSON('engramMatrix', []),
+                tasks: safeReadJSON(`engramTasks_${props.userId}`, []),
+                matrix: safeReadJSON(`engramMatrix_${props.userId}`, []),
                 userProfile: props.userProfile,
                 guestStartTs: props.isGuest ? getGuestStartTimestamp() : undefined,
                 preferences: {
                     ai: aiPrefs,
-                    appMode: localStorage.getItem('engramAppMode') || 'system',
+                    appMode: localStorage.getItem(`engramAppMode_${props.userId}`) || 'system',
                     themeColor: props.currentTheme,
                     themeIntensity: props.themeIntensity,
                     dateTimeSettings: props.dateTimeSettings,
@@ -987,7 +991,16 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
     if (currentView === 'auth/callback') return <AuthCallbackView navigateTo={navigateTo} setUserProfile={props.setUserProfile} setIsOnboarded={props.setIsOnboarded} themeColor={props.currentTheme} />;
     if (currentView === 'resetPassword') return ENABLE_PASSWORD_RECOVERY ? <ResetPasswordView navigateTo={navigateTo} themeColor={props.currentTheme} /> : <LoginView onComplete={props.onLoginComplete} />;
     if (!isLoggedIn) return <LoginView onComplete={props.onLoginComplete} onSignInSuccess={() => navigateTo('home')} />;
-    if (props.user && !props.isGuest && !props.isOnboarded && !props.checkingProfile) return <OnboardingView onComplete={props.onOnboardingComplete} />;
+    
+    if (props.checkingProfile) {
+        return (
+            <div className="flex items-center justify-center min-h-[100dvh] bg-background">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+    
+    if (props.user && !props.isGuest && !props.isOnboarded) return <OnboardingView onComplete={props.onOnboardingComplete} />;
 
     return (
         <AppShell
@@ -1006,7 +1019,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             permissionsGranted={props.permissionsGranted}
             handleAllowPermissions={props.handleAllowPermissions}
             podcast={props.podcast}
-            focusState={props.focusState}
+            focusState={focusState}
             handleFloatingLog={handleFloatingLog}
             selectedTopic={selectedTopic}
             isPodcastOpen={isPodcastOverlayOpen}
@@ -1044,7 +1057,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     : <ErrorCard error={new Error("Failed to load quiz results.")} resetErrorBoundary={() => navigateTo('home')} />
             )}
             {currentView === 'chat' && <ChatView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} />}
-            {currentView === 'settings' && <SettingsView userProfile={props.userProfile} userId={props.userId} userEmail={props.user?.email} isGuest={props.isGuest} currentTheme={props.currentTheme} navigateTo={navigateTo} setShowFeedbackModal={setShowFeedbackModal} handleExportData={handleExportData} handleImportData={handleImportData} appMode={props.appMode} setAppMode={props.setAppMode} onSignOut={props.onSignOut} level={Math.floor((props.earnedBadges?.length || 0) / 3) + 1} badgeCount={props.earnedBadges?.length || 0} streak={props.currentStreak} globalSyncEnabled={props.globalSyncEnabled} setGlobalSyncEnabled={props.setGlobalSyncEnabled} />}
+            {currentView === 'settings' && <SettingsView userProfile={props.userProfile} userId={props.userId} userEmail={props.user?.email} isGuest={props.isGuest} currentTheme={props.currentTheme} navigateTo={navigateTo} setShowFeedbackModal={setShowFeedbackModal} handleExportData={handleExportData} handleImportData={handleImportData} appMode={props.appMode} setAppMode={props.setAppMode} onSignOut={props.onSignOut} onDeleteProfile={props.onDeleteProfile} level={Math.floor((props.earnedBadges?.length || 0) / 3) + 1} badgeCount={props.earnedBadges?.length || 0} streak={props.currentStreak} globalSyncEnabled={props.globalSyncEnabled} setGlobalSyncEnabled={props.setGlobalSyncEnabled} />}
             {currentView === 'profile' && <ProfileView userId={props.userId} studyLog={props.studyLog} userProfile={props.userProfile} onUpdateProfile={props.setUserProfile} habits={props.habits} onUpdateHabits={props.setHabits} navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} availableProfiles={props.profiles} onSwitchProfile={props.onSwitchProfile} onAddProfile={props.onAddProfile} onSignOut={props.onSignOut} />}
             {currentView === 'topicList' && <TopicListView title={topicListData.title} topics={topicListData.topics} navigateTo={navigateTo} themeColor={props.currentTheme} />}
             {currentView === 'studyBreakdown' && <StudyBreakdownView studyLog={props.studyLog} initialFilter={breakdownFilter} navigateTo={navigateTo} themeColor={props.currentTheme} />}
@@ -1061,8 +1074,8 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             {currentView === 'privacy' && <PrivacyView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
             {currentView === 'licenses' && <LicensesView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
             {currentView === 'calendar' && <CalendarView themeColor={props.currentTheme} settings={props.dateTimeSettings} studyLog={props.studyLog} userId={props.userId} />}
-            {currentView === 'task' && <TaskView themeColor={props.currentTheme} settings={props.dateTimeSettings} />}
-            {currentView === 'matrix' && <EisenhowerMatrixView themeColor={props.currentTheme} />}
+            {currentView === 'task' && <TaskView themeColor={props.currentTheme} settings={props.dateTimeSettings} userId={props.userId} />}
+            {currentView === 'matrix' && <EisenhowerMatrixView themeColor={props.currentTheme} userId={props.userId} />}
             {currentView === 'pomodoro' && <PomodoroFullView themeColor={props.currentTheme} navigateTo={navigateTo} />}
             {currentView === 'pomoCalendar' && <PomoHistoryView themeColor={props.currentTheme} navigateTo={navigateTo} />}
             {currentView === 'habit' && <HabitTrackerView themeColor={props.currentTheme} habits={props.habits} onUpdateHabits={props.setHabits} />}

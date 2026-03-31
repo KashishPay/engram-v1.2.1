@@ -36,7 +36,8 @@
     <!-- Theme Initializer (Prevents FOUC) -->
     <script>
       (function() {
-        var key = 'engramAppMode';
+        var uid = localStorage.getItem('engramCurrentUserId') || 'default';
+        var key = 'engramAppMode_' + uid;
         var saved = localStorage.getItem(key) || 'light'; // Default to Light
         var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         var isDark = (saved === 'dark') || (saved === 'system' && prefersDark);

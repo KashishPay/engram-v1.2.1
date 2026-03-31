@@ -31,6 +31,7 @@ interface SettingsViewProps {
     appMode: string;
     setAppMode: (mode: string) => void;
     onSignOut: () => void;
+    onDeleteProfile: (id: string) => void;
     level: number;
     badgeCount: number;
     streak?: number;
@@ -172,7 +173,7 @@ const CelebrationOverlay: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
     userProfile, userId, userEmail, isGuest, currentTheme, navigateTo, 
-    handleExportData, handleImportData, appMode, setAppMode, onSignOut, level, badgeCount, streak = 0,
+    handleExportData, handleImportData, appMode, setAppMode, onSignOut, onDeleteProfile, level, badgeCount, streak = 0,
     globalSyncEnabled, setGlobalSyncEnabled
 }) => {
     const [showCelebration, setShowCelebration] = useState(false);
@@ -198,7 +199,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const handleGlobalSyncToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
         const isEnabled = e.target.checked;
         setGlobalSyncEnabled(isEnabled);
-        localStorage.setItem('engramGlobalSyncEnabled', String(isEnabled));
+        localStorage.setItem(`engramGlobalSyncEnabled_${userId}`, String(isEnabled));
         console.log("Global sync toggled:", isEnabled);
     };
 
@@ -208,14 +209,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         // Trigger celebration only if streak >= 21 and hasn't been shown before
         if (streak >= 21) {
-            const hasCelebrated = localStorage.getItem('engram_21_day_celebrated');
+            const hasCelebrated = localStorage.getItem(`engram_21_day_celebrated_${userId}`);
             if (!hasCelebrated) {
                 setShowCelebration(true);
             }
         }
         
         // Check for existing API Key
-        const key = localStorage.getItem('engram_custom_api_key');
+        const key = localStorage.getItem(`engram_custom_api_key_${userId}`);
         if (key) {
             setHasKey(true);
             setApiKey(key); 
@@ -278,7 +279,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }, [apiKey, hasKey, storedKey]);
 
     const handleCloseCelebration = () => {
-        localStorage.setItem('engram_21_day_celebrated', 'true');
+        localStorage.setItem(`engram_21_day_celebrated_${userId}`, 'true');
         setShowCelebration(false);
     };
 
@@ -288,7 +289,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         // Final strict check
         if (keyStatus === 'valid' && trimmed.length >= 39 && trimmed.startsWith('AIza')) {
-            localStorage.setItem('engram_custom_api_key', trimmed);
+            localStorage.setItem(`engram_custom_api_key_${userId}`, trimmed);
             setHasKey(true);
             setStoredKey(trimmed);
             setUsageStats(getUsageStats()); // Update usage display
@@ -301,7 +302,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     };
 
     const handleDeleteKey = () => {
-        localStorage.removeItem('engram_custom_api_key');
+        localStorage.removeItem(`engram_custom_api_key_${userId}`);
         setHasKey(false);
         setStoredKey('');
         setApiKey('');
@@ -324,7 +325,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             await performDeviceReset(!isGuest);
             setResetMessage("Device data cleared. Reloading...");
             setTimeout(() => {
-                window.location.href = window.location.origin + "/#/";
                 window.location.reload();
             }, 1000);
         } catch (e) {
@@ -335,21 +335,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     };
 
     const handleConfirmDeleteAccount = async () => {
-        if (isGuest) {
-            // For guests, just wipe local data (Self Destruct)
-            handleConfirmReset();
-            return;
-        }
-
         setIsDeleting(true);
         try {
-            // 1. Call RPC to delete from Supabase Auth & DB
-            await deleteUserAccount();
+            if (!isGuest) {
+                // 1. Call RPC to delete from Supabase Auth & DB
+                await deleteUserAccount();
+            }
             
-            // 2. Wipe Local Data
-            await performDeviceReset();
+            // 2. Delete profile data and switch/logout
+            onDeleteProfile(userId);
+            navigateTo('home');
             
-            window.location.reload();
         } catch (e: unknown) {
             console.error("Account deletion failed", e);
             alert("Failed to delete account: " + ((e as Error).message || "Unknown error"));
@@ -574,7 +570,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             </div>
                             
                             {/* Global Sync Feature - Only visible to authorized users */}
-                            {userProfile?.can_use_global_sync && (
+                            {!isGuest && userProfile?.can_use_global_sync && (
                                 <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-xl">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center">

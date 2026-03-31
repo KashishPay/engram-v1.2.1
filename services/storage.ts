@@ -27,12 +27,28 @@ const checkPerfBudget = (name: string, start: number, limit: number) => {
     }
 };
 
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 const openDB = (): Promise<IDBDatabase> => {
-    return new Promise((resolve, reject) => {
+    if (dbPromise) {
+        return dbPromise;
+    }
+
+    dbPromise = new Promise((resolve, reject) => {
         if (!window.indexedDB) {
+            dbPromise = null;
             reject(new Error("IndexedDB is not supported in this browser."));
             return;
         }
+
+        let isResolved = false;
+        const timeoutId = setTimeout(() => {
+            if (!isResolved) {
+                console.warn("[Storage] IndexedDB open timed out.");
+                dbPromise = null;
+                reject(new Error("IndexedDB open timed out"));
+            }
+        }, 3000);
 
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -54,11 +70,24 @@ const openDB = (): Promise<IDBDatabase> => {
             }
         };
 
+        request.onblocked = () => {
+            if (isResolved) return;
+            isResolved = true;
+            clearTimeout(timeoutId);
+            console.warn("[Storage] IndexedDB open blocked. Please close other tabs.");
+            dbPromise = null;
+            reject(new Error("IndexedDB blocked"));
+        };
+
         request.onsuccess = (event) => {
+            if (isResolved) return;
+            isResolved = true;
+            clearTimeout(timeoutId);
             resolve((event.target as IDBOpenDBRequest).result);
         };
 
         request.onerror = (event) => {
+            if (isResolved) return;
             const error = (event.target as IDBOpenDBRequest).error;
             
             // ROLLBACK PROTECTION: Smart Open
@@ -67,20 +96,44 @@ const openDB = (): Promise<IDBDatabase> => {
                 const retry = indexedDB.open(DB_NAME); 
                 
                 retry.onsuccess = (e) => {
+                    if (isResolved) return;
+                    isResolved = true;
+                    clearTimeout(timeoutId);
                     console.info("[Storage] Smart Open successful. Running in compatibility mode.");
                     resolve((e.target as IDBOpenDBRequest).result);
                 };
                 
                 retry.onerror = (e) => {
+                    if (isResolved) return;
+                    isResolved = true;
+                    clearTimeout(timeoutId);
                     const retryError = (e.target as IDBOpenDBRequest).error;
                     console.error("[Storage] Smart Open failed.", retryError);
+                    dbPromise = null;
                     reject(retryError || error);
                 };
             } else {
+                isResolved = true;
+                clearTimeout(timeoutId);
+                dbPromise = null;
                 reject(error);
             }
         };
     });
+
+    return dbPromise;
+};
+
+export const closeDB = async (): Promise<void> => {
+    if (dbPromise) {
+        try {
+            const db = await dbPromise;
+            db.close();
+        } catch (e) {
+            console.warn("[Storage] Error closing DB", e);
+        }
+        dbPromise = null;
+    }
 };
 
 // --- Helper to create namespaced key ---
@@ -418,7 +471,7 @@ export const getAllTopicBodyKeys = async (userId: string): Promise<string[]> => 
         return new Promise((resolve) => {
             const tx = db.transaction(TOPIC_BODY_STORE, 'readonly');
             const store = tx.objectStore(TOPIC_BODY_STORE);
-            const prefix = `topicBody_${userId}_`;
+            const prefix = `${userId}:`;
             const range = IDBKeyRange.bound(prefix, prefix + '\uffff');
             const req = store.getAllKeys(range);
             req.onsuccess = () => {
