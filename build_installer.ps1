@@ -138,8 +138,19 @@ if (Test-Path $LogoSource) {
 # 9) Windows-Specific Build Fixes
 Write-Output "--- Step 9: Applying Windows Build Fixes ---"
 if (Test-Path "android") {
-    # 1. Disable VFS watch to prevent file locking issues on Windows
-    # 2. Increase Heap size for Gradle
+    # 1. Fix "VANILLA_ICE_CREAM" and AdMob errors by bumping SDK versions
+    $varsFile = "android\variables.gradle"
+    if (Test-Path $varsFile) {
+        $varsContent = Get-Content $varsFile -Raw
+        $varsContent = $varsContent -replace 'compileSdkVersion = \d+', 'compileSdkVersion = 35'
+        $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 35'
+        $varsContent = $varsContent -replace 'minSdkVersion = \d+', 'minSdkVersion = 24'
+        Set-Content -Path $varsFile -Value $varsContent
+        Write-Output "Updated variables.gradle (compile/target=35, min=24)."
+    }
+
+    # 2. Disable VFS watch to prevent file locking issues on Windows
+    # 3. Increase Heap size for Gradle
     $gradleProps = "android\gradle.properties"
     $fixes = "`norg.gradle.vfs.watch=false`norg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8"
     
