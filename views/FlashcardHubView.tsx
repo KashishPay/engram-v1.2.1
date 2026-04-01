@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon, X } from 'lucide-react';
+import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon, X, ExternalLink } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, FlashCard } from '../types';
 import { FLASHCARD_SCHEMA } from '../constants';
@@ -8,6 +8,7 @@ import { goBackOrFallback } from '../utils/navigation';
 import { callGeminiApiWithRetry } from '../services/gemini';
 import { triggerHaptic } from '../utils/haptics';
 import { compressImage } from '../utils/media';
+import { AdManager } from '../services/admob';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
 
@@ -19,6 +20,13 @@ interface FlashcardHubViewProps {
 
 export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, themeColor }) => {
     
+    React.useEffect(() => {
+        AdManager.showReviewBanner();
+        return () => {
+            AdManager.hideBanner();
+        };
+    }, []);
+
     // --- Data Loading ---
     const [allCards, setAllCards] = useState<FlashCard[]>([]);
     const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
@@ -362,32 +370,46 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
 
                 <div className="space-y-4">
                     {activeDeck.map((card) => (
-                        <Card key={card.id} className="p-4 relative group">
-                            <div className="absolute top-4 left-0 w-1 h-8 bg-gray-200 dark:bg-gray-700 rounded-r"></div>
-                            
-                            <div className="mb-3 pl-3">
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Front</p>
-                                <div className="text-gray-800 dark:text-gray-200 font-medium text-sm leading-relaxed">
-                                    {renderMath(card.front)}
+                        <React.Fragment key={card.id}>
+                            <Card className="p-4 relative group">
+                                <div className="absolute top-4 left-0 w-1 h-8 bg-gray-200 dark:bg-gray-700 rounded-r"></div>
+                                
+                                <div className="mb-3 pl-3">
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Front</p>
+                                    <div className="text-gray-800 dark:text-gray-200 font-medium text-sm leading-relaxed">
+                                        {renderMath(card.front)}
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <div className="border-t border-gray-100 dark:border-gray-700 my-2"></div>
-                            
-                            <div className="pl-3">
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Back</p>
-                                <div className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                                    {renderMath(card.back)}
+                                
+                                <div className="border-t border-gray-100 dark:border-gray-700 my-2"></div>
+                                
+                                <div className="pl-3">
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Back</p>
+                                    <div className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                                        {renderMath(card.back)}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }}
-                                className="absolute top-2 right-2 p-2 text-gray-300 hover:text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition z-10"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                        </Card>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }}
+                                    className="absolute top-2 right-2 p-2 text-gray-300 hover:text-red-500 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition z-10"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </Card>
+
+                            {/* Ad after every card */}
+                            <div className="flex items-center justify-center py-2">
+                                <div className="w-[320px] h-[50px] bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 bg-gray-200 dark:bg-gray-700 px-1 text-[8px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
+                                    <div className="flex items-center space-x-2">
+                                        <ExternalLink size={12} />
+                                        <span className="text-[10px] font-medium uppercase tracking-widest">Test Ad (320x50)</span>
+                                    </div>
+                                    <div className="text-[8px] opacity-50 mt-0.5">ca-app-pub-3940256099942544/6300978111</div>
+                                </div>
+                            </div>
+                        </React.Fragment>
                     ))}
                 </div>
                 
@@ -543,41 +565,55 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
                     const totalCards = Object.values(topicsMap).reduce((sum, list) => sum + list.length, 0);
 
                     return (
-                        <div key={subject} className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 transition-all duration-300">
-                            <button 
-                                onClick={() => toggleSubject(subject)}
-                                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"
-                            >
-                                <div className="flex items-center space-x-3">
-                                    <div className={`p-2 rounded-lg ${isExpanded ? `bg-${themeColor}-100 text-${themeColor}-600 dark:bg-${themeColor}-900/50` : 'bg-gray-100 text-gray-500 dark:bg-gray-700'}`}>
-                                        {isExpanded ? <FolderOpen size={20} /> : <Folder size={20} />}
+                        <React.Fragment key={subject}>
+                            <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 transition-all duration-300">
+                                <button 
+                                    onClick={() => toggleSubject(subject)}
+                                    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <div className={`p-2 rounded-lg ${isExpanded ? `bg-${themeColor}-100 text-${themeColor}-600 dark:bg-${themeColor}-900/50` : 'bg-gray-100 text-gray-500 dark:bg-gray-700'}`}>
+                                            {isExpanded ? <FolderOpen size={20} /> : <Folder size={20} />}
+                                        </div>
+                                        <div className="text-left">
+                                            <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm">{subject}</h3>
+                                            <p className="text-xs text-gray-400">{topicCount} Topics • {totalCards} Cards</p>
+                                        </div>
                                     </div>
-                                    <div className="text-left">
-                                        <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm">{subject}</h3>
-                                        <p className="text-xs text-gray-400">{topicCount} Topics • {totalCards} Cards</p>
-                                    </div>
-                                </div>
-                                <ChevronDown size={16} className={`text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
-                            </button>
+                                    <ChevronDown size={16} className={`text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                                </button>
 
-                            {isExpanded && (
-                                <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
-                                    {Object.entries(topicsMap).map(([topicName, cards]) => (
-                                        <button 
-                                            key={topicName}
-                                            onClick={() => setSelectedTopicId(topicName)}
-                                            className="w-full flex items-center justify-between p-3 pl-14 pr-4 hover:bg-white dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-800 last:border-0 transition group"
-                                        >
-                                            <div className="text-left">
-                                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{topicName}</p>
-                                                <p className="text-[10px] text-gray-400">{cards.length} cards</p>
-                                            </div>
-                                            <ChevronRight size={14} className="text-gray-300 group-hover:text-blue-400" />
-                                        </button>
-                                    ))}
+                                {isExpanded && (
+                                    <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+                                        {Object.entries(topicsMap).map(([topicName, cards]) => (
+                                            <button 
+                                                key={topicName}
+                                                onClick={() => setSelectedTopicId(topicName)}
+                                                className="w-full flex items-center justify-between p-3 pl-14 pr-4 hover:bg-white dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-800 last:border-0 transition group"
+                                            >
+                                                <div className="text-left">
+                                                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{topicName}</p>
+                                                    <p className="text-[10px] text-gray-400">{cards.length} cards</p>
+                                                </div>
+                                                <ChevronRight size={14} className="text-gray-300 group-hover:text-blue-400" />
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Ad after every folder */}
+                            <div className="flex items-center justify-center py-2">
+                                <div className="w-[320px] h-[50px] bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 bg-gray-200 dark:bg-gray-700 px-1 text-[8px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
+                                    <div className="flex items-center space-x-2">
+                                        <ExternalLink size={12} />
+                                        <span className="text-[10px] font-medium uppercase tracking-widest">Test Ad (320x50)</span>
+                                    </div>
+                                    <div className="text-[8px] opacity-50 mt-0.5">ca-app-pub-3940256099942544/6300978111</div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        </React.Fragment>
                     );
                 })}
             </div>

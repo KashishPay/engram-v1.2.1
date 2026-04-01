@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Timer, RotateCw, XCircle, ChevronLeft, AlertTriangle } from 'lucide-react';
+import { Timer, RotateCw, XCircle, ChevronLeft, AlertTriangle, ExternalLink, SkipForward } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, QuizQuestion, Repetition } from '../types';
 import { callGeminiApiWithRetry } from '../services/gemini';
@@ -378,6 +378,29 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
         }
     };
 
+    const handleSkip = () => {
+        if (!quizData) return;
+        
+        if (answers.some(a => a.qIndex === currentQuestionIndex)) return;
+
+        const newAnswers = [...answers, {
+            qIndex: currentQuestionIndex,
+            selected: 'N/A', // Mark as skipped
+            correct: quizData[currentQuestionIndex].correct_answer_letter,
+        }];
+        setAnswers(newAnswers);
+        
+        if (currentQuestionIndex < quizData.length - 1) {
+            setTimeout(() => {
+                if(isMounted.current) setCurrentQuestionIndex(prev => prev + 1);
+            }, 200);
+        } else {
+            setTimerRunning(false);
+            const finalScore = newAnswers.filter(a => a.selected === a.correct).length;
+            submitRepetition(finalScore, timeTaken, quizData, newAnswers);
+        }
+    };
+
     const handlePrevious = () => {
         if (currentQuestionIndex > 0) {
             setCurrentQuestionIndex(prev => prev - 1);
@@ -404,6 +427,23 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             <p className="mt-4 text-xs text-red-500 font-medium">
                 Takes up to 30 seconds.
             </p>
+
+            <div className="flex items-center justify-center py-6">
+                <div className="w-[320px] h-[250px] bg-white dark:bg-white/5 border border-dashed border-gray-200 dark:border-white/20 rounded-2xl flex flex-col items-center justify-center text-gray-400 dark:text-white/40 relative overflow-hidden shadow-sm">
+                    <div className="absolute top-0 left-0 bg-gray-100 dark:bg-white/10 px-3 py-1 text-[10px] font-bold text-gray-500 dark:text-white/60 uppercase tracking-widest rounded-br-lg">Sponsored</div>
+                    <div className="flex flex-col items-center space-y-4">
+                        <div className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-100 dark:border-white/5">
+                            <ExternalLink size={24} className="text-blue-500 opacity-80" />
+                        </div>
+                        <div className="text-center px-6">
+                            <p className="text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-white/80">Quiz Loading Ad</p>
+                            <p className="text-[10px] opacity-60 mt-1 leading-tight">Premium 320x250 Placement<br/>Wait while we prepare your quiz</p>
+                        </div>
+                        <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-[11px] font-bold transition shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0">Learn More</button>
+                    </div>
+                </div>
+            </div>
+
             <button 
                 onClick={() => handleCancel()}
                 className="mt-8 px-6 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-gray-500 text-sm font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition"
@@ -453,6 +493,26 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             </div>
             <div className="flex-1 overflow-y-auto pr-1 -mr-1 custom-scrollbar min-h-0 relative">
                 {isFallback && <p className="mb-4 p-3 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200 text-xs md:text-sm font-semibold rounded-lg border border-yellow-100 dark:border-yellow-800">⚠️ Notes were too brief. This is a general knowledge quiz.</p>}
+                
+                {/* 300x250 Ad after 5th question (index 5) */}
+                {currentQuestionIndex === 5 && (
+                    <div className="flex items-center justify-center mb-6">
+                        <div className="w-[300px] h-[250px] bg-gray-50 dark:bg-white/5 border border-dashed border-gray-200 dark:border-white/20 rounded-2xl flex flex-col items-center justify-center text-gray-400 dark:text-white/40 relative overflow-hidden shadow-sm">
+                            <div className="absolute top-0 left-0 bg-gray-100 dark:bg-white/10 px-3 py-1 text-[10px] font-bold text-gray-500 dark:text-white/60 uppercase tracking-widest rounded-br-lg">Sponsored</div>
+                            <div className="flex flex-col items-center space-y-4">
+                                <div className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-100 dark:border-white/5">
+                                    <ExternalLink size={24} className="text-blue-500 opacity-80" />
+                                </div>
+                                <div className="text-center px-6">
+                                    <p className="text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-white/80">Mid-Quiz Break</p>
+                                    <p className="text-[10px] opacity-60 mt-1 leading-tight">Premium 300x250 Placement<br/>Take a quick breather</p>
+                                </div>
+                                <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-[11px] font-bold transition shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0">Learn More</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div 
                     className="text-base md:text-lg font-semibold mb-6 text-gray-800 dark:text-gray-100 leading-relaxed"
                     dangerouslySetInnerHTML={{ __html: renderMathHtml(currentQ.question) }}
@@ -473,9 +533,10 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                     ))}
                 </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 shrink-0 flex gap-3 bg-white dark:bg-gray-800 z-10">
-                <button onClick={() => handleCancel()} className="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-bold hover:bg-red-100 dark:hover:bg-red-900/30 transition flex items-center justify-center text-sm active:scale-95"><XCircle size={18} className="mr-2" /> Cancel</button>
-                <button onClick={handlePrevious} disabled={currentQuestionIndex === 0} className={`flex-1 py-3 rounded-xl font-bold transition flex items-center justify-center text-sm active:scale-95 ${currentQuestionIndex === 0 ? 'bg-gray-100 dark:bg-gray-800 text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}><ChevronLeft size={18} className="mr-2" /> Previous</button>
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 shrink-0 flex gap-2 bg-white dark:bg-gray-800 z-10">
+                <button onClick={() => handleCancel()} className="flex-1 py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-bold hover:bg-red-100 dark:hover:bg-red-900/30 transition flex items-center justify-center text-xs md:text-sm active:scale-95"><XCircle size={16} className="mr-1 md:mr-2" /> Cancel</button>
+                <button onClick={handleSkip} className="flex-1 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-xl font-bold hover:bg-orange-100 dark:hover:bg-orange-900/30 transition flex items-center justify-center text-xs md:text-sm active:scale-95"><SkipForward size={16} className="mr-1 md:mr-2" /> Skip</button>
+                <button onClick={handlePrevious} disabled={currentQuestionIndex === 0} className={`flex-1 py-3 rounded-xl font-bold transition flex items-center justify-center text-xs md:text-sm active:scale-95 ${currentQuestionIndex === 0 ? 'bg-gray-100 dark:bg-gray-800 text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}><ChevronLeft size={16} className="mr-1 md:mr-2" /> Prev</button>
             </div>
         </Card>
     );

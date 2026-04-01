@@ -1,6 +1,5 @@
 import { AdMob, BannerAdOptions, BannerAdSize, BannerAdPosition } from '@capacitor-community/admob';
 import { Capacitor } from '@capacitor/core';
-import { App } from '@capacitor/app';
 import { supabase } from './supabase';
 
 export interface AdConfig {
@@ -15,6 +14,7 @@ class AdManagerService {
     private isInitialized = false;
     private config: AdConfig | null = null;
     private isBannerShowing = false;
+    private lastInterstitialTime = 0;
 
     async initialize() {
         if (this.isInitialized) return;
@@ -25,20 +25,6 @@ class AdManagerService {
             }
             this.isInitialized = true;
             await this.fetchConfig();
-
-            // Listen for app state changes to show interstitial on open/close
-            App.addListener('appStateChange', async ({ isActive }) => {
-                if (isActive) {
-                    // App resumed/opened
-                    await this.showInterstitial();
-                } else {
-                    // App backgrounded/closed
-                    await this.showInterstitial();
-                }
-            });
-
-            // Show initial open ad
-            await this.showInterstitial();
         } catch (error) {
             console.error('AdMob initialization failed', error);
         }
@@ -65,10 +51,10 @@ class AdManagerService {
             this.config = {
                 banner_ad_unit_id: Capacitor.getPlatform() === 'ios' 
                     ? 'ca-app-pub-3940256099942544/2934735716' // iOS Test Banner
-                    : 'ca-app-pub-1930133918087114/4505148021', // Android User Banner
+                    : 'ca-app-pub-3940256099942544/6300978111', // Android Test Banner
                 interstitial_ad_unit_id: Capacitor.getPlatform() === 'ios'
                     ? 'ca-app-pub-3940256099942544/4411468910' // iOS Test Interstitial
-                    : 'ca-app-pub-1930133918087114/1346538190', // Android User Interstitial
+                    : 'ca-app-pub-3940256099942544/1033173712', // Android Test Interstitial
                 min_interval: 3,
                 max_interval: 5,
                 is_active: true
@@ -94,11 +80,11 @@ class AdManagerService {
         }
 
         const options: BannerAdOptions = {
-            adId: this.config.banner_ad_unit_id,
+            adId: Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
             position: BannerAdPosition.TOP_CENTER,
             margin: 240, // Pushed down further to center perfectly in the flashcard container
-            isTesting: false // User requested real ad units to work
+            isTesting: true // Enforce AdMob policies by using test ads during development
         };
 
         try {
@@ -123,11 +109,11 @@ class AdManagerService {
         }
 
         const options: BannerAdOptions = {
-            adId: this.config.banner_ad_unit_id,
+            adId: Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
             position: BannerAdPosition.TOP_CENTER,
             margin: 80, // Approximate offset to overlay the album art
-            isTesting: false // User requested real ad units to work
+            isTesting: true // Enforce AdMob policies by using test ads during development
         };
 
         try {
@@ -135,6 +121,35 @@ class AdManagerService {
             this.isBannerShowing = true;
         } catch (error) {
             console.error('Failed to show podcast banner ad', error);
+        }
+    }
+
+    async showReviewBanner() {
+        if (!this.isInitialized || !this.config?.is_active) return;
+
+        if (this.isBannerShowing) {
+            await this.hideBanner();
+        }
+
+        if (Capacitor.getPlatform() === 'web') {
+            console.log('[AdManager] Web Preview: Showing Review Banner Ad Placeholder (320x50)');
+            this.isBannerShowing = true;
+            return;
+        }
+
+        const options: BannerAdOptions = {
+            adId: Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
+            adSize: BannerAdSize.BANNER, // 320x50
+            position: BannerAdPosition.BOTTOM_CENTER,
+            margin: 60, // Clear the tab bar
+            isTesting: true // Enforce AdMob policies by using test ads during development
+        };
+
+        try {
+            await AdMob.showBanner(options);
+            this.isBannerShowing = true;
+        } catch (error) {
+            console.error('Failed to show review banner ad', error);
         }
     }
 
@@ -152,11 +167,11 @@ class AdManagerService {
         }
 
         const options: BannerAdOptions = {
-            adId: this.config.banner_ad_unit_id,
+            adId: Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
             adSize: BannerAdSize.MEDIUM_RECTANGLE, // User requested rectangular banner
             position: BannerAdPosition.TOP_CENTER,
             margin: 60, // Clear the header
-            isTesting: false // User requested real ad units to work
+            isTesting: true // Enforce AdMob policies by using test ads during development
         };
 
         try {
@@ -170,21 +185,31 @@ class AdManagerService {
     async showInterstitial() {
         if (!this.isInitialized || !this.config?.is_active) return;
 
+        // Rate limiter: Don't show interstitials more than once every 3 minutes (180000ms)
+        // This prevents aggressive ad behavior that violates AdMob policies
+        const now = Date.now();
+        if (now - this.lastInterstitialTime < 180000) {
+            console.log('[AdManager] Interstitial skipped due to rate limiting (AdMob policy compliance)');
+            return;
+        }
+
         if (Capacitor.getPlatform() === 'web') {
             console.log('[AdManager] Web Preview: Showing Interstitial Ad Placeholder');
+            this.lastInterstitialTime = now;
             return;
         }
 
         try {
-            const adId = this.config.interstitial_ad_unit_id || (Capacitor.getPlatform() === 'ios' 
-                ? 'ca-app-pub-3940256099942544/4411468910' 
-                : 'ca-app-pub-1930133918087114/1346538190');
+            const adId = Capacitor.getPlatform() === 'ios' 
+                ? 'ca-app-pub-3940256099942544/4411468910' // iOS Test Interstitial
+                : 'ca-app-pub-3940256099942544/1033173712'; // Android Test Interstitial
 
             await AdMob.prepareInterstitial({
                 adId,
-                isTesting: false // User requested real ad units to work
+                isTesting: true // Enforce AdMob policies by using test ads during development
             });
             await AdMob.showInterstitial();
+            this.lastInterstitialTime = Date.now();
         } catch (error) {
             console.error('Failed to show interstitial ad', error);
         }

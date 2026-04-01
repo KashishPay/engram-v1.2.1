@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Shield, XCircle, MessageSquarePlus, X, Loader, Download, Maximize2 } from 'lucide-react';
+import { Shield, XCircle, MessageSquarePlus, X, Loader, Download, Maximize2, ExternalLink } from 'lucide-react';
 import { getImageFromIDB } from '../services/storage';
 import { jsPDF } from 'jspdf';
 import { ImageViewer } from './ImageViewer';
@@ -79,6 +79,8 @@ interface SourceViewerModalProps {
     pageCount: number;
     onClose: () => void;
 }
+
+type SourceItem = { type: 'image'; src: string; index: number } | { type: 'ad'; id: string };
 
 export const SourceViewerModal: React.FC<SourceViewerModalProps> = ({ topicId, topicName, subjectName, pageCount, onClose }) => {
     const [images, setImages] = useState<string[]>([]);
@@ -258,27 +260,57 @@ export const SourceViewerModal: React.FC<SourceViewerModalProps> = ({ topicId, t
                             <Loader size={32} className="animate-spin mr-2"/> Loading originals...
                         </div>
                     ) : images.length > 0 ? (
-                        images.map((src, i) => (
-                            <div 
-                                key={i} 
-                                className="relative group cursor-zoom-in"
-                                onClick={() => { triggerHaptic.selection(); setActiveViewerImage(src); }}
-                            >
-                                <img 
-                                    src={src} 
-                                    alt={`Page ${i + 1}`} 
-                                    className="w-full h-auto rounded-lg shadow-2xl border border-white/10"
-                                />
-                                <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded">
-                                    Page {i + 1}
-                                </div>
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-lg">
-                                    <div className="bg-black/50 p-3 rounded-full text-white backdrop-blur-sm">
-                                        <Maximize2 size={24} />
+                        (() => {
+                            const items: SourceItem[] = [];
+                            images.forEach((src, i) => {
+                                items.push({ type: 'image', src, index: i });
+                                // Interleave ad after every image
+                                items.push({ type: 'ad', id: `ad-${topicId}-${i}` });
+                            });
+                            
+                            return items.map((item) => {
+                                if (item.type === 'ad') {
+                                    return (
+                                        <div key={item.id} className="flex items-center justify-center py-4">
+                                            <div className="w-[320px] h-[250px] bg-white/5 border border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center text-white/40 relative overflow-hidden">
+                                                <div className="absolute top-0 left-0 bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/60 uppercase tracking-widest">Sponsored</div>
+                                                <div className="flex flex-col items-center space-y-3">
+                                                    <ExternalLink size={24} className="opacity-50" />
+                                                    <div className="text-center">
+                                                        <p className="text-xs font-bold uppercase tracking-widest">Premium Ad Unit</p>
+                                                        <p className="text-[10px] opacity-60 mt-1">320 x 250 Medium Rectangle</p>
+                                                    </div>
+                                                    <button className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded-full text-[10px] font-bold transition">Learn More</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                const { src, index } = item;
+                                return (
+                                    <div 
+                                        key={`img-${index}`} 
+                                        className="relative group cursor-zoom-in"
+                                        onClick={() => { triggerHaptic.selection(); setActiveViewerImage(src); }}
+                                    >
+                                        <img 
+                                            src={src} 
+                                            alt={`Page ${index + 1}`} 
+                                            className="w-full h-auto rounded-lg shadow-2xl border border-white/10"
+                                        />
+                                        <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded">
+                                            Page {index + 1}
+                                        </div>
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-lg">
+                                            <div className="bg-black/50 p-3 rounded-full text-white backdrop-blur-sm">
+                                                <Maximize2 size={24} />
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                        ))
+                                );
+                            });
+                        })()
                     ) : (
                         <div className="flex items-center justify-center h-full text-white/50 text-sm">
                             No original images found.

@@ -620,6 +620,13 @@ const FlashCardDeck: React.FC<{
 
             {/* Controls */}
             <div className="flex items-center justify-center w-full mt-6 z-20 gap-4">
+                <button 
+                    onClick={() => { triggerHaptic.selection(); setCompleted(true); }}
+                    className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full shadow-sm text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center active:scale-95"
+                    title="Exit Review"
+                >
+                    <XCircle size={18} />
+                </button>
                 {!currentCard.isAd ? (
                     <button 
                         onClick={handleDeleteCard}

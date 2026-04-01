@@ -684,6 +684,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                             <NotesRenderer 
                                 content={notes} 
                                 onRenderError={() => setRenderError(true)}
+                                adCount={topic.sourcePageCount || 0}
                             />
                         </div>
                     ) : (

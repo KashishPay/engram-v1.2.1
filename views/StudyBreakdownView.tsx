@@ -4,6 +4,9 @@ import { ArrowLeft, Clock, ChevronDown } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic } from '../types';
 import { goBackOrFallback } from '../utils/navigation';
+import { ExternalLink } from 'lucide-react';
+
+import { AdManager } from '../services/admob';
 
 interface StudyBreakdownViewProps {
     studyLog: Topic[];
@@ -14,6 +17,13 @@ interface StudyBreakdownViewProps {
 
 export const StudyBreakdownView: React.FC<StudyBreakdownViewProps> = ({ studyLog, initialFilter, themeColor }) => {
     
+    React.useEffect(() => {
+        AdManager.showReviewBanner();
+        return () => {
+            AdManager.hideBanner();
+        };
+    }, []);
+
     const filteredTopics = useMemo(() => {
         if (initialFilter === 'all') return studyLog;
         return studyLog.filter(t => t.subjectId === initialFilter);
@@ -62,35 +72,49 @@ export const StudyBreakdownView: React.FC<StudyBreakdownViewProps> = ({ studyLog
 
                 <div className="space-y-3">
                     {breakdown.map((subject, idx) => (
-                    <details key={idx} className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition select-none list-none">
-                            <div className="flex items-center">
-                                <div className={`p-2 rounded-lg bg-${themeColor}-50 dark:bg-${themeColor}-900/20 text-${themeColor}-600 mr-3`}>
-                                    <Clock size={18} />
-                                </div>
-                                <span className="font-bold text-gray-800 dark:text-white text-sm">{subject.name}</span>
-                            </div>
-                            <div className="flex items-center">
-                                <span className="text-sm font-mono font-bold text-gray-600 dark:text-gray-300 mr-3">
-                                    {Math.floor(subject.minutes / 60)}h {Math.round(subject.minutes % 60)}m
-                                </span>
-                                <ChevronDown size={16} className="text-gray-400 group-open:rotate-180 transition-transform" />
-                            </div>
-                        </summary>
-                        <div className="px-4 pb-4 pt-0 border-t border-gray-50 dark:border-gray-700/50">
-                            <div className="mt-3 space-y-2">
-                                {subject.topics.sort((a,b) => b.minutes - a.minutes).map((topic, tIdx) => (
-                                    <div key={tIdx} className="flex justify-between items-center text-xs">
-                                        <span className="text-gray-600 dark:text-gray-400 truncate pr-2">{topic.name}</span>
-                                        <span className="text-gray-500 font-mono whitespace-nowrap">
-                                            {topic.minutes.toFixed(0)}m
-                                        </span>
+                        <React.Fragment key={idx}>
+                            <details className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                                <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition select-none list-none">
+                                    <div className="flex items-center">
+                                        <div className={`p-2 rounded-lg bg-${themeColor}-50 dark:bg-${themeColor}-900/20 text-${themeColor}-600 mr-3`}>
+                                            <Clock size={18} />
+                                        </div>
+                                        <span className="font-bold text-gray-800 dark:text-white text-sm">{subject.name}</span>
                                     </div>
-                                ))}
+                                    <div className="flex items-center">
+                                        <span className="text-sm font-mono font-bold text-gray-600 dark:text-gray-300 mr-3">
+                                            {Math.floor(subject.minutes / 60)}h {Math.round(subject.minutes % 60)}m
+                                        </span>
+                                        <ChevronDown size={16} className="text-gray-400 group-open:rotate-180 transition-transform" />
+                                    </div>
+                                </summary>
+                                <div className="px-4 pb-4 pt-0 border-t border-gray-50 dark:border-gray-700/50">
+                                    <div className="mt-3 space-y-2">
+                                        {subject.topics.sort((a,b) => b.minutes - a.minutes).map((topic, tIdx) => (
+                                            <div key={tIdx} className="flex justify-between items-center text-xs">
+                                                <span className="text-gray-600 dark:text-gray-400 truncate pr-2">{topic.name}</span>
+                                                <span className="text-gray-500 font-mono whitespace-nowrap">
+                                                    {topic.minutes.toFixed(0)}m
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </details>
+                            
+                            {/* Ad after every subject */}
+                            <div className="flex items-center justify-center py-2">
+                                <div className="w-[320px] h-[50px] bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 bg-gray-200 dark:bg-gray-700 px-1 text-[8px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
+                                    <div className="flex items-center space-x-2">
+                                        <ExternalLink size={12} />
+                                        <span className="text-[10px] font-medium uppercase tracking-widest">Test Ad (320x50)</span>
+                                    </div>
+                                    <div className="text-[8px] opacity-50 mt-0.5">ca-app-pub-3940256099942544/6300978111</div>
+                                </div>
                             </div>
-                        </div>
-                    </details>
-                ))}
+                        </React.Fragment>
+                    ))}
                 
                 {breakdown.length === 0 && (
                     <div className="text-center py-10 text-gray-400">

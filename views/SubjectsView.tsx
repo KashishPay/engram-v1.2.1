@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { BookOpenText, RotateCw, ChevronDown, Clock, Edit2, Check, X } from 'lucide-react';
+import { BookOpenText, RotateCw, ChevronDown, Clock, Edit2, Check, X, ExternalLink } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, Subject } from '../types';
 import { INITIAL_SUBJECTS } from '../constants';
 import { VirtualList } from '../components/VirtualList';
+import { AdManager } from '../services/admob';
 
 interface SubjectsViewProps {
     allSubjects: Subject[];
@@ -16,6 +17,8 @@ interface SubjectsViewProps {
     onAddTopic: (topic: Omit<Topic, 'id'>) => void;
     themeColor: string;
 }
+
+type SubjectListItem = { type: 'topic'; data: Topic } | { type: 'ad'; id: string };
 
 // Memoized Subject Item Component
 const SubjectItem = React.memo(({ 
@@ -41,9 +44,27 @@ const SubjectItem = React.memo(({
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(subject.name);
 
+    const listItems = useMemo(() => {
+        const result: SubjectListItem[] = [];
+        subjectTopics.forEach((topic, index) => {
+            result.push({ type: 'topic', data: topic });
+            // Every 2 topics, insert an ad placeholder
+            if ((index + 1) % 2 === 0 && index !== subjectTopics.length - 1) {
+                result.push({ type: 'ad', id: `ad-${index}` });
+            }
+        });
+        return result;
+    }, [subjectTopics]);
+
     useEffect(() => {
         setEditName(subject.name);
     }, [subject.name]);
+
+    useEffect(() => {
+        if (!collapsed) {
+            AdManager.showReviewBanner();
+        }
+    }, [collapsed]);
 
     const formatTime = (minutes: number) => {
         if (!minutes) return '0m';
@@ -145,31 +166,48 @@ const SubjectItem = React.memo(({
             {!collapsed && (
                 <div className="mt-4 animate-in fade-in slide-in-from-top-1 duration-200 origin-top">
                     {subjectTopics.length > 0 ? (
-                        <VirtualList
-                            items={subjectTopics}
+                        <VirtualList<SubjectListItem>
+                            items={listItems}
                             itemHeight={ITEM_HEIGHT}
                             layoutVersion={layoutVersion}
-                            renderItem={(topic) => (
-                                <button
-                                    onClick={() => navigateTo('topicDetail', topic)}
-                                    className={`w-full text-left p-3 border border-gray-100 dark:border-gray-700 rounded-lg hover:bg-${themeColor}-50 dark:hover:bg-${themeColor}-900/30 transition flex justify-between items-center bg-white dark:bg-gray-800/50 box-border h-[52px]`}
-                                >
-                                    <div className="min-w-0 flex-1 pr-2">
-                                        <span className="font-medium text-gray-700 dark:text-gray-200 truncate block">{topic.topicName}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-2 shrink-0">
-                                        {topic.pomodoroTimeMinutes > 0 && (
-                                            <span className="flex items-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded">
-                                                <Clock size={10} className="mr-1" />
-                                                {formatTime(topic.pomodoroTimeMinutes)}
+                            renderItem={(item) => {
+                                if (item.type === 'ad') {
+                                    return (
+                                        <div className="flex items-center justify-center h-[52px] box-border">
+                                            <div className="w-[320px] h-[40px] bg-gray-50 dark:bg-gray-800/30 border border-dashed border-gray-200 dark:border-gray-700 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
+                                                <div className="absolute top-0 left-0 bg-gray-100 dark:bg-gray-700 px-1 text-[7px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
+                                                <div className="flex items-center space-x-2">
+                                                    <ExternalLink size={10} />
+                                                    <span className="text-[9px] font-medium uppercase tracking-widest">Test Ad (320x50)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                const topic = item.data;
+                                return (
+                                    <button
+                                        onClick={() => navigateTo('topicDetail', topic)}
+                                        className={`w-full text-left p-3 border border-gray-100 dark:border-gray-700 rounded-lg hover:bg-${themeColor}-50 dark:hover:bg-${themeColor}-900/30 transition flex justify-between items-center bg-white dark:bg-gray-800/50 box-border h-[52px]`}
+                                    >
+                                        <div className="min-w-0 flex-1 pr-2">
+                                            <span className="font-medium text-gray-700 dark:text-gray-200 truncate block">{topic.topicName}</span>
+                                        </div>
+                                        <div className="flex items-center space-x-2 shrink-0">
+                                            {topic.pomodoroTimeMinutes > 0 && (
+                                                <span className="flex items-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded">
+                                                    <Clock size={10} className="mr-1" />
+                                                    {formatTime(topic.pomodoroTimeMinutes)}
+                                                </span>
+                                            )}
+                                            <span className={`text-xs text-${themeColor}-500 dark:text-${themeColor}-400 font-semibold bg-${themeColor}-50 dark:bg-${themeColor}-900/20 px-2 py-1 rounded`}>
+                                                Reps: {topic.repetitions?.length || 0}
                                             </span>
-                                        )}
-                                        <span className={`text-xs text-${themeColor}-500 dark:text-${themeColor}-400 font-semibold bg-${themeColor}-50 dark:bg-${themeColor}-900/20 px-2 py-1 rounded`}>
-                                            Reps: {topic.repetitions?.length || 0}
-                                        </span>
-                                    </div>
-                                </button>
-                            )}
+                                        </div>
+                                    </button>
+                                );
+                            }}
                         />
                     ) : (
                         <p className="text-gray-500 dark:text-gray-400 italic text-sm pl-2">No topics added yet.</p>
@@ -393,18 +431,30 @@ export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjec
 
             <div className="space-y-6">
                 {allSubjects.map(subject => (
-                    <SubjectItem
-                        key={subject.id}
-                        subject={subject}
-                        subjectTopics={topicsBySubject[subject.id] || []}
-                        collapsed={collapsedSubjects[subject.id] !== undefined ? collapsedSubjects[subject.id] : true} // Default true
-                        onToggle={toggleSubject}
-                        onUpdateSubject={onUpdateSubject}
-                        onDeleteSubject={onDeleteSubject}
-                        navigateTo={navigateTo}
-                        themeColor={themeColor}
-                        layoutVersion={layoutVersion}
-                    />
+                    <React.Fragment key={subject.id}>
+                        <SubjectItem
+                            subject={subject}
+                            subjectTopics={topicsBySubject[subject.id] || []}
+                            collapsed={collapsedSubjects[subject.id] !== undefined ? collapsedSubjects[subject.id] : true} // Default true
+                            onToggle={toggleSubject}
+                            onUpdateSubject={onUpdateSubject}
+                            onDeleteSubject={onDeleteSubject}
+                            navigateTo={navigateTo}
+                            themeColor={themeColor}
+                            layoutVersion={layoutVersion}
+                        />
+                        {/* Ad after every subject */}
+                        <div className="flex items-center justify-center py-2">
+                            <div className="w-[320px] h-[250px] bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
+                                <div className="absolute top-0 left-0 bg-gray-200 dark:bg-gray-700 px-1 text-[8px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
+                                <div className="flex items-center space-x-2">
+                                    <ExternalLink size={12} />
+                                    <span className="text-[10px] font-medium uppercase tracking-widest">Test Ad (320x250)</span>
+                                </div>
+                                <div className="text-[8px] opacity-50 mt-0.5">ca-app-pub-3940256099942544/6300978111</div>
+                            </div>
+                        </div>
+                    </React.Fragment>
                 ))}
             </div>
         </div>

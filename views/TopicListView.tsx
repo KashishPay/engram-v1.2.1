@@ -1,9 +1,10 @@
 
-import React from 'react';
-import { ArrowLeft, CheckCircle, Check, XCircle } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { ArrowLeft, CheckCircle, Check, XCircle, ExternalLink } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic } from '../types';
 import { VirtualList } from '../components/VirtualList';
+import { AdManager } from '../services/admob';
 
 interface TopicListViewProps {
     title: string;
@@ -12,8 +13,37 @@ interface TopicListViewProps {
     themeColor: string;
 }
 
+type ListItem = { type: 'topic'; data: Topic } | { type: 'ad'; id: string };
+
 export const TopicListView: React.FC<TopicListViewProps> = ({ title, topics, navigateTo, themeColor }) => {
     
+    React.useEffect(() => {
+        const adEligibleTitles = ['Due for Review', 'Recent Quizzes', 'Active Topics'];
+        if (adEligibleTitles.includes(title)) {
+            AdManager.showReviewBanner();
+        }
+        return () => {
+            if (adEligibleTitles.includes(title)) {
+                AdManager.hideBanner();
+            }
+        };
+    }, [title]);
+
+    const listItems = useMemo(() => {
+        const adEligibleTitles = ['Due for Review', 'Recent Quizzes', 'Active Topics'];
+        if (!adEligibleTitles.includes(title)) return topics.map(t => ({ type: 'topic' as const, data: t }));
+        
+        const result: ListItem[] = [];
+        topics.forEach((topic, index) => {
+            result.push({ type: 'topic', data: topic });
+            // Every 2 topics, insert an ad placeholder
+            if ((index + 1) % 2 === 0 && index !== topics.length - 1) {
+                result.push({ type: 'ad', id: `ad-${index}` });
+            }
+        });
+        return result;
+    }, [topics, title]);
+
     const getTopicStatus = (topic: Topic) => {
         const repetitionCount = topic.repetitions?.length || 0;
         const lastRepetition = topic.repetitions?.[repetitionCount - 1];
@@ -51,16 +81,32 @@ export const TopicListView: React.FC<TopicListViewProps> = ({ title, topics, nav
             </div>
 
             <Card className="p-4">
-                {topics.length === 0 ? (
+                {listItems.length === 0 ? (
                     <div className="text-center py-6 text-gray-500 dark:text-gray-400 italic">
                         <CheckCircle size={32} className="mx-auto text-green-500 mb-2" />
                         <p>No topics found in this list.</p>
                     </div>
                 ) : (
-                    <VirtualList<Topic>
-                        items={topics}
+                    <VirtualList<ListItem>
+                        items={listItems}
                         itemHeight={ITEM_HEIGHT}
-                        renderItem={(topic) => {
+                        renderItem={(item) => {
+                            if (item.type === 'ad') {
+                                return (
+                                    <div className="flex items-center justify-center h-[70px] box-border">
+                                        <div className="w-[320px] h-[50px] bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
+                                            <div className="absolute top-0 left-0 bg-gray-200 dark:bg-gray-700 px-1 text-[8px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
+                                            <div className="flex items-center space-x-2">
+                                                <ExternalLink size={12} />
+                                                <span className="text-[10px] font-medium uppercase tracking-widest">Test Ad (320x50)</span>
+                                            </div>
+                                            <div className="text-[8px] opacity-50 mt-0.5">ca-app-pub-3940256099942544/6300978111</div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            const topic = item.data;
                             const isRecentQuizzes = title === 'Recent Quizzes';
                             
                             return (
