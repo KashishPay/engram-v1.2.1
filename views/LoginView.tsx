@@ -284,7 +284,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onComplete, onSignInSucces
 
                     <div className="w-full max-w-sm space-y-4">
                         <a 
-                            href="https://github.com/YOUR_USERNAME/YOUR_REPO/releases/latest/download/app-release.apk"
+                            href="https://github.com/KashishPay/engram-v1.2.1/releases/latest/download/engram.apk"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full py-3.5 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center shadow-lg hover:scale-[1.02] transition"
