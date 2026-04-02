@@ -2,8 +2,9 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Search, Check, X, Filter, Layers, BookOpenText, ExternalLink } from 'lucide-react';
 import { Topic, Subject } from '../types';
 import { VirtualList } from './VirtualList';
+import { AdManager } from '../services/admob';
 
-type ListItem = { type: 'topic'; data: Topic } | { type: 'ad'; id: string };
+type ListItem = { type: 'topic'; data: Topic };
 
 interface TopicSelectorModalProps {
     isOpen: boolean;
@@ -28,6 +29,9 @@ export const TopicSelectorModal: React.FC<TopicSelectorModalProps> = ({
             setSelectedIds(new Set(initialSelection));
             setSearchQuery('');
             setFilterSubject('all');
+            AdManager.showTopicSelectorBanner();
+        } else {
+            AdManager.hideBanner();
         }
     }, [isOpen, initialSelection]);
 
@@ -58,8 +62,6 @@ export const TopicSelectorModal: React.FC<TopicSelectorModalProps> = ({
         const result: ListItem[] = [];
         filteredTopics.forEach((topic, index) => {
             result.push({ type: 'topic', data: topic });
-            // After every topic, insert an ad placeholder
-            result.push({ type: 'ad', id: `ad-${topic.id}-${index}` });
         });
         return result;
     }, [filteredTopics]);
@@ -165,20 +167,6 @@ export const TopicSelectorModal: React.FC<TopicSelectorModalProps> = ({
                             itemHeight={64} // 48px content + 16px padding/gap approx
                             scrollContainerRef={scrollContainerRef}
                             renderItem={(item) => {
-                                if (item.type === 'ad') {
-                                    return (
-                                        <div className="flex items-center justify-center h-[64px] box-border px-4">
-                                            <div className="w-full h-[48px] bg-gray-50 dark:bg-gray-800/30 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
-                                                <div className="absolute top-0 left-0 bg-gray-100 dark:bg-gray-700 px-1 text-[7px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
-                                                <div className="flex items-center space-x-2">
-                                                    <ExternalLink size={10} />
-                                                    <span className="text-[9px] font-medium uppercase tracking-widest">Test Ad (300x50)</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
                                 const topic = item.data;
                                 const isSelected = selectedIds.has(topic.id);
                                 return (

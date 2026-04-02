@@ -11,7 +11,6 @@ import { getErrorImage, getFallbackImage } from '../utils/errorImages';
 import katex from 'katex';
 import { KeepAwake } from '@capacitor-community/keep-awake';
 import { AdManager } from '../services/admob';
-import { Capacitor } from '@capacitor/core';
 
 export const PodcastSettingsView: React.FC<{ 
     config: { language: 'English' | 'Hinglish' }; 
@@ -272,8 +271,8 @@ const PodcastStatusOverlay: React.FC<{
                     </div>
                     
                     <h3 className="text-xl font-bold text-gray-800 dark:text-white animate-pulse">{state.status}</h3>
-                    <p className="text-sm text-gray-500 mt-2 mb-2">Kittu and Kashish are reviewing your notes...</p>
-                    
+                    <p className="text-sm text-gray-500 mt-2 mb-4">Kittu and Kashish are reviewing your notes...</p>
+
                     {timeLeft > 0 ? (
                         <div className="mb-8 flex flex-col items-center">
                             <p className={`text-2xl font-bold text-${themeColor}-600 font-mono tabular-nums`}>
@@ -666,18 +665,14 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                     <p className="italic text-gray-400">Notes available in raw format only.</p>
                                 )}
                              </div>
-                         ) : Capacitor.getPlatform() === 'web' && AdManager.getConfig()?.is_active ? (
-                             <div className="flex flex-col items-center justify-center text-white/80 z-10 w-full h-full">
-                                 {/* Ad placeholder */}
-                             </div>
                          ) : (
-                             <>
-                                <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/noise.png')]"></div>
-                                <Headphones size={80} className="text-white dark:text-white/50 drop-shadow-md" />
-                                <div className="absolute bottom-4 left-0 right-0 text-center text-white/80 text-xs font-bold uppercase tracking-widest">
-                                    Engram AI Podcast
-                                </div>
-                             </>
+                             <div className="flex flex-col items-center justify-center w-full h-full relative">
+                                 {/* Background elements */}
+                                 <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/noise.png')]"></div>
+                                 <div className="absolute bottom-4 left-0 right-0 text-center text-white/80 text-[10px] font-bold uppercase tracking-widest">
+                                     Engram AI Podcast
+                                 </div>
+                             </div>
                          )}
                     </div>
 

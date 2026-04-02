@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { BookOpenText, RotateCw, ChevronDown, Clock, Edit2, Check, X, ExternalLink } from 'lucide-react';
+import { BookOpenText, RotateCw, ChevronDown, Clock, Edit2, Check, X } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, Subject } from '../types';
 import { INITIAL_SUBJECTS } from '../constants';
@@ -18,7 +18,7 @@ interface SubjectsViewProps {
     themeColor: string;
 }
 
-type SubjectListItem = { type: 'topic'; data: Topic } | { type: 'ad'; id: string };
+type SubjectListItem = { type: 'topic'; data: Topic };
 
 // Memoized Subject Item Component
 const SubjectItem = React.memo(({ 
@@ -46,12 +46,8 @@ const SubjectItem = React.memo(({
 
     const listItems = useMemo(() => {
         const result: SubjectListItem[] = [];
-        subjectTopics.forEach((topic, index) => {
+        subjectTopics.forEach((topic) => {
             result.push({ type: 'topic', data: topic });
-            // Every 2 topics, insert an ad placeholder
-            if ((index + 1) % 2 === 0 && index !== subjectTopics.length - 1) {
-                result.push({ type: 'ad', id: `ad-${index}` });
-            }
         });
         return result;
     }, [subjectTopics]);
@@ -171,20 +167,6 @@ const SubjectItem = React.memo(({
                             itemHeight={ITEM_HEIGHT}
                             layoutVersion={layoutVersion}
                             renderItem={(item) => {
-                                if (item.type === 'ad') {
-                                    return (
-                                        <div className="flex items-center justify-center h-[52px] box-border">
-                                            <div className="w-[320px] h-[40px] bg-gray-50 dark:bg-gray-800/30 border border-dashed border-gray-200 dark:border-gray-700 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
-                                                <div className="absolute top-0 left-0 bg-gray-100 dark:bg-gray-700 px-1 text-[7px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
-                                                <div className="flex items-center space-x-2">
-                                                    <ExternalLink size={10} />
-                                                    <span className="text-[9px] font-medium uppercase tracking-widest">Test Ad (320x50)</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
                                 const topic = item.data;
                                 return (
                                     <button
@@ -431,30 +413,18 @@ export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjec
 
             <div className="space-y-6">
                 {allSubjects.map(subject => (
-                    <React.Fragment key={subject.id}>
-                        <SubjectItem
-                            subject={subject}
-                            subjectTopics={topicsBySubject[subject.id] || []}
-                            collapsed={collapsedSubjects[subject.id] !== undefined ? collapsedSubjects[subject.id] : true} // Default true
-                            onToggle={toggleSubject}
-                            onUpdateSubject={onUpdateSubject}
-                            onDeleteSubject={onDeleteSubject}
-                            navigateTo={navigateTo}
-                            themeColor={themeColor}
-                            layoutVersion={layoutVersion}
-                        />
-                        {/* Ad after every subject */}
-                        <div className="flex items-center justify-center py-2">
-                            <div className="w-[320px] h-[250px] bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 bg-gray-200 dark:bg-gray-700 px-1 text-[8px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
-                                <div className="flex items-center space-x-2">
-                                    <ExternalLink size={12} />
-                                    <span className="text-[10px] font-medium uppercase tracking-widest">Test Ad (320x250)</span>
-                                </div>
-                                <div className="text-[8px] opacity-50 mt-0.5">ca-app-pub-3940256099942544/6300978111</div>
-                            </div>
-                        </div>
-                    </React.Fragment>
+                    <SubjectItem
+                        key={subject.id}
+                        subject={subject}
+                        subjectTopics={topicsBySubject[subject.id] || []}
+                        collapsed={collapsedSubjects[subject.id] !== undefined ? collapsedSubjects[subject.id] : true} // Default true
+                        onToggle={toggleSubject}
+                        onUpdateSubject={onUpdateSubject}
+                        onDeleteSubject={onDeleteSubject}
+                        navigateTo={navigateTo}
+                        themeColor={themeColor}
+                        layoutVersion={layoutVersion}
+                    />
                 ))}
             </div>
         </div>

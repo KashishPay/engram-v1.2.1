@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Image as ImageIcon, Loader, Layers, Plus, ExternalLink } from 'lucide-react';
+import { Image as ImageIcon, Loader, Layers, Plus } from 'lucide-react';
 import { getImageFromIDB } from '../services/storage';
 import { ImageViewer } from './ImageViewer';
 import katex from 'katex';
@@ -78,24 +78,6 @@ const InlineImage: React.FC<{ imageId: string, description: string }> = ({ image
         </>
     );
 };
-
-const MediumRectangleAd: React.FC<{ id: string }> = ({ id }) => (
-    <div key={id} className="flex items-center justify-center py-8 my-4">
-        <div className="w-[320px] h-[250px] bg-gray-50 dark:bg-white/5 border border-dashed border-gray-200 dark:border-white/20 rounded-2xl flex flex-col items-center justify-center text-gray-400 dark:text-white/40 relative overflow-hidden shadow-sm">
-            <div className="absolute top-0 left-0 bg-gray-100 dark:bg-white/10 px-3 py-1 text-[10px] font-bold text-gray-500 dark:text-white/60 uppercase tracking-widest rounded-br-lg">Sponsored</div>
-            <div className="flex flex-col items-center space-y-4">
-                <div className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-100 dark:border-white/5">
-                    <ExternalLink size={24} className="text-blue-500 opacity-80" />
-                </div>
-                <div className="text-center px-6">
-                    <p className="text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-white/80">Smart Notebook Ad</p>
-                    <p className="text-[10px] opacity-60 mt-1 leading-tight">Premium 320x250 Placement<br/>Contextual Learning Ad</p>
-                </div>
-                <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-[11px] font-bold transition shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0">Learn More</button>
-            </div>
-        </div>
-    </div>
-);
 
 // --- Rendering Logic ---
 
@@ -254,7 +236,7 @@ function stripCodeFences(content: string): string {
   return out;
 }
 
-export const NotesRenderer: React.FC<NotesRendererProps> = React.memo(({ content, onRenderError, className, adCount = 0 }) => {
+export const NotesRenderer: React.FC<NotesRendererProps> = React.memo(({ content, onRenderError, className }) => {
     if (!content) return null;
 
     useEffect(() => {
@@ -435,22 +417,6 @@ export const NotesRenderer: React.FC<NotesRendererProps> = React.memo(({ content
     });
 
     flushList();
-
-    // Interleave ads if requested
-    if (adCount > 0 && elements.length > 3) {
-        const finalElements: React.ReactNode[] = [];
-        const interval = Math.floor(elements.length / (adCount + 1));
-        
-        elements.forEach((el, i) => {
-            finalElements.push(el);
-            // Insert ad at intervals, but not at the very end if we've reached adCount
-            if ((i + 1) % interval === 0 && (i + 1) / interval <= adCount && i !== elements.length - 1) {
-                finalElements.push(<MediumRectangleAd key={`notebook-ad-${i}`} id={`notebook-ad-${i}`} />);
-            }
-        });
-        
-        return <div className="font-sans antialiased">{finalElements}</div>;
-    }
 
     return <div className="font-sans antialiased">{elements}</div>;
 });

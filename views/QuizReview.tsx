@@ -8,6 +8,8 @@ import katex from 'katex';
 import DOMPurify from 'dompurify';
 import { triggerHaptic } from '../utils/haptics';
 
+import { AdManager } from '../services/admob';
+
 interface QuizReviewProps {
     topic: Topic;
     quizData: QuizQuestion[];
@@ -25,7 +27,11 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
     useEffect(() => {
         if (topic) {
             console.debug(`[REVIEW] View mounted. Topic: ${topic.topicName}, Repetition: ${repetitionNumber} (1-based)`);
+            AdManager.showQuizReviewBanner();
         }
+        return () => {
+            AdManager.hideBanner();
+        };
     }, [topic?.id, repetitionNumber]);
 
     // Back Button Interceptor: Force user to go to 'topicDetail' instead of 'quiz' if they hit back
@@ -240,21 +246,6 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
                                         />
                                     </div>
                                 </Card>
-                                <div key={`ad-${index}`} className="flex items-center justify-center py-6">
-                                    <div className="w-[320px] h-[250px] bg-gray-50 dark:bg-white/5 border border-dashed border-gray-200 dark:border-white/20 rounded-2xl flex flex-col items-center justify-center text-gray-400 dark:text-white/40 relative overflow-hidden shadow-sm">
-                                        <div className="absolute top-0 left-0 bg-gray-100 dark:bg-white/10 px-3 py-1 text-[10px] font-bold text-gray-500 dark:text-white/60 uppercase tracking-widest rounded-br-lg">Sponsored</div>
-                                        <div className="flex flex-col items-center space-y-4">
-                                            <div className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-100 dark:border-white/5">
-                                                <ExternalLink size={24} className="text-blue-500 opacity-80" />
-                                            </div>
-                                            <div className="text-center px-6">
-                                                <p className="text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-white/80">Quiz Results Ad</p>
-                                                <p className="text-[10px] opacity-60 mt-1 leading-tight">Premium 320x250 Placement<br/>Continue your learning journey</p>
-                                            </div>
-                                            <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-[11px] font-bold transition shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0">Learn More</button>
-                                        </div>
-                                    </div>
-                                </div>
                             </React.Fragment>
                         );
                     })}

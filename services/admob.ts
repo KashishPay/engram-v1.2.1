@@ -80,11 +80,11 @@ class AdManagerService {
         }
 
         const options: BannerAdOptions = {
-            adId: Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
             position: BannerAdPosition.TOP_CENTER,
             margin: 240, // Pushed down further to center perfectly in the flashcard container
-            isTesting: true // Enforce AdMob policies by using test ads during development
+            isTesting: false // Live ads enabled
         };
 
         try {
@@ -109,11 +109,11 @@ class AdManagerService {
         }
 
         const options: BannerAdOptions = {
-            adId: Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
             position: BannerAdPosition.TOP_CENTER,
             margin: 80, // Approximate offset to overlay the album art
-            isTesting: true // Enforce AdMob policies by using test ads during development
+            isTesting: false // Live ads enabled
         };
 
         try {
@@ -138,11 +138,11 @@ class AdManagerService {
         }
 
         const options: BannerAdOptions = {
-            adId: Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.BANNER, // 320x50
             position: BannerAdPosition.BOTTOM_CENTER,
             margin: 60, // Clear the tab bar
-            isTesting: true // Enforce AdMob policies by using test ads during development
+            isTesting: false // Live ads enabled
         };
 
         try {
@@ -150,6 +150,93 @@ class AdManagerService {
             this.isBannerShowing = true;
         } catch (error) {
             console.error('Failed to show review banner ad', error);
+        }
+    }
+
+    async showQuizReviewBanner() {
+        if (!this.isInitialized || !this.config?.is_active) return;
+
+        if (this.isBannerShowing) {
+            await this.hideBanner();
+        }
+
+        if (Capacitor.getPlatform() === 'web') {
+            console.log('[AdManager] Web Preview: Showing Quiz Review Banner Ad Placeholder');
+            this.isBannerShowing = true;
+            return;
+        }
+
+        const options: BannerAdOptions = {
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
+            adSize: BannerAdSize.MEDIUM_RECTANGLE,
+            position: BannerAdPosition.BOTTOM_CENTER,
+            margin: 80, // Clear the bottom buttons
+            isTesting: false
+        };
+
+        try {
+            await AdMob.showBanner(options);
+            this.isBannerShowing = true;
+        } catch (error) {
+            console.error('Failed to show quiz review banner ad', error);
+        }
+    }
+
+    async showSourceViewerBanner() {
+        if (!this.isInitialized || !this.config?.is_active) return;
+
+        if (this.isBannerShowing) {
+            await this.hideBanner();
+        }
+
+        if (Capacitor.getPlatform() === 'web') {
+            console.log('[AdManager] Web Preview: Showing Source Viewer Banner Ad Placeholder');
+            this.isBannerShowing = true;
+            return;
+        }
+
+        const options: BannerAdOptions = {
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
+            adSize: BannerAdSize.MEDIUM_RECTANGLE,
+            position: BannerAdPosition.BOTTOM_CENTER,
+            margin: 20,
+            isTesting: false
+        };
+
+        try {
+            await AdMob.showBanner(options);
+            this.isBannerShowing = true;
+        } catch (error) {
+            console.error('Failed to show source viewer banner ad', error);
+        }
+    }
+
+    async showTopicSelectorBanner() {
+        if (!this.isInitialized || !this.config?.is_active) return;
+
+        if (this.isBannerShowing) {
+            await this.hideBanner();
+        }
+
+        if (Capacitor.getPlatform() === 'web') {
+            console.log('[AdManager] Web Preview: Showing Topic Selector Banner Ad Placeholder');
+            this.isBannerShowing = true;
+            return;
+        }
+
+        const options: BannerAdOptions = {
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
+            adSize: BannerAdSize.BANNER,
+            position: BannerAdPosition.TOP_CENTER,
+            margin: 60, // Clear the header
+            isTesting: false
+        };
+
+        try {
+            await AdMob.showBanner(options);
+            this.isBannerShowing = true;
+        } catch (error) {
+            console.error('Failed to show topic selector banner ad', error);
         }
     }
 
@@ -167,11 +254,11 @@ class AdManagerService {
         }
 
         const options: BannerAdOptions = {
-            adId: Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111',
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE, // User requested rectangular banner
             position: BannerAdPosition.TOP_CENTER,
             margin: 60, // Clear the header
-            isTesting: true // Enforce AdMob policies by using test ads during development
+            isTesting: false // Live ads enabled
         };
 
         try {
@@ -200,13 +287,13 @@ class AdManagerService {
         }
 
         try {
-            const adId = Capacitor.getPlatform() === 'ios' 
+            const adId = this.config?.interstitial_ad_unit_id || (Capacitor.getPlatform() === 'ios' 
                 ? 'ca-app-pub-3940256099942544/4411468910' // iOS Test Interstitial
-                : 'ca-app-pub-3940256099942544/1033173712'; // Android Test Interstitial
+                : 'ca-app-pub-3940256099942544/1033173712'); // Android Test Interstitial
 
             await AdMob.prepareInterstitial({
                 adId,
-                isTesting: true // Enforce AdMob policies by using test ads during development
+                isTesting: false // Live ads enabled
             });
             await AdMob.showInterstitial();
             this.lastInterstitialTime = Date.now();

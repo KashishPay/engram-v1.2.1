@@ -48,6 +48,7 @@ import { AboutView } from '../views/AboutView';
 import { TermsView, PrivacyView, LicensesView } from '../views/LegalViews';
 import { CalendarView, TaskView, EisenhowerMatrixView, PomodoroFullView, HabitTrackerView, SearchView } from '../views/ExtraViews';
 import { ProfileView } from '../views/ProfileView';
+import { AccountSettingsView, SubscriptionView, HelpSupportView } from '../views/AccountViews';
 import { AiFeaturesView } from '../views/AiFeaturesView';
 import { StudyBreakdownView } from '../views/StudyBreakdownView';
 import { ObservationsView } from '../views/ObservationsView';
@@ -1062,6 +1063,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             {currentView === 'topicList' && <TopicListView title={topicListData.title} topics={topicListData.topics} navigateTo={navigateTo} themeColor={props.currentTheme} />}
             {currentView === 'studyBreakdown' && <StudyBreakdownView studyLog={props.studyLog} initialFilter={breakdownFilter} navigateTo={navigateTo} themeColor={props.currentTheme} />}
             {currentView === 'aiFeatures' && <AiFeaturesView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
+            {currentView === 'accountSettings' && <AccountSettingsView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} userProfile={props.userProfile} userEmail={props.user?.email} />}
+            {currentView === 'subscription' && <SubscriptionView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} userProfile={props.userProfile} userEmail={props.user?.email} />}
+            {currentView === 'helpSupport' && <HelpSupportView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} userProfile={props.userProfile} userEmail={props.user?.email} />}
             {currentView === 'tabBarSettings' && <TabBarConfigView enabledTabIds={props.enabledTabs} onToggleTab={(id) => { if (props.enabledTabs.includes(id)) { props.setEnabledTabs(props.enabledTabs.filter(t => t !== id)); } else { props.setEnabledTabs([...props.enabledTabs, id]); } }} onReorderTabs={props.setEnabledTabs} navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
             {currentView === 'appearance' && <AppearanceView currentTheme={props.currentTheme} setCurrentTheme={props.setCurrentTheme} themeIntensity={props.themeIntensity} setThemeIntensity={props.setThemeIntensity} goBack={goBack} />}
             {currentView === 'dateTimeSettings' && <DateTimeSettingsView settings={props.dateTimeSettings} onUpdateSettings={props.setDateTimeSettings} navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}

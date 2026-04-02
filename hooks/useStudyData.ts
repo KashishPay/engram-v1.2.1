@@ -89,37 +89,60 @@ export const useStudyData = (userId: string) => {
                     }));
                 }
 
-                // --- PROACTIVE MERGE: Combine duplicate subject names on boot ---
-                if (finalSubjects.length > 0) {
-                    const nameMap = new Map<string, Subject>(); // Lowercase Name -> Master Subject
-                    const idMapping = new Map<string, string>(); // Duplicate ID -> Master ID
-                    const idToName = new Map<string, string>();   // Master ID -> Master Name
-                    
-                    const uniqueSubjects: Subject[] = [];
+                // --- PROACTIVE MERGE & SUBJECT ID FIX ---
+                const nameMap = new Map<string, Subject>(); // Lowercase Name -> Master Subject
+                const idMapping = new Map<string, string>(); // Duplicate ID -> Master ID
+                const idToName = new Map<string, string>();   // Master ID -> Master Name
+                
+                const uniqueSubjects: Subject[] = [];
 
-                    finalSubjects.forEach(sub => {
-                        const normName = sub.name.trim().toLowerCase();
+                finalSubjects.forEach(sub => {
+                    const normName = sub.name.trim().toLowerCase();
+                    if (nameMap.has(normName)) {
+                        const master = nameMap.get(normName)!;
+                        idMapping.set(sub.id, master.id);
+                    } else {
+                        nameMap.set(normName, sub);
+                        uniqueSubjects.push(sub);
+                        idToName.set(sub.id, sub.name);
+                    }
+                });
+
+                const mergedCount = idMapping.size;
+                let missingIdCount = 0;
+
+                finalTopics = finalTopics.map(topic => {
+                    let subjectId = topic.subjectId;
+                    let subjectName = topic.subject || 'Uncategorized';
+                    
+                    if (idMapping.has(subjectId)) {
+                        subjectId = idMapping.get(subjectId)!;
+                        subjectName = idToName.get(subjectId) || subjectName;
+                    } else if (!subjectId) {
+                        missingIdCount++;
+                        // Topic is missing subjectId, try to find by name or create
+                        const normName = subjectName.trim().toLowerCase();
                         if (nameMap.has(normName)) {
                             const master = nameMap.get(normName)!;
-                            idMapping.set(sub.id, master.id);
+                            subjectId = master.id;
+                            subjectName = master.name;
                         } else {
-                            nameMap.set(normName, sub);
-                            uniqueSubjects.push(sub);
-                            idToName.set(sub.id, sub.name);
+                            // Create new subject
+                            subjectId = `sub-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                            const newSub = { id: subjectId, name: subjectName };
+                            nameMap.set(normName, newSub);
+                            uniqueSubjects.push(newSub);
+                            idToName.set(subjectId, subjectName);
                         }
-                    });
-
-                    if (idMapping.size > 0) {
-                        console.log(`%c [Boot] Merging ${idMapping.size} duplicate subjects...`, 'color: blue');
-                        finalSubjects = uniqueSubjects;
-                        finalTopics = finalTopics.map(topic => {
-                            if (idMapping.has(topic.subjectId)) {
-                                const masterId = idMapping.get(topic.subjectId)!;
-                                return { ...topic, subjectId: masterId, subject: idToName.get(masterId) || topic.subject };
-                            }
-                            return topic;
-                        });
                     }
+                    
+                    return { ...topic, subjectId, subject: subjectName };
+                });
+                
+                finalSubjects = uniqueSubjects;
+
+                if (mergedCount > 0 || missingIdCount > 0) {
+                    console.log(`%c [Boot] Merged ${mergedCount} duplicate subjects, fixed ${missingIdCount} missing subject IDs.`, 'color: blue');
                 }
 
                 setStudyLog(finalTopics);

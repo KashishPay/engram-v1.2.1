@@ -7,6 +7,7 @@ import { createWavBlob } from '../utils/audio';
 import { ensureAudioContext } from '../utils/audioCue';
 import { requestWakeLock, releaseWakeLock } from '../utils/wakeLock';
 import { showLocalNotification, requestNotificationPermission } from '../utils/notifications';
+import { AdManager } from '../services/admob';
 
 export interface PodcastState {
     currentTopic: Topic | null;
@@ -207,6 +208,8 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
         
         const isRecap = topic.id.startsWith('subject-recap');
         setStatus(isRecap ? 'Synthesizing Subject Recap...' : 'Generating Deep Dive...');
+        
+        AdManager.showInterstitial();
         
         const { targetDuration, estimatedWait } = calculateDurations(topic, isRecap);
         setEstimatedDuration(estimatedWait);

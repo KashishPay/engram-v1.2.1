@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { triggerHaptic } from '../utils/haptics';
+import { AdManager } from '../services/admob';
 
 interface NavButtonProps {
     icon: React.ElementType;
@@ -17,6 +18,8 @@ export const NavButton: React.FC<NavButtonProps> = React.memo(({ icon: Icon, lab
     
     const handleClick = () => {
         triggerHaptic.selection();
+        // Trigger interstitial ad when tab bar buttons are clicked
+        AdManager.showInterstitial();
         navigateTo(view);
     };
 

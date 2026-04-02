@@ -13,43 +13,6 @@ import DOMPurify from 'dompurify';
 import { triggerHaptic } from '../utils/haptics';
 import { AdManager } from '../services/admob';
 
-const injectAdCards = (cards: FlashCard[]): FlashCard[] => {
-    let config = AdManager.getConfig();
-    
-    // Fallback config if network hasn't finished loading yet
-    if (!config) {
-        config = {
-            banner_ad_unit_id: 'ca-app-pub-3940256099942544/6300978111',
-            min_interval: 3,
-            max_interval: 5,
-            is_active: true
-        };
-    }
-
-    if (!config.is_active || cards.length === 0) return cards;
-
-    const newCards: FlashCard[] = [];
-    let nextAdIndex = Math.floor(Math.random() * (config.max_interval - config.min_interval + 1)) + config.min_interval;
-    let cardsSinceLastAd = 0;
-
-    for (let i = 0; i < cards.length; i++) {
-        newCards.push(cards[i]);
-        cardsSinceLastAd++;
-
-        if (cardsSinceLastAd >= nextAdIndex && i !== cards.length - 1) {
-            newCards.push({
-                id: `ad-${Date.now()}-${i}`,
-                front: 'AD_PLACEHOLDER',
-                back: 'AD_PLACEHOLDER',
-                isAd: true
-            });
-            cardsSinceLastAd = 0;
-            nextAdIndex = Math.floor(Math.random() * (config.max_interval - config.min_interval + 1)) + config.min_interval;
-        }
-    }
-    return newCards;
-};
-
 interface HomeViewProps {
     studyLog: Topic[];
     allSubjects: Subject[];
@@ -250,7 +213,7 @@ const FlashCardDeck: React.FC<{
                     lastResult: undefined
                 }));
                 
-                setCards(injectAdCards(newCards));
+                setCards(newCards);
                 triggerHaptic.notification('Success');
                 const updatedHistory = [...cardHistory, ...newCards];
                 if (updatedHistory.length > 200) updatedHistory.splice(0, updatedHistory.length - 200);
@@ -288,7 +251,7 @@ const FlashCardDeck: React.FC<{
         }
 
         const shuffled = [...historyPool].sort(() => 0.5 - Math.random());
-        setCards(injectAdCards(shuffled));
+        setCards(shuffled);
         setIndex(0);
         setCompleted(false);
         setIsFlipped(false);

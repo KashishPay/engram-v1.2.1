@@ -4,7 +4,8 @@ import {
     Award, ChevronRight, Palette, Clock, Bell, Layout, 
     Info, Download, Upload, Sun, Moon, 
     Smartphone, LogOut, Key, Trash2, ShieldCheck, ExternalLink, AlertTriangle, RotateCw, Zap, Sparkles,
-    Check, Loader2, LayoutGrid, Layers, Headphones, MessageSquarePlus, Star, PartyPopper, RefreshCw, UserX, Lock, CloudSync
+    Check, Loader2, LayoutGrid, Layers, Headphones, MessageSquarePlus, Star, PartyPopper, RefreshCw, UserX, Lock, CloudSync,
+    User, CreditCard, HelpCircle, FileText, Shield, Scale
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { validateApiKey, getUsageStats } from '../services/gemini';
@@ -445,255 +446,284 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <ChevronRight className="text-gray-400" />
                 </div>
                 
-                <div className="space-y-4">
-                    {/* BYOK Section */}
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-blue-100 dark:border-blue-900/30">
-                        <SettingsItem 
-                            icon={Key} 
-                            label="AI Configuration (BYOK)" 
-                            color={hasKey ? (keyStatus === 'invalid' ? "text-red-500" : "text-green-500") : "text-blue-500"} 
-                            onClick={() => setShowKeyInput(!showKeyInput)} 
-                            rightElement={
-                                <div className="flex items-center">
-                                    {badge}
-                                    <ChevronRight className={`text-gray-300 dark:text-gray-600 transition-transform duration-200 ${showKeyInput ? 'rotate-90' : ''}`} size={20} />
-                                </div>
-                            }
-                        />
-                        {showKeyInput && (
-                            <div className="p-5 bg-white dark:bg-gray-800 animate-in slide-in-from-top-2 border-t border-blue-100 dark:border-blue-900/30">
-                                {/* ... (BYOK Content) ... */}
-                                <div className={`mb-4 p-3 rounded-xl border flex items-center ${hasKey ? 'bg-green-50 border-green-200 text-green-800' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
-                                    <div className={`p-2 rounded-full mr-3 ${hasKey ? 'bg-green-200 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                                        {hasKey ? <ShieldCheck size={16}/> : <Zap size={16}/>}
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-bold uppercase tracking-wide">Current API Source</p>
-                                        <p className="text-sm font-semibold">{hasKey ? 'Custom Key (Private Quota)' : 'Standard (Shared Quota)'}</p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 mb-4">
-                                    <h4 className="font-bold text-gray-800 dark:text-white text-sm mb-3">Get a free Gemini API Key:</h4>
-                                    <ol className="text-xs text-gray-600 dark:text-gray-300 space-y-2 leading-relaxed">
-                                        <li className="flex items-start">
-                                            <span className="font-bold mr-1.5">1.</span> 
-                                            <span>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline inline-flex items-center">Google AI Studio <ExternalLink size={10} className="ml-0.5"/></a>.</span>
-                                        </li>
-                                        <li className="flex items-start">
-                                            <span className="font-bold mr-1.5">2.</span>
-                                            <span>Click <span className="font-bold text-gray-800 dark:text-gray-200">Create API key</span> (it's free).</span>
-                                        </li>
-                                        <li className="flex items-start">
-                                            <span className="font-bold mr-1.5">3.</span>
-                                            <span>Copy the key string and paste it below.</span>
-                                        </li>
-                                    </ol>
-                                </div>
-
-                                <div className="flex space-x-2 relative">
-                                    <input 
-                                        type="password" 
-                                        value={apiKey}
-                                        onChange={handleInputChange}
-                                        placeholder="Paste API Key (starts with Alza...)"
-                                        className={`flex-1 p-3 text-sm bg-gray-800 text-white placeholder-gray-400 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none transition ${keyStatus === 'invalid' ? 'border-red-500' : 'border-gray-700'}`}
-                                    />
-                                    {actionButton}
-                                </div>
-                                {showFormatWarning && (
-                                     <p className="text-[10px] text-orange-500 mt-1 pl-1 font-medium animate-in fade-in">
-                                        Warning: Google API Keys usually start with "AIza".
-                                     </p>
-                                )}
-                                {keyStatus === 'invalid' && (
-                                    <p className="text-xs text-red-500 mt-2 flex items-center font-bold animate-in fade-in">
-                                        <AlertTriangle size={12} className="mr-1" /> Invalid API Key. Check format/length.
-                                    </p>
-                                )}
-                            </div>
-                        )}
+                <div className="space-y-6">
+                    {/* Profile Section */}
+                    <div>
+                        <h3 className="px-4 mb-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Profile</h3>
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm">
+                            <SettingsItem icon={User} label="Account Settings" color="text-blue-500" onClick={() => navigateTo('accountSettings')} />
+                            <SettingsItem icon={CreditCard} label="Subscription" color="text-orange-500" onClick={() => navigateTo('subscription')} />
+                            <SettingsItem icon={HelpCircle} label="Help & Support" color="text-green-500" onClick={() => navigateTo('helpSupport')} />
+                        </div>
                     </div>
 
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm">
-                        <SettingsItem icon={LayoutGrid} label="Tab Bar" color="text-orange-500" onClick={() => navigateTo('tabBarSettings')} />
-                        <SettingsItem icon={Palette} label="Appearance" color="text-orange-500" onClick={() => navigateTo('appearance')} />
-                        <SettingsItem icon={Clock} label="Date & Time" color="text-orange-500" onClick={() => navigateTo('dateTimeSettings')} />
-                        <SettingsItem icon={Bell} label="Sounds & Notifications" color="text-orange-500" onClick={() => navigateTo('soundsNotifications')} />
-                        <SettingsItem icon={Layout} label="Widgets" color="text-orange-500" onClick={() => navigateTo('widgets')} />
-                        <SettingsItem icon={Layers} label="Flashcard Hub" color="text-pink-500" onClick={() => navigateTo('flashcardHub')} />
-                        <SettingsItem icon={Headphones} label="Podcast & Settings" color="text-orange-500" onClick={() => navigateTo('podcastSettings')} />
-                        <SettingsItem 
-                            icon={Sparkles} 
-                            label="AI Features & Quota" 
-                            color="text-purple-500" 
-                            onClick={() => navigateTo('aiFeatures')} 
-                            rightElement={
-                                <div className="flex items-center">
-                                    <span className="text-xs text-gray-400 mr-2">
-                                        {usageDisplay}
-                                    </span>
-                                    <ChevronRight size={20} className="text-gray-300 dark:text-gray-600" />
-                                </div>
-                            }
-                        />
-                        <SettingsItem icon={Info} label="About" color="text-gray-500" onClick={() => navigateTo('about')} />
-                    </div>
-                    
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm mt-4">
-                        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-                            <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3 text-sm">Support</h3>
-                            <button onClick={handleSendFeedback} className={`w-full flex items-center justify-between p-3 bg-${currentTheme}-50 dark:bg-${currentTheme}-900/20 text-${currentTheme}-600 dark:text-${currentTheme}-400 rounded-xl transition hover:bg-${currentTheme}-100 dark:hover:bg-${currentTheme}-900/30`}>
-                                <div className="flex items-center"><MessageSquarePlus size={18} className="mr-2"/><span className="font-medium text-sm">Send Feedback / Report Bug</span></div>
-                                <ChevronRight size={16} />
-                            </button>
-                        </div>
-                        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-                            <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3 text-sm">Data Management</h3>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button onClick={handleExportData} className="flex items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl font-medium text-sm border border-blue-100 dark:border-blue-800 transition hover:bg-blue-100 dark:hover:bg-blue-900/30">
-                                    <Download size={18} className="mr-2" />Export Backup
-                                </button>
-                                {isGuest ? (
-                                    <button 
-                                        onClick={() => handleImportData({ target: { value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)} 
-                                        className="flex items-center justify-center p-3 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 rounded-xl font-medium text-sm border border-gray-200 dark:border-gray-700 transition"
-                                    >
-                                        <Lock size={14} className="mr-2" /> Import (Sign In)
-                                    </button>
-                                ) : (
-                                    <label className="flex items-center justify-center p-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl font-medium text-sm border border-green-100 dark:border-green-800 transition hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer">
-                                        <Upload size={18} className="mr-2" />Import Backup
-                                        <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
-                                    </label>
-                                )}
-                            </div>
-                            
-                            {/* Global Sync Feature - Only visible to authorized users */}
-                            {!isGuest && userProfile?.can_use_global_sync && (
-                                <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-xl">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center">
-                                            <div className="p-2 bg-purple-100 dark:bg-purple-800/50 rounded-lg mr-3">
-                                                <CloudSync size={18} className="text-purple-600 dark:text-purple-400" />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300">Global Sync</h4>
-                                                <p className="text-xs text-purple-700 dark:text-purple-400/80">Automatically sync your exports</p>
-                                            </div>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" className="sr-only peer" checked={globalSyncEnabled} onChange={handleGlobalSyncToggle} />
-                                            <div className="w-11 h-6 bg-purple-200 dark:bg-purple-900/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                        </label>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-                            <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3 text-sm">App Mode</h3>
-                            <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
-                                {[{ id: 'light', label: 'Light', icon: Sun }, { id: 'dark', label: 'Dark', icon: Moon }, { id: 'system', label: 'System', icon: Smartphone }].map(mode => (
-                                    <button key={mode.id} onClick={() => setAppMode(mode.id)} className={`flex-1 flex items-center justify-center py-2 rounded-lg text-sm font-medium transition ${appMode === mode.id ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-                                        <mode.icon size={16} className="mr-1.5" />{mode.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-                            <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3 text-sm">Device Maintenance</h3>
-                            
-                            {!showResetConfirm ? (
-                                <button onClick={() => setShowResetConfirm(true)} className="w-full flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/20">
+                    {/* AI Configuration Section */}
+                    <div>
+                        <h3 className="px-4 mb-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">AI & Quota</h3>
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-blue-100 dark:border-blue-900/30">
+                            <SettingsItem 
+                                icon={Key} 
+                                label="AI Configuration (BYOK)" 
+                                color={hasKey ? (keyStatus === 'invalid' ? "text-red-500" : "text-green-500") : "text-blue-500"} 
+                                onClick={() => setShowKeyInput(!showKeyInput)} 
+                                rightElement={
                                     <div className="flex items-center">
-                                        <RefreshCw size={18} className="mr-2"/>
-                                        <div className="text-left">
-                                            <span className="font-medium text-sm block">Clear my device data</span>
-                                            <span className="text-[10px] opacity-80 block">Resets this device. You'll stay signed in.</span>
+                                        {badge}
+                                        <ChevronRight className={`text-gray-300 dark:text-gray-600 transition-transform duration-200 ${showKeyInput ? 'rotate-90' : ''}`} size={20} />
+                                    </div>
+                                }
+                            />
+                            {showKeyInput && (
+                                <div className="p-5 bg-white dark:bg-gray-800 animate-in slide-in-from-top-2 border-t border-blue-100 dark:border-blue-900/30">
+                                    {/* ... (BYOK Content) ... */}
+                                    <div className={`mb-4 p-3 rounded-xl border flex items-center ${hasKey ? 'bg-green-50 border-green-200 text-green-800' : 'bg-gray-100 border-gray-200 text-gray-700'}`}>
+                                        <div className={`p-2 rounded-full mr-3 ${hasKey ? 'bg-green-200 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                                            {hasKey ? <ShieldCheck size={16}/> : <Zap size={16}/>}
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-wide">Current API Source</p>
+                                            <p className="text-sm font-semibold">{hasKey ? 'Custom Key (Private Quota)' : 'Standard (Shared Quota)'}</p>
                                         </div>
                                     </div>
-                                    <ChevronRight size={16} />
-                                </button>
-                            ) : (
-                                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/30 animate-in fade-in mb-3">
-                                    <p className="text-sm font-bold text-red-700 dark:text-red-300 mb-2">Are you sure?</p>
-                                    <p className="text-xs text-red-600 dark:text-red-400 mb-4">This will wipe all local data. You will stay signed in. This cannot be undone.</p>
-                                    
-                                    {resetMessage ? (
-                                        <div className="text-center font-bold text-sm text-green-600 dark:text-green-400 py-2 animate-pulse">
-                                            {resetMessage}
-                                        </div>
-                                    ) : (
-                                        <div className="flex space-x-3">
-                                            <button 
-                                                onClick={() => setShowResetConfirm(false)} 
-                                                disabled={isResetting}
-                                                className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-100"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button 
-                                                onClick={handleConfirmReset}
-                                                disabled={isResetting}
-                                                className="flex-1 py-2 bg-red-600 text-white rounded-lg text-xs font-bold flex items-center justify-center hover:bg-red-700"
-                                            >
-                                                {isResetting ? <Loader2 size={14} className="animate-spin mr-1"/> : null}
-                                                {isResetting ? "Clearing..." : "Yes, Clear Data"}
-                                            </button>
-                                        </div>
+
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 mb-4">
+                                        <h4 className="font-bold text-gray-800 dark:text-white text-sm mb-3">Get a free Gemini API Key:</h4>
+                                        <ol className="text-xs text-gray-600 dark:text-gray-300 space-y-2 leading-relaxed">
+                                            <li className="flex items-start">
+                                                <span className="font-bold mr-1.5">1.</span> 
+                                                <span>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline inline-flex items-center">Google AI Studio <ExternalLink size={10} className="ml-0.5"/></a>.</span>
+                                            </li>
+                                            <li className="flex items-start">
+                                                <span className="font-bold mr-1.5">2.</span>
+                                                <span>Click <span className="font-bold text-gray-800 dark:text-gray-200">Create API key</span> (it's free).</span>
+                                            </li>
+                                            <li className="flex items-start">
+                                                <span className="font-bold mr-1.5">3.</span>
+                                                <span>Copy the key string and paste it below.</span>
+                                            </li>
+                                        </ol>
+                                    </div>
+
+                                    <div className="flex space-x-2 relative">
+                                        <input 
+                                            type="password" 
+                                            value={apiKey}
+                                            onChange={handleInputChange}
+                                            placeholder="Paste API Key (starts with Alza...)"
+                                            className={`flex-1 p-3 text-sm bg-gray-800 text-white placeholder-gray-400 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none transition ${keyStatus === 'invalid' ? 'border-red-500' : 'border-gray-700'}`}
+                                        />
+                                        {actionButton}
+                                    </div>
+                                    {showFormatWarning && (
+                                         <p className="text-[10px] text-orange-500 mt-1 pl-1 font-medium animate-in fade-in">
+                                            Warning: Google API Keys usually start with "AIza".
+                                         </p>
+                                    )}
+                                    {keyStatus === 'invalid' && (
+                                        <p className="text-xs text-red-500 mt-2 flex items-center font-bold animate-in fade-in">
+                                            <AlertTriangle size={12} className="mr-1" /> Invalid API Key. Check format/length.
+                                        </p>
                                     )}
                                 </div>
                             )}
+                            <SettingsItem 
+                                icon={Sparkles} 
+                                label="AI Features & Quota" 
+                                color="text-purple-500" 
+                                onClick={() => navigateTo('aiFeatures')} 
+                                rightElement={
+                                    <div className="flex items-center">
+                                        <span className="text-xs text-gray-400 mr-2">
+                                            {usageDisplay}
+                                        </span>
+                                        <ChevronRight size={20} className="text-gray-300 dark:text-gray-600" />
+                                    </div>
+                                }
+                            />
+                        </div>
+                    </div>
 
-                            {/* Account Deletion Button (Visible to ALL, including Guests) */}
-                            <div className="mt-3">
-                                {!showDeleteConfirm ? (
-                                    <button onClick={() => setShowDeleteConfirm(true)} className="w-full flex items-center justify-between p-3 border border-red-100 dark:border-red-900/50 rounded-xl transition hover:bg-red-50 dark:hover:bg-red-900/10 group">
-                                        <div className="flex items-center text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300">
-                                            <UserX size={18} className="mr-2"/>
-                                            <div className="text-left">
-                                                <span className="font-medium text-sm block">{deleteLabel}</span>
-                                                <span className="text-[10px] opacity-80 block">{deleteDesc}</span>
-                                            </div>
-                                        </div>
-                                        <ChevronRight size={16} className="text-red-300" />
+                    {/* General Section */}
+                    <div>
+                        <h3 className="px-4 mb-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">General</h3>
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm">
+                            <SettingsItem icon={Palette} label="Appearance" color="text-indigo-500" onClick={() => navigateTo('appearance')} />
+                            <SettingsItem icon={Bell} label="Sounds & Notifications" color="text-pink-500" onClick={() => navigateTo('soundsNotifications')} />
+                            <SettingsItem icon={Layout} label="Widgets" color="text-cyan-500" onClick={() => navigateTo('widgets')} />
+                            <SettingsItem icon={Clock} label="Date & Time" color="text-amber-500" onClick={() => navigateTo('dateTimeSettings')} />
+                            <SettingsItem icon={Headphones} label="Podcast Settings" color="text-orange-500" onClick={() => navigateTo('podcastSettings')} />
+                            <SettingsItem icon={LayoutGrid} label="Tab Bar Customization" color="text-violet-500" onClick={() => navigateTo('tabBarSettings')} />
+                            <SettingsItem icon={Layers} label="Flashcard Hub" color="text-rose-500" onClick={() => navigateTo('flashcardHub')} />
+                        </div>
+                    </div>
+
+                    {/* Legal Section */}
+                    <div>
+                        <h3 className="px-4 mb-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Legal</h3>
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm">
+                            <SettingsItem icon={FileText} label="Terms of Service" color="text-gray-500" onClick={() => navigateTo('terms')} />
+                            <SettingsItem icon={Shield} label="Privacy Policy" color="text-gray-500" onClick={() => navigateTo('privacy')} />
+                            <SettingsItem icon={Scale} label="Licenses" color="text-gray-500" onClick={() => navigateTo('licenses')} />
+                            <SettingsItem icon={Info} label="About" color="text-gray-500" onClick={() => navigateTo('about')} />
+                        </div>
+                    </div>
+                    
+                    {/* Data Management Section */}
+                    <div>
+                        <h3 className="px-4 mb-2 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Data Management</h3>
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm">
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                                <button onClick={handleSendFeedback} className={`w-full flex items-center justify-between p-3 bg-${currentTheme}-50 dark:bg-${currentTheme}-900/20 text-${currentTheme}-600 dark:text-${currentTheme}-400 rounded-xl transition hover:bg-${currentTheme}-100 dark:hover:bg-${currentTheme}-900/30`}>
+                                    <div className="flex items-center"><MessageSquarePlus size={18} className="mr-2"/><span className="font-medium text-sm">Send Feedback / Report Bug</span></div>
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button onClick={handleExportData} className="flex items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl font-medium text-sm border border-blue-100 dark:border-blue-800 transition hover:bg-blue-100 dark:hover:bg-blue-900/30">
+                                        <Download size={18} className="mr-2" />Export Backup
                                     </button>
-                                ) : (
-                                    <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-xl border border-red-200 dark:border-red-800 animate-in fade-in">
-                                        <div className="flex items-center text-red-800 dark:text-red-200 font-bold text-sm mb-2">
-                                            <AlertTriangle size={16} className="mr-2" />
-                                            Danger Zone
-                                        </div>
-                                        <p className="text-xs text-red-700 dark:text-red-300 mb-4">
-                                            This will permanently delete your {isGuest ? 'local guest profile' : 'account'} and all data. This action is irreversible.
-                                        </p>
-                                        <div className="flex space-x-3">
-                                            <button 
-                                                onClick={() => setShowDeleteConfirm(false)} 
-                                                disabled={isDeleting}
-                                                className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-100"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button 
-                                                onClick={handleConfirmDeleteAccount}
-                                                disabled={isDeleting}
-                                                className="flex-1 py-2 bg-red-700 text-white rounded-lg text-xs font-bold flex items-center justify-center hover:bg-red-800 shadow-md"
-                                            >
-                                                {isDeleting ? <Loader2 size={14} className="animate-spin mr-1"/> : <Trash2 size={14} className="mr-1"/>}
-                                                {isDeleting ? "Deleting..." : "Confirm Delete"}
-                                            </button>
+                                    {isGuest ? (
+                                        <button 
+                                            onClick={() => handleImportData({ target: { value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)} 
+                                            className="flex items-center justify-center p-3 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 rounded-xl font-medium text-sm border border-gray-200 dark:border-gray-700 transition"
+                                        >
+                                            <Lock size={14} className="mr-2" /> Import (Sign In)
+                                        </button>
+                                    ) : (
+                                        <label className="flex items-center justify-center p-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl font-medium text-sm border border-green-100 dark:border-green-800 transition hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer">
+                                            <Upload size={18} className="mr-2" />Import Backup
+                                            <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
+                                        </label>
+                                    )}
+                                </div>
+                                
+                                {/* Global Sync Feature */}
+                                {!isGuest && userProfile?.can_use_global_sync && (
+                                    <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-xl">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center">
+                                                <div className="p-2 bg-purple-100 dark:bg-purple-800/50 rounded-lg mr-3">
+                                                    <CloudSync size={18} className="text-purple-600 dark:text-purple-400" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300">Global Sync</h4>
+                                                    <p className="text-xs text-purple-700 dark:text-purple-400/80">Automatically sync your exports</p>
+                                                </div>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" className="sr-only peer" checked={globalSyncEnabled} onChange={handleGlobalSyncToggle} />
+                                                <div className="w-11 h-6 bg-purple-200 dark:bg-purple-900/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                            </label>
                                         </div>
                                     </div>
                                 )}
                             </div>
-                        </div>
-                        <button onClick={onSignOut} className="w-full text-left p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition group">
-                            <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
-                                <LogOut size={20} /><span className="font-medium">Sign Out</span>
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                                <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3 text-sm">App Mode</h3>
+                                <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
+                                    {[{ id: 'light', label: 'Light', icon: Sun }, { id: 'dark', label: 'Dark', icon: Moon }, { id: 'system', label: 'System', icon: Smartphone }].map(mode => (
+                                        <button key={mode.id} onClick={() => setAppMode(mode.id)} className={`flex-1 flex items-center justify-center py-2 rounded-lg text-sm font-medium transition ${appMode === mode.id ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+                                            <mode.icon size={16} className="mr-1.5" />{mode.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            <ChevronRight size={20} className="text-gray-300 dark:text-gray-600 group-hover:text-red-300 transition-colors"/>
-                        </button>
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                                <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3 text-sm">Device Maintenance</h3>
+                                
+                                {!showResetConfirm ? (
+                                    <button onClick={() => setShowResetConfirm(true)} className="w-full flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/20">
+                                        <div className="flex items-center">
+                                            <RefreshCw size={18} className="mr-2"/>
+                                            <div className="text-left">
+                                                <span className="font-medium text-sm block">Clear my device data</span>
+                                                <span className="text-[10px] opacity-80 block">Resets this device. You'll stay signed in.</span>
+                                            </div>
+                                        </div>
+                                        <ChevronRight size={16} />
+                                    </button>
+                                ) : (
+                                    <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/30 animate-in fade-in mb-3">
+                                        <p className="text-sm font-bold text-red-700 dark:text-red-300 mb-2">Are you sure?</p>
+                                        <p className="text-xs text-red-600 dark:text-red-400 mb-4">This will wipe all local data. You will stay signed in. This cannot be undone.</p>
+                                        
+                                        {resetMessage ? (
+                                            <div className="text-center font-bold text-sm text-green-600 dark:text-green-400 py-2 animate-pulse">
+                                                {resetMessage}
+                                            </div>
+                                        ) : (
+                                            <div className="flex space-x-3">
+                                                <button 
+                                                    onClick={() => setShowResetConfirm(false)} 
+                                                    disabled={isResetting}
+                                                    className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-100"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button 
+                                                    onClick={handleConfirmReset}
+                                                    disabled={isResetting}
+                                                    className="flex-1 py-2 bg-red-600 text-white rounded-lg text-xs font-bold flex items-center justify-center hover:bg-red-700"
+                                                >
+                                                    {isResetting ? <Loader2 size={14} className="animate-spin mr-1"/> : null}
+                                                    {isResetting ? "Clearing..." : "Yes, Clear Data"}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Account Deletion Button */}
+                                <div className="mt-3">
+                                    {!showDeleteConfirm ? (
+                                        <button onClick={() => setShowDeleteConfirm(true)} className="w-full flex items-center justify-between p-3 border border-red-100 dark:border-red-900/50 rounded-xl transition hover:bg-red-50 dark:hover:bg-red-900/10 group">
+                                            <div className="flex items-center text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300">
+                                                <UserX size={18} className="mr-2"/>
+                                                <div className="text-left">
+                                                    <span className="font-medium text-sm block">{deleteLabel}</span>
+                                                    <span className="text-[10px] opacity-80 block">{deleteDesc}</span>
+                                                </div>
+                                            </div>
+                                            <ChevronRight size={16} className="text-red-300" />
+                                        </button>
+                                    ) : (
+                                        <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-xl border border-red-200 dark:border-red-800 animate-in fade-in">
+                                            <div className="flex items-center text-red-800 dark:text-red-200 font-bold text-sm mb-2">
+                                                <AlertTriangle size={16} className="mr-2" />
+                                                Danger Zone
+                                            </div>
+                                            <p className="text-xs text-red-700 dark:text-red-300 mb-4">
+                                                This will permanently delete your {isGuest ? 'local guest profile' : 'account'} and all data. This action is irreversible.
+                                            </p>
+                                            <div className="flex space-x-3">
+                                                <button 
+                                                    onClick={() => setShowDeleteConfirm(false)} 
+                                                    disabled={isDeleting}
+                                                    className="flex-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-100"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button 
+                                                    onClick={handleConfirmDeleteAccount}
+                                                    disabled={isDeleting}
+                                                    className="flex-1 py-2 bg-red-700 text-white rounded-lg text-xs font-bold flex items-center justify-center hover:bg-red-800 shadow-md"
+                                                >
+                                                    {isDeleting ? <Loader2 size={14} className="animate-spin mr-1"/> : <Trash2 size={14} className="mr-1"/>}
+                                                    {isDeleting ? "Deleting..." : "Confirm Delete"}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <button onClick={onSignOut} className="w-full text-left p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition group">
+                                <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                                    <LogOut size={20} /><span className="font-medium">Sign Out</span>
+                                </div>
+                                <ChevronRight size={20} className="text-gray-300 dark:text-gray-600 group-hover:text-red-300 transition-colors"/>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

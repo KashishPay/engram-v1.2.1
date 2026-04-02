@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { LogIn, ChevronRight, Plus, Camera, Mail, Lock, User, ArrowLeft, Send, Sparkles, X } from 'lucide-react';
+import { LogIn, ChevronRight, Plus, Camera, Mail, Lock, User, ArrowLeft, Send, Sparkles, X, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 import { getOAuthAppOrigin } from '../utils/authEnv';
@@ -279,10 +279,20 @@ export const LoginView: React.FC<LoginViewProps> = ({ onComplete, onSignInSucces
                     
                     <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-3 tracking-wide">ENGRAM</h1>
                     <p className="text-gray-500 dark:text-gray-400 mb-10 text-lg leading-relaxed max-w-sm mx-auto font-medium text-center">
-                        Make neurons happier with spaced repetition. Capture notes, generate quizzes, and master your studies with AI.
+                        Make neurons happier with organised spaced repetition. Capture notes, generate quizzes, and master your studies with AI.
                     </p>
 
                     <div className="w-full max-w-sm space-y-4">
+                        <a 
+                            href="https://github.com/YOUR_USERNAME/YOUR_REPO/releases/latest/download/app-release.apk"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-3.5 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center shadow-lg hover:scale-[1.02] transition"
+                        >
+                            <Download size={20} className="mr-2" />
+                            Download APK
+                        </a>
+
                         <button 
                             onClick={() => setStep('auth')}
                             className="w-full py-3.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-bold flex items-center justify-center shadow-lg hover:scale-[1.02] transition"

@@ -13,7 +13,7 @@ interface TopicListViewProps {
     themeColor: string;
 }
 
-type ListItem = { type: 'topic'; data: Topic } | { type: 'ad'; id: string };
+type ListItem = { type: 'topic'; data: Topic };
 
 export const TopicListView: React.FC<TopicListViewProps> = ({ title, topics, navigateTo, themeColor }) => {
     
@@ -30,19 +30,8 @@ export const TopicListView: React.FC<TopicListViewProps> = ({ title, topics, nav
     }, [title]);
 
     const listItems = useMemo(() => {
-        const adEligibleTitles = ['Due for Review', 'Recent Quizzes', 'Active Topics'];
-        if (!adEligibleTitles.includes(title)) return topics.map(t => ({ type: 'topic' as const, data: t }));
-        
-        const result: ListItem[] = [];
-        topics.forEach((topic, index) => {
-            result.push({ type: 'topic', data: topic });
-            // Every 2 topics, insert an ad placeholder
-            if ((index + 1) % 2 === 0 && index !== topics.length - 1) {
-                result.push({ type: 'ad', id: `ad-${index}` });
-            }
-        });
-        return result;
-    }, [topics, title]);
+        return topics.map(t => ({ type: 'topic' as const, data: t }));
+    }, [topics]);
 
     const getTopicStatus = (topic: Topic) => {
         const repetitionCount = topic.repetitions?.length || 0;
@@ -91,21 +80,6 @@ export const TopicListView: React.FC<TopicListViewProps> = ({ title, topics, nav
                         items={listItems}
                         itemHeight={ITEM_HEIGHT}
                         renderItem={(item) => {
-                            if (item.type === 'ad') {
-                                return (
-                                    <div className="flex items-center justify-center h-[70px] box-border">
-                                        <div className="w-[320px] h-[50px] bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
-                                            <div className="absolute top-0 left-0 bg-gray-200 dark:bg-gray-700 px-1 text-[8px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
-                                            <div className="flex items-center space-x-2">
-                                                <ExternalLink size={12} />
-                                                <span className="text-[10px] font-medium uppercase tracking-widest">Test Ad (320x50)</span>
-                                            </div>
-                                            <div className="text-[8px] opacity-50 mt-0.5">ca-app-pub-3940256099942544/6300978111</div>
-                                        </div>
-                                    </div>
-                                );
-                            }
-
                             const topic = item.data;
                             const isRecentQuizzes = title === 'Recent Quizzes';
                             

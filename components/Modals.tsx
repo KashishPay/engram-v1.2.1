@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { triggerHaptic } from '../utils/haptics';
 import { showLocalNotification, requestNotificationPermission } from '../utils/notifications';
+import { AdManager } from '../services/admob';
 
 interface PermissionModalProps {
     onAllow: () => void;
@@ -87,6 +88,13 @@ export const SourceViewerModal: React.FC<SourceViewerModalProps> = ({ topicId, t
     const [loading, setLoading] = useState(true);
     const [generatingPdf, setGeneratingPdf] = useState(false);
     const [activeViewerImage, setActiveViewerImage] = useState<string | null>(null);
+
+    useEffect(() => {
+        AdManager.showSourceViewerBanner();
+        return () => {
+            AdManager.hideBanner();
+        };
+    }, []);
 
     useEffect(() => {
         let active = true;
@@ -264,30 +272,10 @@ export const SourceViewerModal: React.FC<SourceViewerModalProps> = ({ topicId, t
                             const items: SourceItem[] = [];
                             images.forEach((src, i) => {
                                 items.push({ type: 'image', src, index: i });
-                                // Interleave ad after every image
-                                items.push({ type: 'ad', id: `ad-${topicId}-${i}` });
                             });
                             
                             return items.map((item) => {
-                                if (item.type === 'ad') {
-                                    return (
-                                        <div key={item.id} className="flex items-center justify-center py-4">
-                                            <div className="w-[320px] h-[250px] bg-white/5 border border-dashed border-white/20 rounded-xl flex flex-col items-center justify-center text-white/40 relative overflow-hidden">
-                                                <div className="absolute top-0 left-0 bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/60 uppercase tracking-widest">Sponsored</div>
-                                                <div className="flex flex-col items-center space-y-3">
-                                                    <ExternalLink size={24} className="opacity-50" />
-                                                    <div className="text-center">
-                                                        <p className="text-xs font-bold uppercase tracking-widest">Premium Ad Unit</p>
-                                                        <p className="text-[10px] opacity-60 mt-1">320 x 250 Medium Rectangle</p>
-                                                    </div>
-                                                    <button className="px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded-full text-[10px] font-bold transition">Learn More</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
-                                const { src, index } = item;
+                                const { src, index } = item as { type: 'image', src: string, index: number };
                                 return (
                                     <div 
                                         key={`img-${index}`} 

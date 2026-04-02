@@ -397,18 +397,6 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
                                     <Trash2 size={16} />
                                 </button>
                             </Card>
-
-                            {/* Ad after every card */}
-                            <div className="flex items-center justify-center py-2">
-                                <div className="w-[320px] h-[50px] bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 bg-gray-200 dark:bg-gray-700 px-1 text-[8px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
-                                    <div className="flex items-center space-x-2">
-                                        <ExternalLink size={12} />
-                                        <span className="text-[10px] font-medium uppercase tracking-widest">Test Ad (320x50)</span>
-                                    </div>
-                                    <div className="text-[8px] opacity-50 mt-0.5">ca-app-pub-3940256099942544/6300978111</div>
-                                </div>
-                            </div>
                         </React.Fragment>
                     ))}
                 </div>
@@ -600,18 +588,6 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
                                         ))}
                                     </div>
                                 )}
-                            </div>
-
-                            {/* Ad after every folder */}
-                            <div className="flex items-center justify-center py-2">
-                                <div className="w-[320px] h-[50px] bg-gray-100 dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded flex flex-col items-center justify-center text-gray-400 relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 bg-gray-200 dark:bg-gray-700 px-1 text-[8px] font-bold text-gray-500 uppercase tracking-tighter">Sponsored</div>
-                                    <div className="flex items-center space-x-2">
-                                        <ExternalLink size={12} />
-                                        <span className="text-[10px] font-medium uppercase tracking-widest">Test Ad (320x50)</span>
-                                    </div>
-                                    <div className="text-[8px] opacity-50 mt-0.5">ca-app-pub-3940256099942544/6300978111</div>
-                                </div>
                             </div>
                         </React.Fragment>
                     );
