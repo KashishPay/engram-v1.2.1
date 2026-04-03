@@ -52,6 +52,7 @@ export interface Topic {
   podcastAudio?: string; // Base64 audio string (optional, generally transient now)
   hasSavedAudio?: boolean; // Flag indicating audio is stored in IndexedDB
   isMarkedDifficult?: boolean; // Flag for difficult topics folder
+  isJourneyPaused?: boolean; // Flag to disable spaced repetition pop quizzes
   sourcePageCount?: number; // Number of original source pages stored in IDB
   pomodoroTimeMinutes: number;
   focusLogs?: FocusSession[];

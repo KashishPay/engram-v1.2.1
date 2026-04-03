@@ -15,6 +15,53 @@ class AdManagerService {
     private config: AdConfig | null = null;
     private isBannerShowing = false;
     private lastInterstitialTime = 0;
+    private bannerPromise: Promise<void> | null = null;
+
+    private async executeBannerAction(action: () => Promise<void>) {
+        // Wait for any pending banner action to complete
+        while (this.bannerPromise) {
+            await this.bannerPromise;
+        }
+        
+        // Create new promise for this action
+        let resolveAction: () => void;
+        this.bannerPromise = new Promise(resolve => {
+            resolveAction = resolve;
+        });
+
+        try {
+            await action();
+        } finally {
+            this.bannerPromise = null;
+            resolveAction!();
+        }
+    }
+
+    private async showBannerWithOptions(options: BannerAdOptions, webMessage: string) {
+        if (!this.isInitialized || !this.config?.is_active) return;
+
+        await this.executeBannerAction(async () => {
+            if (this.isBannerShowing) {
+                if (Capacitor.getPlatform() !== 'web') {
+                    try { await AdMob.hideBanner(); } catch (e) { console.error(e); }
+                }
+                this.isBannerShowing = false;
+            }
+
+            if (Capacitor.getPlatform() === 'web') {
+                console.log(`[AdManager] Web Preview: ${webMessage}`);
+                this.isBannerShowing = true;
+                return;
+            }
+
+            try {
+                await AdMob.showBanner(options);
+                this.isBannerShowing = true;
+            } catch (error) {
+                console.error('Failed to show banner ad', error);
+            }
+        });
+    }
 
     async initialize() {
         if (this.isInitialized) return;
@@ -67,18 +114,6 @@ class AdManagerService {
     }
 
     async showFlashcardBanner() {
-        if (!this.isInitialized || !this.config?.is_active) return;
-
-        if (this.isBannerShowing) {
-            await this.hideBanner();
-        }
-
-        if (Capacitor.getPlatform() === 'web') {
-            console.log('[AdManager] Web Preview: Showing Flashcard Banner Ad Placeholder');
-            this.isBannerShowing = true;
-            return;
-        }
-
         const options: BannerAdOptions = {
             adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
@@ -86,28 +121,10 @@ class AdManagerService {
             margin: 240, // Pushed down further to center perfectly in the flashcard container
             isTesting: false // Live ads enabled
         };
-
-        try {
-            await AdMob.showBanner(options);
-            this.isBannerShowing = true;
-        } catch (error) {
-            console.error('Failed to show banner ad', error);
-        }
+        await this.showBannerWithOptions(options, 'Showing Flashcard Banner Ad Placeholder');
     }
 
     async showPodcastBanner() {
-        if (!this.isInitialized || !this.config?.is_active) return;
-
-        if (this.isBannerShowing) {
-            await this.hideBanner();
-        }
-
-        if (Capacitor.getPlatform() === 'web') {
-            console.log('[AdManager] Web Preview: Showing Podcast Banner Ad Placeholder');
-            this.isBannerShowing = true;
-            return;
-        }
-
         const options: BannerAdOptions = {
             adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
@@ -115,28 +132,10 @@ class AdManagerService {
             margin: 80, // Approximate offset to overlay the album art
             isTesting: false // Live ads enabled
         };
-
-        try {
-            await AdMob.showBanner(options);
-            this.isBannerShowing = true;
-        } catch (error) {
-            console.error('Failed to show podcast banner ad', error);
-        }
+        await this.showBannerWithOptions(options, 'Showing Podcast Banner Ad Placeholder');
     }
 
     async showReviewBanner() {
-        if (!this.isInitialized || !this.config?.is_active) return;
-
-        if (this.isBannerShowing) {
-            await this.hideBanner();
-        }
-
-        if (Capacitor.getPlatform() === 'web') {
-            console.log('[AdManager] Web Preview: Showing Review Banner Ad Placeholder (320x50)');
-            this.isBannerShowing = true;
-            return;
-        }
-
         const options: BannerAdOptions = {
             adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.BANNER, // 320x50
@@ -144,28 +143,10 @@ class AdManagerService {
             margin: 60, // Clear the tab bar
             isTesting: false // Live ads enabled
         };
-
-        try {
-            await AdMob.showBanner(options);
-            this.isBannerShowing = true;
-        } catch (error) {
-            console.error('Failed to show review banner ad', error);
-        }
+        await this.showBannerWithOptions(options, 'Showing Review Banner Ad Placeholder (320x50)');
     }
 
     async showQuizReviewBanner() {
-        if (!this.isInitialized || !this.config?.is_active) return;
-
-        if (this.isBannerShowing) {
-            await this.hideBanner();
-        }
-
-        if (Capacitor.getPlatform() === 'web') {
-            console.log('[AdManager] Web Preview: Showing Quiz Review Banner Ad Placeholder');
-            this.isBannerShowing = true;
-            return;
-        }
-
         const options: BannerAdOptions = {
             adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
@@ -173,28 +154,10 @@ class AdManagerService {
             margin: 80, // Clear the bottom buttons
             isTesting: false
         };
-
-        try {
-            await AdMob.showBanner(options);
-            this.isBannerShowing = true;
-        } catch (error) {
-            console.error('Failed to show quiz review banner ad', error);
-        }
+        await this.showBannerWithOptions(options, 'Showing Quiz Review Banner Ad Placeholder');
     }
 
     async showSourceViewerBanner() {
-        if (!this.isInitialized || !this.config?.is_active) return;
-
-        if (this.isBannerShowing) {
-            await this.hideBanner();
-        }
-
-        if (Capacitor.getPlatform() === 'web') {
-            console.log('[AdManager] Web Preview: Showing Source Viewer Banner Ad Placeholder');
-            this.isBannerShowing = true;
-            return;
-        }
-
         const options: BannerAdOptions = {
             adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
@@ -202,28 +165,10 @@ class AdManagerService {
             margin: 20,
             isTesting: false
         };
-
-        try {
-            await AdMob.showBanner(options);
-            this.isBannerShowing = true;
-        } catch (error) {
-            console.error('Failed to show source viewer banner ad', error);
-        }
+        await this.showBannerWithOptions(options, 'Showing Source Viewer Banner Ad Placeholder');
     }
 
     async showTopicSelectorBanner() {
-        if (!this.isInitialized || !this.config?.is_active) return;
-
-        if (this.isBannerShowing) {
-            await this.hideBanner();
-        }
-
-        if (Capacitor.getPlatform() === 'web') {
-            console.log('[AdManager] Web Preview: Showing Topic Selector Banner Ad Placeholder');
-            this.isBannerShowing = true;
-            return;
-        }
-
         const options: BannerAdOptions = {
             adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.BANNER,
@@ -231,28 +176,10 @@ class AdManagerService {
             margin: 60, // Clear the header
             isTesting: false
         };
-
-        try {
-            await AdMob.showBanner(options);
-            this.isBannerShowing = true;
-        } catch (error) {
-            console.error('Failed to show topic selector banner ad', error);
-        }
+        await this.showBannerWithOptions(options, 'Showing Topic Selector Banner Ad Placeholder');
     }
 
     async showChatBanner() {
-        if (!this.isInitialized || !this.config?.is_active) return;
-
-        if (this.isBannerShowing) {
-            await this.hideBanner();
-        }
-
-        if (Capacitor.getPlatform() === 'web') {
-            console.log('[AdManager] Web Preview: Showing Chat Banner Ad Placeholder');
-            this.isBannerShowing = true;
-            return;
-        }
-
         const options: BannerAdOptions = {
             adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE, // User requested rectangular banner
@@ -260,29 +187,15 @@ class AdManagerService {
             margin: 60, // Clear the header
             isTesting: false // Live ads enabled
         };
-
-        try {
-            await AdMob.showBanner(options);
-            this.isBannerShowing = true;
-        } catch (error) {
-            console.error('Failed to show chat banner ad', error);
-        }
+        await this.showBannerWithOptions(options, 'Showing Chat Banner Ad Placeholder');
     }
 
     async showInterstitial() {
         if (!this.isInitialized || !this.config?.is_active) return;
 
-        // Rate limiter: Don't show interstitials more than once every 3 minutes (180000ms)
-        // This prevents aggressive ad behavior that violates AdMob policies
-        const now = Date.now();
-        if (now - this.lastInterstitialTime < 180000) {
-            console.log('[AdManager] Interstitial skipped due to rate limiting (AdMob policy compliance)');
-            return;
-        }
-
         if (Capacitor.getPlatform() === 'web') {
             console.log('[AdManager] Web Preview: Showing Interstitial Ad Placeholder');
-            this.lastInterstitialTime = now;
+            this.lastInterstitialTime = Date.now();
             return;
         }
 
@@ -303,20 +216,22 @@ class AdManagerService {
     }
 
     async hideBanner() {
-        if (!this.isBannerShowing) return;
-        
-        if (Capacitor.getPlatform() === 'web') {
-            console.log('[AdManager] Web Preview: Hiding Flashcard Banner Ad Placeholder');
-            this.isBannerShowing = false;
-            return;
-        }
+        await this.executeBannerAction(async () => {
+            if (!this.isBannerShowing) return;
+            
+            if (Capacitor.getPlatform() === 'web') {
+                console.log('[AdManager] Web Preview: Hiding Banner Ad Placeholder');
+                this.isBannerShowing = false;
+                return;
+            }
 
-        try {
-            await AdMob.hideBanner();
-            this.isBannerShowing = false;
-        } catch (error) {
-            console.error('Failed to hide banner ad', error);
-        }
+            try {
+                await AdMob.hideBanner();
+                this.isBannerShowing = false;
+            } catch (error) {
+                console.error('Failed to hide banner ad', error);
+            }
+        });
     }
 
     async fetchChatAd(): Promise<{ title: string; description: string; imageUrl: string; link: string } | null> {

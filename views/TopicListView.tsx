@@ -34,6 +34,10 @@ export const TopicListView: React.FC<TopicListViewProps> = ({ title, topics, nav
     }, [topics]);
 
     const getTopicStatus = (topic: Topic) => {
+        if (topic.isJourneyPaused) {
+            return 'Journey Paused';
+        }
+
         const repetitionCount = topic.repetitions?.length || 0;
         const lastRepetition = topic.repetitions?.[repetitionCount - 1];
 
@@ -157,6 +161,7 @@ export const TopicListView: React.FC<TopicListViewProps> = ({ title, topics, nav
                                         </div>
                                     ) : (
                                         <span className={`shrink-0 text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap ${
+                                            getTopicStatus(topic) === 'Journey Paused' ? 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400' :
                                             getTopicStatus(topic).includes('DUE NOW') ? 'bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200' : `bg-${themeColor}-100 dark:bg-${themeColor}-900 text-${themeColor}-800 dark:text-${themeColor}-200`
                                         }`}>
                                             {getTopicStatus(topic)}

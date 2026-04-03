@@ -386,18 +386,40 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                         <div className="space-y-2 mb-2">
                             <p className="text-gray-900 dark:text-gray-200 text-sm"><strong className="font-semibold text-gray-700 dark:text-gray-400">Total Study Time:</strong> {Math.floor(pomodoroTime / 60)}h {Math.round(pomodoroTime % 60)}m</p>
                             <p className="text-gray-900 dark:text-gray-200 text-sm"><strong className="font-semibold text-gray-700 dark:text-gray-400">Completed Reps:</strong> {repetitionCount}</p>
-                            {lastRepetition && (
-                                 <p className="text-gray-900 dark:text-gray-200 text-sm"><strong className="font-semibold text-gray-700 dark:text-gray-400">Next Review:</strong> <span className={`font-bold ${isReadyForReview ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{new Date(lastRepetition.nextReviewDate).toLocaleDateString()}</span></p>
-                            )}
+                            {topic.isJourneyPaused ? (
+                                <p className="text-gray-900 dark:text-gray-200 text-sm">
+                                    <strong className="font-semibold text-gray-700 dark:text-gray-400">Next Review:</strong>{' '}
+                                    <span className="font-bold text-gray-500 dark:text-gray-400">No review needed further</span>
+                                </p>
+                            ) : lastRepetition ? (
+                                <p className="text-gray-900 dark:text-gray-200 text-sm">
+                                    <strong className="font-semibold text-gray-700 dark:text-gray-400">Next Review:</strong>{' '}
+                                    <span className={`font-bold ${isReadyForReview ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                                        {new Date(lastRepetition.nextReviewDate).toLocaleDateString()}
+                                    </span>
+                                </p>
+                            ) : null}
                         </div>
 
                         {/* Spaced Repetition Stepper */}
                         <div className="mt-2 mb-6 pt-4 border-t border-gray-100 dark:border-gray-700">
                             <div className="flex justify-between items-center mb-4">
-                                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Spaced Repetition Journey</span>
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Spaced Repetition Journey</span>
+                                    <button 
+                                        onClick={() => onUpdateTopic({ ...topic, isJourneyPaused: !topic.isJourneyPaused })}
+                                        className={`text-[10px] px-2 py-0.5 rounded-full font-medium border transition-colors ${
+                                            topic.isJourneyPaused 
+                                                ? 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600' 
+                                                : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50 dark:hover:bg-red-900/40'
+                                        }`}
+                                    >
+                                        {topic.isJourneyPaused ? 'Resume Journey' : 'Exit Journey'}
+                                    </button>
+                                </div>
                                 <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{repetitionCount}/5</span>
                             </div>
-                            <div className="flex justify-between items-center relative px-2">
+                            <div className={`flex justify-between items-center relative px-2 ${topic.isJourneyPaused ? 'opacity-50 grayscale' : ''}`}>
                                 {/* Connecting Line */}
                                 <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 h-1 bg-gray-200 dark:bg-gray-700 rounded-full z-0"></div>
                                 
@@ -413,39 +435,9 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                                     let percentageScore = 0;
                                     
                                     if (isCompleted) {
-                                        // If score is > 10, it's definitely a percentage. 
-                                        // If totalQuestions is present and score <= totalQuestions, it's a raw score.
-                                        // If totalQuestions is missing, and score is <= 100, we might assume it's a percentage if it was saved that way, but usually raw score is saved.
-                                        // Let's use a robust check: if score > (rep.totalQuestions || 10), it's a percentage.
-                                        // Wait, if score is 90 and totalQuestions is 10, score > 10 is true -> 90%.
-                                        // If score is 9 and totalQuestions is 10, score > 10 is false -> (9/10)*100 = 90%.
-                                        // If score is 100 and totalQuestions is 100, score > 100 is false -> (100/100)*100 = 100%.
-                                        // If score is 80 and totalQuestions is 100, score > 100 is false -> (80/100)*100 = 80%.
-                                        // The issue is if score is stored as a percentage (e.g., 90) but totalQuestions is 100. Then 90 > 100 is false -> (90/100)*100 = 90%. This works!
-                                        // What if score is stored as percentage (e.g. 90) and totalQuestions is missing (defaults to 10)? 90 > 10 is true -> 90. This works!
-                                        // What if score is raw (e.g. 9) and totalQuestions is missing (defaults to 10)? 9 > 10 is false -> (9/10)*100 = 90%. This works!
-                                        // Wait, what if score is 10 and totalQuestions is 10? 10 > 10 is false -> (10/10)*100 = 100%. This works!
-                                        // What if score is 100 (percentage) and totalQuestions is 10? 100 > 10 is true -> 100. This works!
-                                        // Are there cases where score is stored as percentage (e.g. 80) and totalQuestions is 10? 80 > 10 is true -> 80. Works.
-                                        // The only issue is if score is raw (e.g. 80) and totalQuestions is 100. 80 > 100 is false -> (80/100)*100 = 80%. Works.
-                                        // But wait, what if the score was saved as a percentage (e.g. 80) and totalQuestions is 100? 80 > 100 is false -> (80/100)*100 = 80%. Works.
-                                        // What if score was saved as a percentage (e.g. 80) and totalQuestions is 0? 80 > 0 is true -> 80. Works.
-                                        // Let's just use the existing logic, but make sure it's consistent.
                                         const totalQs = rep.totalQuestions || 10;
-                                        // If the score is greater than the total questions, it must be a percentage.
-                                        // Also, if the score is exactly 100, it's likely a percentage (unless totalQs is 100, in which case 100/100*100 = 100 anyway).
-                                        // If score is <= totalQs, it's a raw score, so calculate percentage.
-                                        // Wait, what if score is 90, and totalQs is 100?
-                                        // If it's a raw score: 90/100 * 100 = 90%.
-                                        // If it's a percentage: 90.
-                                        // Both give 90.
-                                        // What if score is 9, and totalQs is 10?
-                                        // Raw score: 9/10 * 100 = 90%.
-                                        // Percentage: 9. (This would be wrong, but score is usually saved as raw score now).
-                                        // Earlier versions might have saved percentage. If they saved percentage, and totalQs was 10, then score (e.g. 90) > 10, so it uses 90.
                                         percentageScore = rep.score > totalQs ? rep.score : (rep.score / totalQs) * 100;
                                         
-                                        // Let's add a safety check: if percentageScore > 100, cap it at 100.
                                         if (percentageScore > 100) percentageScore = 100;
                                         if (percentageScore >= 80) {
                                             nodeColor = "bg-green-500 border-green-600 text-white cursor-pointer hover:scale-110 shadow-sm";
@@ -457,7 +449,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                                             nodeColor = "bg-red-500 border-red-600 text-white cursor-pointer hover:scale-110 shadow-sm";
                                             icon = <XCircle size={12} strokeWidth={3} />;
                                         }
-                                    } else if (isNext) {
+                                    } else if (isNext && !topic.isJourneyPaused) {
                                         nodeColor = `bg-white dark:bg-gray-800 border-2 border-${themeColor}-500 shadow-[0_0_8px_rgba(0,0,0,0.1)]`;
                                         if (isReadyForReview) {
                                             nodeColor += " animate-pulse";
@@ -486,11 +478,11 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                         <div className="flex space-x-2 mt-auto">
                             <button
                                 onClick={() => navigateTo('quiz', { topic })} 
-                                disabled={!isQuizUnlocked || saveStatus === 'saving' || !isReadyForReview || isLoadingBody || !!currentJob}
+                                disabled={!isQuizUnlocked || saveStatus === 'saving' || (!isReadyForReview && !topic.isJourneyPaused) || isLoadingBody || !!currentJob || topic.isJourneyPaused}
                                 className={`flex-1 py-2.5 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-lg font-bold shadow-sm text-xs flex items-center justify-center hover:opacity-90 transition disabled:opacity-50`}
                             >
                                 <Zap size={14} className="mr-1.5" /> 
-                                {isReadyForReview ? "Pop Quiz" : "Not Due"}
+                                {topic.isJourneyPaused ? "Journey Paused" : isReadyForReview ? "Pop Quiz" : "Not Due"}
                             </button>
                             <button
                                 onClick={() => navigateTo('chat', { topic })}

@@ -59,7 +59,13 @@ const SubjectItem = React.memo(({
     useEffect(() => {
         if (!collapsed) {
             AdManager.showReviewBanner();
+        } else {
+            AdManager.hideBanner();
         }
+        
+        return () => {
+            AdManager.hideBanner();
+        };
     }, [collapsed]);
 
     const formatTime = (minutes: number) => {

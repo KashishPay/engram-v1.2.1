@@ -630,6 +630,7 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
     const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
     const dueTopics = useMemo(() => studyLog.filter(topic => {
+        if (topic.isJourneyPaused) return false;
         if (topic.repetitions?.length === 0) return true;
         const lastRep = topic.repetitions[topic.repetitions.length - 1];
         return lastRep && lastRep.nextReviewDate <= today;

@@ -429,6 +429,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             if (type === 'due') {
                 title = 'Due for Review';
                 filtered = studyLog.filter(t => {
+                    if (t.isJourneyPaused) return false;
                     if ((t.repetitions?.length || 0) === 0) return true;
                     const lastRep = t.repetitions[t.repetitions.length - 1];
                     return lastRep && lastRep.nextReviewDate <= today;
@@ -436,6 +437,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             } else if (type === 'active') {
                 title = 'Active Topics';
                 filtered = studyLog.filter(t => {
+                    if (t.isJourneyPaused) return false;
                     if ((t.repetitions?.length || 0) === 0) return false;
                     const lastRep = t.repetitions[t.repetitions.length - 1];
                     return lastRep && lastRep.nextReviewDate > today && t.repetitions.length < SPACING_INTERVALS.length;
