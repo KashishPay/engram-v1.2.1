@@ -236,7 +236,8 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
         } catch (_e) {
             console.error(_e);
             triggerHaptic.notification('Error');
-            alert("Failed to process images. Please try fewer images or check connection.");
+            const msg = _e instanceof Error ? _e.message : String(_e);
+            alert(`Failed to process images. Please try fewer images or check connection.\n\nDetails: ${msg}`);
         } finally {
             setIsScanning(false);
         }
@@ -302,7 +303,8 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
 
         } catch (_e) {
             console.error(_e);
-            alert("Failed to evolve deck. Please try again.");
+            const msg = _e instanceof Error ? _e.message : String(_e);
+            alert(`Failed to evolve deck. Please try again.\n\nDetails: ${msg}`);
         } finally {
             setIsEvolving(false);
         }

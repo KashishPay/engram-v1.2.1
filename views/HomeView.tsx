@@ -200,7 +200,7 @@ const FlashCardDeck: React.FC<{
                 let list = data.flashcards;
                 if (list.length > desiredCount) list = list.slice(0, desiredCount);
 
-                const isMixed = effectiveIds.length > 1;
+                const isMixed = idsToUse.length > 1;
 
                 const newCards = list.map((c: Record<string, unknown>) => ({
                     ...c,
@@ -224,12 +224,13 @@ const FlashCardDeck: React.FC<{
         } catch (_e) {
             console.error(_e);
             triggerHaptic.notification('Error');
-            if (_e instanceof Error && (_e.message?.includes("add your own free API Key") || _e.name === 'UsageLimitError')) {
-                 if (confirm("The standard AI quota is currently busy or limited.\n\nWould you like to add your own free API Key in Settings for faster, priority access?")) {
+            if (_e instanceof Error && (_e.message?.includes("add your own free API Key") || _e.message?.includes("No API Key available") || _e.name === 'UsageLimitError')) {
+                 if (confirm("The standard AI quota is currently busy or limited, or no API key was found.\n\nWould you like to add your own free API Key in Settings for faster, priority access?")) {
                      navigateTo('settings');
                  }
             } else {
-                 alert("Failed to generate cards. Please check your connection.");
+                 const msg = _e instanceof Error ? _e.message : String(_e);
+                 alert(`Failed to generate cards. Please check your connection.\n\nDetails: ${msg}`);
             }
         } finally {
             setLoading(false);

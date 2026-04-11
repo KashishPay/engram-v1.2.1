@@ -51,7 +51,7 @@ export const getAiClient = () => {
     
     // Priority: 1. Custom Key (LocalStorage) -> 2. Vite Env Var -> 3. Process Env (Fallback)
     // Cast import.meta to unknown then to any to avoid TS error about 'env' property
-    const envKey = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_KEY || (typeof process !== 'undefined' ? process.env.API_KEY : undefined);
+    const envKey = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
     const apiKey = customKey || envKey; 
     
     if (!apiKey) {
