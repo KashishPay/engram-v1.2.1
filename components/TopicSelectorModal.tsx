@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Search, Check, X, Filter, Layers, BookOpenText, ExternalLink } from 'lucide-react';
+import { Search, Check, X, Filter, Layers, BookOpenText } from 'lucide-react';
 import { Topic, Subject } from '../types';
 import { VirtualList } from './VirtualList';
 import { AdManager } from '../services/admob';
@@ -60,7 +60,7 @@ export const TopicSelectorModal: React.FC<TopicSelectorModalProps> = ({
 
     const listItems = useMemo(() => {
         const result: ListItem[] = [];
-        filteredTopics.forEach((topic, index) => {
+        filteredTopics.forEach((topic) => {
             result.push({ type: 'topic', data: topic });
         });
         return result;

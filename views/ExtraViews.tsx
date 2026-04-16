@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card } from '../components/Card';
 import { PomodoroTimer } from '../components/PomodoroTimer';
-import { Calendar as CalendarIcon, CheckSquare, LayoutGrid, MapPin, Search, Plus, Clock, Check, Trash2, X, History, ChevronLeft, ChevronRight, BookOpenText, BarChart2, List, ChevronDown, Moon, Flag, ExternalLink } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckSquare, LayoutGrid, MapPin, Search, Plus, Clock, Check, Trash2, X, History, ChevronLeft, ChevronRight, BookOpenText, BarChart2, List, ChevronDown, Moon, Flag } from 'lucide-react';
 import { DateTimeSettings, Habit, Topic, PomodoroSession } from '../types';
 import { AnalyticsService } from '../services/analytics';
 import { getPomodoroLogs, logPomodoroSession, getLocalISODate, updatePomodoroLog } from '../utils/sessionLog';
@@ -20,23 +20,6 @@ interface ExtraViewProps {
     userId?: string;
 }
 
-const MediumRectangleAd: React.FC<{ id: string }> = ({ id }) => (
-    <div id={id} className="flex items-center justify-center py-6 my-2">
-        <div className="w-[320px] h-[250px] bg-gray-50 dark:bg-white/5 border border-dashed border-gray-200 dark:border-white/20 rounded-2xl flex flex-col items-center justify-center text-gray-400 dark:text-white/40 relative overflow-hidden shadow-sm">
-            <div className="absolute top-0 left-0 bg-gray-100 dark:bg-white/10 px-3 py-1 text-[10px] font-bold text-gray-500 dark:text-white/60 uppercase tracking-widest rounded-br-lg">Sponsored</div>
-            <div className="flex flex-col items-center space-y-4">
-                <div className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-sm border border-gray-100 dark:border-white/5">
-                    <ExternalLink size={24} className="text-blue-500 opacity-80" />
-                </div>
-                <div className="text-center px-6">
-                    <p className="text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-white/80">Activity Log Ad</p>
-                    <p className="text-[10px] opacity-60 mt-1 leading-tight">Premium 320x250 Placement<br/>Track your progress with us</p>
-                </div>
-                <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-[11px] font-bold transition shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0">Learn More</button>
-            </div>
-        </div>
-    </div>
-);
 
 export const CalendarView: React.FC<ExtraViewProps> = ({ themeColor, settings, studyLog = [], userId }) => {
     const startDay = settings?.startDayOfWeek || 'sunday';
@@ -379,7 +362,6 @@ export const CalendarView: React.FC<ExtraViewProps> = ({ themeColor, settings, s
                                                 {session.minutes.toFixed(0)}m
                                             </div>
                                         </div>
-                                        <MediumRectangleAd id={`activity-ad-${session.id}-${index}`} />
                                     </React.Fragment>
                                 ))}
                             </div>

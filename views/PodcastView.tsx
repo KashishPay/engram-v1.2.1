@@ -215,7 +215,10 @@ const PodcastStatusOverlay: React.FC<{
     return (
         <div className={`absolute inset-0 z-[60] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300 pointer-events-auto ${isError ? 'bg-red-50/95 dark:bg-red-900/90' : 'bg-white/95 dark:bg-gray-900/95'} backdrop-blur-md`}>
             {/* Top Bar with Minimize */}
-            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center pointer-events-none z-[60]">
+            <div 
+                className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center pointer-events-none z-[60]"
+                style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
+            >
                 <button 
                     type="button"
                     onClick={(e) => {
@@ -637,7 +640,10 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
             {showPlayerUI ? (
                  <div className="flex flex-col h-full relative px-6 py-4 overflow-y-auto no-scrollbar">
                      {/* Player Header */}
-                    <div className="flex justify-between items-center mb-6 shrink-0 relative z-[60]">
+                    <div 
+                        className="flex justify-between items-center mb-6 shrink-0 relative z-[60]"
+                        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+                    >
                         <button 
                             type="button"
                             onClick={(e) => { 
@@ -775,7 +781,10 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
             ) : (
                 // Library View
                 <div className="flex flex-col h-full bg-white dark:bg-gray-900 rounded-2xl overflow-hidden">
-                     <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 sticky top-0 z-[60] pointer-events-auto">
+                     <div 
+                        className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 sticky top-0 z-[60] pointer-events-auto"
+                        style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
+                     >
                         <button 
                             type="button"
                             onClick={(e) => { 

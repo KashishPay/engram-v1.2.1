@@ -282,7 +282,10 @@ export const AppShell: React.FC<AppShellProps> = ({
 
                 {/* GUEST BANNER */}
                 {isGuest && showGuestBanner && guestStatus && !guestStatus.expired && !isPodcastOpen && (
-                    <div className="bg-indigo-600 dark:bg-indigo-900/80 text-white px-4 py-2 text-xs font-medium flex justify-between items-center shrink-0 animate-in slide-in-from-top-2 relative z-20">
+                    <div 
+                        className="bg-indigo-600 dark:bg-indigo-900/80 text-white px-4 pb-2 text-xs font-medium flex justify-between items-center shrink-0 animate-in slide-in-from-top-2 relative z-20"
+                        style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))' }}
+                    >
                         <span>
                             Guest Trial: <span className="font-bold">{guestStatus.daysLeft} days</span> remaining
                         </span>
@@ -298,7 +301,10 @@ export const AppShell: React.FC<AppShellProps> = ({
 
                 {/* Header Logic */}
                 {isLoggedIn && !isPodcastOpen && currentView !== 'onboarding' && currentView !== 'chat' && currentView !== 'settings' && currentView !== 'appearance' && currentView !== 'tabBarSettings' && currentView !== 'dateTimeSettings' && currentView !== 'profile' && currentView !== 'soundsNotifications' && currentView !== 'widgets' && currentView !== 'about' && currentView !== 'terms' && currentView !== 'privacy' && currentView !== 'licenses' && currentView !== 'podcastSettings' && (
-                    <header className={`bg-${themeColor}-600 dark:bg-${themeColor}-900 px-4 py-2 text-white flex justify-between items-center shrink-0 shadow-sm z-10`}>
+                    <header 
+                        className={`bg-${themeColor}-600 dark:bg-${themeColor}-900 px-4 pb-2 text-white flex justify-between items-center shrink-0 shadow-sm z-10`}
+                        style={{ paddingTop: (isGuest && showGuestBanner && guestStatus && !guestStatus.expired) ? '0.5rem' : 'calc(0.5rem + env(safe-area-inset-top, 0px))' }}
+                    >
                         <h1 className="text-lg font-bold tracking-tight">Engram</h1>
                         <button 
                             onClick={handleToggleDrawer}
@@ -312,7 +318,10 @@ export const AppShell: React.FC<AppShellProps> = ({
                     </header>
                 )}
                 {isLoggedIn && !isPodcastOpen && ['settings', 'tabBarSettings', 'dateTimeSettings', 'soundsNotifications', 'widgets'].includes(currentView) && currentView !== 'appearance' && (
-                    <header className={`bg-${themeColor}-50 dark:bg-gray-900 px-4 py-3 text-${themeColor}-900 dark:text-${themeColor}-100 flex justify-between items-center shrink-0 z-10`}>
+                    <header 
+                        className={`bg-${themeColor}-50 dark:bg-gray-900 px-4 pb-3 text-${themeColor}-900 dark:text-${themeColor}-100 flex justify-between items-center shrink-0 z-10`}
+                        style={{ paddingTop: (isGuest && showGuestBanner && guestStatus && !guestStatus.expired) ? '0.75rem' : 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}
+                    >
                         <h1 className="text-xl font-bold pl-1">{currentView === 'settings' ? 'Settings' : ' '}</h1>
                     </header>
                 )}

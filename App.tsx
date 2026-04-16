@@ -237,7 +237,22 @@ export const App: React.FC = () => {
         }
     }, [appMode, userId, loadedSettingsUserId]);
     
-    const [podcastConfig, setPodcastConfig] = useState<{ language: 'English' | 'Hinglish' }>({ language: 'Hinglish' });
+    const [podcastConfig, setPodcastConfig] = useState<{ language: 'English' | 'Hinglish' }>(() => {
+        try {
+            const uid = localStorage.getItem('engramCurrentUserId') || 'default';
+            const saved = localStorage.getItem(`engram_podcast_config_${uid}`);
+            if (saved) return JSON.parse(saved);
+        } catch (e) {
+            console.warn("Failed to parse podcast config", e);
+        }
+        return { language: 'Hinglish' };
+    });
+
+    useEffect(() => {
+        if (userId) {
+            localStorage.setItem(`engram_podcast_config_${userId}`, JSON.stringify(podcastConfig));
+        }
+    }, [podcastConfig, userId]);
     
     // Global Podcast State
     const podcast = usePodcast(userId, podcastConfig.language);
@@ -310,32 +325,53 @@ export const App: React.FC = () => {
     
     // Helper to process incoming sync data (heavy + light)
     const handleIncomingSyncPayload = async (payload: SyncPayload) => {
-        if (payload.settings?._heavyData) {
-            const heavy = payload.settings._heavyData;
-            
-            if (heavy.notesByTopicId) await batchSaveTopicBodies(userId, heavy.notesByTopicId);
-            if (heavy.images) await batchSaveImages(heavy.images);
-            if (heavy.originalImages) await batchSaveImages(heavy.originalImages);
-            if (heavy.chatHistoryByTopicId) await batchSaveChatHistories(userId, heavy.chatHistoryByTopicId);
-            
-            if (heavy.observations) {
-                const localObs = ObservationsService.getAll(userId);
-                const mergedObs = SyncService.mergeCollections(localObs, heavy.observations);
-                ObservationsService.saveAll(userId, mergedObs);
+        if (payload.settings) {
+            if (payload.settings.theme) setCurrentTheme(payload.settings.theme);
+            if (payload.settings.appMode) {
+                setAppMode(payload.settings.appMode);
+                localStorage.setItem(`engramAppMode_${userId}`, payload.settings.appMode);
             }
+            if (payload.settings.dateTimeSettings) setDateTimeSettings(payload.settings.dateTimeSettings);
+            if (payload.settings.notificationSettings) setNotificationSettings(payload.settings.notificationSettings);
+            if (payload.settings.enabledTabs) setEnabledTabs(payload.settings.enabledTabs);
+            if (payload.settings.fcFont) localStorage.setItem(`engram_fc_font_${userId}`, payload.settings.fcFont);
+            if (payload.settings.celebrated21Days) localStorage.setItem(`engram_21_day_celebrated_${userId}`, payload.settings.celebrated21Days);
+            if (payload.settings.podcastConfig) setPodcastConfig(payload.settings.podcastConfig);
+            if (payload.settings.aiPrefs) localStorage.setItem(`engram_ai_preferences_${userId}`, JSON.stringify(payload.settings.aiPrefs));
             
-            if (heavy.globalPomodoroLogs) {
-                savePomodoroLogs(heavy.globalPomodoroLogs);
-            }
-            
-            if (heavy.flashcardHistory) {
-                localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(heavy.flashcardHistory));
-            }
-            if (heavy.tasks) {
-                localStorage.setItem(`engramTasks_${userId}`, JSON.stringify(heavy.tasks));
-            }
-            if (heavy.matrix) {
-                localStorage.setItem(`engramMatrix_${userId}`, JSON.stringify(heavy.matrix));
+            if (payload.settings._heavyData) {
+                const heavy = payload.settings._heavyData;
+                
+                if (heavy.notesByTopicId) await batchSaveTopicBodies(userId, heavy.notesByTopicId);
+                if (heavy.images) await batchSaveImages(heavy.images);
+                if (heavy.originalImages) await batchSaveImages(heavy.originalImages);
+                if (heavy.chatHistoryByTopicId) await batchSaveChatHistories(userId, heavy.chatHistoryByTopicId);
+                
+                if (heavy.observations) {
+                    const localObs = ObservationsService.getAll(userId);
+                    const mergedObs = SyncService.mergeCollections(localObs, heavy.observations);
+                    ObservationsService.saveAll(userId, mergedObs);
+                }
+                
+                if (heavy.globalPomodoroLogs) {
+                    savePomodoroLogs(heavy.globalPomodoroLogs);
+                }
+                
+                if (heavy.flashcardHistory) {
+                    localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(heavy.flashcardHistory));
+                }
+                if (heavy.tasks) {
+                    localStorage.setItem(`engramTasks_${userId}`, JSON.stringify(heavy.tasks));
+                }
+                if (heavy.matrix) {
+                    localStorage.setItem(`engramMatrix_${userId}`, JSON.stringify(heavy.matrix));
+                }
+                if (heavy.testSeriesHistory) {
+                    localStorage.setItem(`engram_test_series_history_${userId}`, JSON.stringify(heavy.testSeriesHistory));
+                }
+                if (heavy.testSeriesPastQuestions) {
+                    localStorage.setItem(`engram_test_series_past_questions_${userId}`, JSON.stringify(heavy.testSeriesPastQuestions));
+                }
             }
         }
         
@@ -368,10 +404,18 @@ export const App: React.FC = () => {
                     handleIncomingSyncPayload(remoteData);
                     localStorage.setItem(`engram_last_sync_time_${userId}`, remoteData.updated_at || new Date().toISOString());
                 } else if (!lastSyncTimeStr || remoteTime > lastSyncTime) {
-                    // Prompt to merge
-                    console.debug("[APP] Local and remote data found. Prompting user.");
-                    setPendingSyncData(remoteData);
-                    setShowSyncPrompt(true);
+                    const alreadyPrompted = localStorage.getItem(`engram_sync_prompt_shown_${userId}`);
+                    if (!alreadyPrompted) {
+                        // Prompt to merge
+                        console.debug("[APP] Local and remote data found. Prompting user.");
+                        setPendingSyncData(remoteData);
+                        setShowSyncPrompt(true);
+                    } else {
+                        // Silently merge
+                        console.debug("[APP] Local and remote data found. Silently merging.");
+                        handleIncomingSyncPayload(remoteData);
+                        localStorage.setItem(`engram_last_sync_time_${userId}`, remoteData.updated_at || new Date().toISOString());
+                    }
                 } else {
                     console.debug("[APP] Remote data is not newer than local. Skipping prompt.");
                 }
@@ -430,6 +474,18 @@ export const App: React.FC = () => {
                 if (raw) matrix = JSON.parse(raw);
             } catch { /* ignore */ }
 
+            let testSeriesHistory = [];
+            try {
+                const raw = localStorage.getItem(`engram_test_series_history_${userId}`);
+                if (raw) testSeriesHistory = JSON.parse(raw);
+            } catch { /* ignore */ }
+
+            let testSeriesPastQuestions = [];
+            try {
+                const raw = localStorage.getItem(`engram_test_series_past_questions_${userId}`);
+                if (raw) testSeriesPastQuestions = JSON.parse(raw);
+            } catch { /* ignore */ }
+
             const heavyData = {
                 notesByTopicId,
                 images,
@@ -439,8 +495,16 @@ export const App: React.FC = () => {
                 globalPomodoroLogs,
                 flashcardHistory,
                 tasks,
-                matrix
+                matrix,
+                testSeriesHistory,
+                testSeriesPastQuestions
             };
+
+            let aiPrefs = {};
+            try {
+                const raw = localStorage.getItem(`engram_ai_preferences_${userId}`);
+                if (raw) aiPrefs = JSON.parse(raw);
+            } catch { /* ignore */ }
 
             const success = await SyncService.pushData(userId, {
                 subjects: userSubjects,
@@ -452,6 +516,10 @@ export const App: React.FC = () => {
                     dateTimeSettings,
                     notificationSettings,
                     enabledTabs,
+                    fcFont: localStorage.getItem(`engram_fc_font_${userId}`),
+                    celebrated21Days: localStorage.getItem(`engram_21_day_celebrated_${userId}`),
+                    podcastConfig,
+                    aiPrefs,
                     _heavyData: heavyData
                 }
             });
@@ -806,6 +874,7 @@ export const App: React.FC = () => {
 
     const handleSignOut = async () => {
         localStorage.removeItem('engramHasLoggedIn');
+        localStorage.removeItem(`engram_sync_prompt_shown_${userId}`);
         if (user) await authLogout();
         if (isGuest) await authLogout(); 
         
@@ -875,6 +944,7 @@ export const App: React.FC = () => {
         }
         
         localStorage.setItem(`engram_last_sync_time_${userId}`, pendingSyncData.updated_at || new Date().toISOString());
+        localStorage.setItem(`engram_sync_prompt_shown_${userId}`, 'true');
         
         setShowSyncPrompt(false);
         setPendingSyncData(null);

@@ -54,6 +54,7 @@ import { StudyBreakdownView } from '../views/StudyBreakdownView';
 import { ObservationsView } from '../views/ObservationsView';
 import { PomoHistoryView } from '../views/PomoHistoryView';
 import { FlashcardHubView } from '../views/FlashcardHubView';
+import { TestSeriesView } from '../views/TestSeriesView';
 
 import { useFocus } from '../context/FocusContext';
 
@@ -803,6 +804,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     if (data.preferences.dateTimeSettings) props.setDateTimeSettings(data.preferences.dateTimeSettings);
                     if (data.preferences.notificationSettings) props.setNotificationSettings(data.preferences.notificationSettings);
                     if (data.preferences.enabledTabs && Array.isArray(data.preferences.enabledTabs)) props.setEnabledTabs(data.preferences.enabledTabs);
+                    if (data.preferences.fcFont) localStorage.setItem(`engram_fc_font_${props.userId}`, data.preferences.fcFont);
+                    if (data.preferences.celebrated21Days) localStorage.setItem(`engram_21_day_celebrated_${props.userId}`, data.preferences.celebrated21Days);
+                    if (data.preferences.podcastConfig) props.setPodcastConfig(data.preferences.podcastConfig);
                 }
                 
                 // 5. Restore Tasks, Matrix, Habits (SMART MERGE)
@@ -853,6 +857,22 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     const mergedHistory = mergeFlashcards(localHistory, data.flashcardHistory);
                     localStorage.setItem(key, JSON.stringify(mergedHistory));
                 }
+
+                // 12. Restore Test Series History
+                if (data.testSeriesHistory && Array.isArray(data.testSeriesHistory)) {
+                    const key = `engram_test_series_history_${props.userId}`;
+                    const localHistory = safeReadJSON(key, []);
+                    const mergedHistory = [...localHistory, ...data.testSeriesHistory].filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i);
+                    localStorage.setItem(key, JSON.stringify(mergedHistory));
+                }
+
+                // 13. Restore Test Series Past Questions
+                if (data.testSeriesPastQuestions && Array.isArray(data.testSeriesPastQuestions)) {
+                    const key = `engram_test_series_past_questions_${props.userId}`;
+                    const localQuestions = safeReadJSON(key, []);
+                    const mergedQuestions = [...new Set([...localQuestions, ...data.testSeriesPastQuestions])].slice(-100);
+                    localStorage.setItem(key, JSON.stringify(mergedQuestions));
+                }
                 
                 setShowImportSuccessModal(true);
             } catch (err: unknown) {
@@ -898,6 +918,8 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             const globalPomodoroLogs = getPomodoroLogs();
             const chatHistoryByTopicId = await batchGetChatHistories(props.userId, topicIds); // New: Include Chat History
             const flashcardHistory = safeReadJSON(`engram-flashcard-history_${props.userId}`, []);
+            const testSeriesHistory = safeReadJSON(`engram_test_series_history_${props.userId}`, safeReadJSON('engram_test_series_history', []));
+            const testSeriesPastQuestions = safeReadJSON(`engram_test_series_past_questions_${props.userId}`, safeReadJSON('engram_test_series_past_questions', []));
 
             let aiPrefs = {};
             try {
@@ -921,6 +943,8 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 globalPomodoroLogs, // General timer history
                 chatHistoryByTopicId, // Chat history (text)
                 flashcardHistory,   // Flashcards
+                testSeriesHistory,  // Test Series History
+                testSeriesPastQuestions, // Test Series Past Questions
                 habits: props.habits,
                 tasks: safeReadJSON(`engramTasks_${props.userId}`, []),
                 matrix: safeReadJSON(`engramMatrix_${props.userId}`, []),
@@ -934,6 +958,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     dateTimeSettings: props.dateTimeSettings,
                     notificationSettings: props.notificationSettings,
                     enabledTabs: props.enabledTabs,
+                    fcFont: localStorage.getItem(`engram_fc_font_${props.userId}`),
+                    celebrated21Days: localStorage.getItem(`engram_21_day_celebrated_${props.userId}`),
+                    podcastConfig: props.podcastConfig,
                 }
             };
             
@@ -1072,6 +1099,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             {currentView === 'widgets' && <WidgetsView studyLog={props.studyLog} habits={props.habits} navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
             {currentView === 'podcastSettings' && <PodcastSettingsView config={props.podcastConfig} onUpdate={props.setPodcastConfig} navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} studyLog={props.studyLog} onPlayTopic={(t) => { props.podcast.controls.playTopic(t); navigateTo('podcast'); }} onUpdateTopic={props.handleUpdateTopic} />}
             {currentView === 'flashcardHub' && <FlashcardHubView studyLog={props.studyLog} userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} goBack={goBack} />}
+            {currentView === 'testSeries' && <TestSeriesView userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} />}
             {currentView === 'about' && <AboutView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
             {currentView === 'terms' && <TermsView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
             {currentView === 'privacy' && <PrivacyView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}

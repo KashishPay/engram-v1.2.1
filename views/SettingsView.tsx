@@ -5,7 +5,7 @@ import {
     Info, Download, Upload, Sun, Moon, 
     Smartphone, LogOut, Key, Trash2, ShieldCheck, ExternalLink, AlertTriangle, RotateCw, Zap, Sparkles,
     Check, Loader2, LayoutGrid, Layers, Headphones, MessageSquarePlus, Star, PartyPopper, RefreshCw, UserX, Lock, CloudSync,
-    User, CreditCard, HelpCircle, FileText, Shield, Scale
+    User, CreditCard, HelpCircle, FileText, Shield, Scale, Target
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { validateApiKey, getUsageStats } from '../services/gemini';
@@ -523,6 +523,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <SettingsItem icon={Bell} label="Sounds & Notifications" color="text-orange-500" onClick={() => navigateTo('soundsNotifications')} />
                         <SettingsItem icon={Layout} label="Widgets" color="text-orange-500" onClick={() => navigateTo('widgets')} />
                         <SettingsItem icon={Layers} label="Flashcard Hub" color="text-pink-500" onClick={() => navigateTo('flashcardHub')} />
+                        <SettingsItem icon={Target} label="Test Series" color="text-blue-500" onClick={() => navigateTo('testSeries')} />
                         <SettingsItem icon={Headphones} label="Podcast & Settings" color="text-orange-500" onClick={() => navigateTo('podcastSettings')} />
                         <SettingsItem 
                             icon={Sparkles} 

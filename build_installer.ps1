@@ -1,5 +1,5 @@
 # ==============================================================================
-# ENGRAM ANDROID BUILD AUTOMATOR (Iterated v1.6)
+# ENGRAM ANDROID BUILD AUTOMATOR (Iterated v1.7)
 # ==============================================================================
 
 # 1) Define Paths & Auto-Detect Latest Zip
@@ -84,13 +84,13 @@ npm install
 
 Write-Output "Ensuring critical dependencies are installed..."
 # Install Core App Features
-npm install react react-dom lucide-react @google/genai @supabase/supabase-js katex dompurify jspdf pdfjs-dist@3.11.174 react-markdown remark-gfm remark-math rehype-katex
+npm install react react-dom lucide-react @google/genai @supabase/supabase-js katex dompurify jspdf pdfjs-dist@3.11.174 react-markdown remark-gfm remark-math rehype-katex d3
 
 # Install Capacitor Plugins (Core + Community)
 npm install @capacitor/core @capacitor/app @capacitor/filesystem @capacitor/share @capacitor/local-notifications @capacitor/haptics @capacitor/camera @capacitor/android @capacitor/ios @capacitor-community/admob @capacitor-community/keep-awake
 
 # Install Dev Tools & Linters
-npm install -D vite @vitejs/plugin-react typescript @types/react @types/react-dom autoprefixer postcss tailwindcss @capacitor/cli @capacitor/assets eslint eslint-plugin-react-hooks eslint-plugin-react-refresh @typescript-eslint/eslint-plugin @typescript-eslint/parser
+npm install -D vite @vitejs/plugin-react typescript @types/react @types/react-dom @types/d3 autoprefixer postcss tailwindcss @capacitor/cli @capacitor/assets eslint eslint-plugin-react-hooks eslint-plugin-react-refresh @typescript-eslint/eslint-plugin @typescript-eslint/parser
 
 # 6) Build Web App
 Write-Output "--- Step 6: Building Web Assets ---"

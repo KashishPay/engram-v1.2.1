@@ -300,7 +300,14 @@ export const chatWithNotesStream = async (
     - Use **Markdown Tables** for structured data, comparisons, or lists.
     - Use **LaTeX** for math equations (wrap in $ for inline or $$ for block).
     - Be concise, clear, and engaging.
-    - If a diagram is requested, describe it clearly in text or use ASCII art if simple.
+    - If a diagram or plot is requested, output the data in a JSON block at the end of your response, like this:
+      \`\`\`json
+      {
+        "type": "plot",
+        "title": "Plot Title",
+        "data": [{"x": 0, "y": 0}, {"x": 1, "y": 1}, ...]
+      }
+      \`\`\`
     
     Notes: ${truncateContext(notes, 20000)}
     ${prefs.persona ? `Persona: ${prefs.persona}` : ''}`;

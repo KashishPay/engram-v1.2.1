@@ -672,7 +672,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                         </div>
                     ) : notes.length > 0 ? (
                         <div 
-                            className="p-4 md:p-8 cursor-text min-h-full w-full break-words overflow-x-hidden touch-pan-y"
+                            className="p-4 md:p-8 cursor-text min-h-full w-full break-words overflow-x-hidden touch-pan-x touch-pan-y"
                             onClick={handleToggleEdit}
                         >
                             <NotesRenderer 

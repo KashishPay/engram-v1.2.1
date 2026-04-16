@@ -223,7 +223,7 @@ function processBlockMath(latex: string, styleClass: string): string {
       strict: 'warn',
     });
     const sanitized = DOMPurify.sanitize(html, sanitizeConfig);
-    return `<div class="overflow-x-auto w-full pb-2 mb-2 touch-pan-x ${styleClass}">${sanitized}</div>`;
+    return `<div class="overflow-x-auto w-full pb-2 mb-2 touch-pan-x touch-pan-y ${styleClass}">${sanitized}</div>`;
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
     return `<div class="p-2 border border-red-200 bg-red-50 text-red-600 text-xs font-mono rounded overflow-x-auto" data-render-error="true"><div class="font-bold flex items-center mb-1"><span style="font-size:1.2em; margin-right:4px;">⚠️</span> LaTeX Error</div>${message}</div>`;

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Shield, XCircle, MessageSquarePlus, X, Loader, Download, Maximize2, ExternalLink } from 'lucide-react';
+import { Shield, XCircle, MessageSquarePlus, X, Loader, Download, Maximize2 } from 'lucide-react';
 import { getImageFromIDB } from '../services/storage';
 import { jsPDF } from 'jspdf';
 import { ImageViewer } from './ImageViewer';
