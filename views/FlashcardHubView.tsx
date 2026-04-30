@@ -47,7 +47,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
     const undoTimeoutRef = useRef<number | null>(null);
 
     // Initial Load from Storage
-    useEffect(() => {
+    const loadCards = () => {
         try {
             const key = `engram-flashcard-history_${userId}`;
             const raw = localStorage.getItem(key);
@@ -57,12 +57,19 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
         } catch (_e) {
             console.error("Failed to load flashcards", _e);
         }
+    };
+
+    useEffect(() => {
+        loadCards();
+        window.addEventListener('engram-data-changed', loadCards);
+        return () => window.removeEventListener('engram-data-changed', loadCards);
     }, [userId]);
 
     // Save to Storage
     const persistCards = (newCards: FlashCard[]) => {
         setAllCards(newCards);
         localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(newCards));
+        window.dispatchEvent(new CustomEvent('engram-data-changed'));
     };
 
     // --- Computed Hierarchy ---

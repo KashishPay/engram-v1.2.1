@@ -1,0 +1,68 @@
+29:    const [exam, setExam] = useState('');
+30:    const [stream, setStream] = useState('');
+31:    const [subjects, setSubjects] = useState<string[]>([]);
+32:    const [selectedSubject, setSelectedSubject] = useState('');
+33:    const [difficulty, setDifficulty] = useState('Medium');
+34:    const [numQuestions, setNumQuestions] = useState(10);
+37:    const [isFetchingSubjects, setIsFetchingSubjects] = useState(false);
+38:    const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+39:    const [error, setError] = useState<string | null>(null);
+42:    const [quizData, setQuizData] = useState<TestSeriesQuestion[] | null>(null);
+43:    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+44:    const [answers, setAnswers] = useState<{ qIndex: number; selected: string; correct: string }[]>([]);
+45:    const [timeTaken, setTimeTaken] = useState(0);
+46:    const [timerRunning, setTimerRunning] = useState(false);
+49:    const [history, setHistory] = useState<TestHistoryEntry[]>([]);
+50:    const [viewMode, setViewMode] = useState<'setup' | 'active' | 'result' | 'history_list' | 'history_detail'>('setup');
+51:    const [selectedHistory, setSelectedHistory] = useState<TestHistoryEntry | null>(null);
+57:            try { setHistory(JSON.parse(saved)); } catch (e) { console.warn("Failed to parse test series history", e); }
+63:        let interval: ReturnType<typeof setInterval> | null = null;
+65:            interval = setInterval(() => {
+66:                setTimeTaken(t => t + 1);
+74:            setError("Please enter both Exam and Stream.");
+77:        setIsFetchingSubjects(true);
+78:        setError(null);
+81:            setSubjects(fetchedSubjects);
+83:                setSelectedSubject(fetchedSubjects[0]);
+86:            setError(err instanceof Error ? err.message : "Failed to fetch subjects.");
+88:            setIsFetchingSubjects(false);
+94:            setError("Please fill all fields.");
+97:        setIsGeneratingQuiz(true);
+98:        setError(null);
+109:            localStorage.setItem(`engram_test_series_past_questions_${userId}`, JSON.stringify(newPastQuestions));
+112:            setQuizData(questions);
+113:            setCurrentQuestionIndex(0);
+114:            setAnswers([]);
+115:            setTimeTaken(0);
+116:            setTimerRunning(true);
+117:            setViewMode('active');
+119:            setError(err instanceof Error ? err.message : "Failed to generate quiz.");
+121:            setIsGeneratingQuiz(false);
+126:        setTimerRunning(false);
+127:        setViewMode('result');
+143:        setHistory(prev => {
+145:            localStorage.setItem(`engram_test_series_history_${userId}`, JSON.stringify(updated));
+160:        setAnswers(newAnswers);
+163:            setCurrentQuestionIndex(prev => prev + 1);
+178:        setAnswers(newAnswers);
+181:            setCurrentQuestionIndex(prev => prev + 1);
+187:    const resetSetup = () => {
+188:        setQuizData(null);
+189:        setAnswers([]);
+190:        setTimeTaken(0);
+191:        setViewMode('setup');
+244:            <div className={`flex flex-col h-full bg-gray-50 dark:bg-gray-900 p-4 overflow-y-auto`} style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}>
+246:                    <button onClick={() => viewMode === 'history_detail' ? setViewMode('history_list') : resetSetup()} className={`p-2 rounded-full hover:bg-${themeColor}-100 text-${themeColor}-600 dark:text-${themeColor}-400 dark:hover:bg-gray-800 transition`}>
+297:                    <button onClick={resetSetup} className={`mt-6 w-full py-4 bg-${themeColor}-600 text-white rounded-2xl font-bold shadow-lg hover:bg-${themeColor}-700 transition`}>
+307:            <div className={`flex flex-col h-full bg-gray-50 dark:bg-gray-900 p-4 overflow-y-auto`} style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}>
+309:                    <button onClick={() => setViewMode('setup')} className={`p-2 rounded-full hover:bg-${themeColor}-100 text-${themeColor}-600 dark:text-${themeColor}-400 dark:hover:bg-gray-800 transition`}>
+320:                            <Card key={item.id} className="p-4 flex flex-col hover:shadow-md transition cursor-pointer" onClick={() => { setSelectedHistory(item); setViewMode('history_detail'); }}>
+344:            <div className={`flex flex-col h-full bg-gray-50 dark:bg-gray-900 p-4 overflow-y-auto`} style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}>
+382:        <div className={`flex flex-col h-full bg-gray-50 dark:bg-gray-900 p-4 overflow-y-auto`} style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}>
+385:                    <button onClick={() => navigateTo('settings')} className={`p-2 rounded-full hover:bg-${themeColor}-100 text-${themeColor}-600 dark:text-${themeColor}-400 dark:hover:bg-gray-800 transition`}>
+390:                <button onClick={() => setViewMode('history_list')} className={`p-2 bg-${themeColor}-100 dark:bg-${themeColor}-900/30 text-${themeColor}-600 dark:text-${themeColor}-400 rounded-xl font-bold text-sm flex items-center hover:bg-${themeColor}-200 dark:hover:bg-${themeColor}-900/50 transition`}>
+407:                            onChange={(e) => setExam(e.target.value)}
+417:                            onChange={(e) => setStream(e.target.value)}
+439:                                onChange={(e) => setSelectedSubject(e.target.value)}
+451:                                    onChange={(e) => setDifficulty(e.target.value)}
+463:                                    onChange={(e) => setNumQuestions(Number(e.target.value))}

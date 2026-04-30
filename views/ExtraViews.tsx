@@ -420,6 +420,7 @@ export const TaskView: React.FC<ExtraViewProps> = ({ themeColor, settings, userI
     useEffect(() => {
         if (loadedUserId === userId) {
             localStorage.setItem(`engramTasks_${userId}`, JSON.stringify(tasks));
+            window.dispatchEvent(new CustomEvent('engram-data-changed'));
         }
     }, [tasks, userId, loadedUserId]);
 
@@ -681,6 +682,7 @@ export const EisenhowerMatrixView: React.FC<ExtraViewProps> = ({ themeColor, use
     useEffect(() => {
         if (loadedUserId === userId) {
             localStorage.setItem(`engramMatrix_${userId}`, JSON.stringify(tasks));
+            window.dispatchEvent(new CustomEvent('engram-data-changed'));
         }
     }, [tasks, userId, loadedUserId]);
 

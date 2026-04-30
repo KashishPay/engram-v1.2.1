@@ -51,11 +51,17 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
     const [selectedHistory, setSelectedHistory] = useState<TestHistoryEntry | null>(null);
 
     // Load History
-    useEffect(() => {
+    const loadHistory = () => {
         const saved = localStorage.getItem(`engram_test_series_history_${userId}`);
         if (saved) {
             try { setHistory(JSON.parse(saved)); } catch (e) { console.warn("Failed to parse test series history", e); }
         }
+    };
+
+    useEffect(() => {
+        loadHistory();
+        window.addEventListener('engram-data-changed', loadHistory);
+        return () => window.removeEventListener('engram-data-changed', loadHistory);
     }, [userId]);
 
     // Timer
@@ -107,6 +113,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             // Save new questions to context
             const newPastQuestions = [...pastQuestions, ...questions.map(q => q.question)].slice(-100); // Keep last 100
             localStorage.setItem(`engram_test_series_past_questions_${userId}`, JSON.stringify(newPastQuestions));
+            window.dispatchEvent(new CustomEvent('engram-data-changed'));
 
             setQuizData(questions);
             setCurrentQuestionIndex(0);
@@ -139,11 +146,10 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             answers: finalAnswers
         };
         
-        setHistory(prev => {
-            const updated = [newEntry, ...prev];
-            localStorage.setItem(`engram_test_series_history_${userId}`, JSON.stringify(updated));
-            return updated;
-        });
+        const updated = [newEntry, ...history];
+        setHistory(updated);
+        localStorage.setItem(`engram_test_series_history_${userId}`, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('engram-data-changed'));
     };
 
     const handleAnswer = (option: string) => {

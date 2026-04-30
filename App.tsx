@@ -248,6 +248,14 @@ export const App: React.FC = () => {
         return { language: 'Hinglish' };
     });
 
+    const [heavyDataSyncTrigger, setHeavyDataSyncTrigger] = useState(Date.now());
+
+    useEffect(() => {
+        const handleDataChanged = () => setHeavyDataSyncTrigger(Date.now());
+        window.addEventListener('engram-data-changed', handleDataChanged);
+        return () => window.removeEventListener('engram-data-changed', handleDataChanged);
+    }, []);
+
     useEffect(() => {
         if (userId) {
             localStorage.setItem(`engram_podcast_config_${userId}`, JSON.stringify(podcastConfig));
@@ -357,20 +365,35 @@ export const App: React.FC = () => {
                     savePomodoroLogs(heavy.globalPomodoroLogs);
                 }
                 
-                if (heavy.flashcardHistory) {
-                    localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(heavy.flashcardHistory));
+                if (heavy.flashcardHistory && Array.isArray(heavy.flashcardHistory)) {
+                    let localHistory = [];
+                    try { localHistory = JSON.parse(localStorage.getItem(`engram-flashcard-history_${userId}`) || "[]"); } catch { /* ignore */ }
+                    const merged = [...localHistory, ...heavy.flashcardHistory].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+                    localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(merged));
                 }
-                if (heavy.tasks) {
-                    localStorage.setItem(`engramTasks_${userId}`, JSON.stringify(heavy.tasks));
+                if (heavy.tasks && Array.isArray(heavy.tasks)) {
+                    let localTasks = [];
+                    try { localTasks = JSON.parse(localStorage.getItem(`engramTasks_${userId}`) || "[]"); } catch { /* ignore */ }
+                    const merged = [...localTasks, ...heavy.tasks].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+                    localStorage.setItem(`engramTasks_${userId}`, JSON.stringify(merged));
                 }
-                if (heavy.matrix) {
-                    localStorage.setItem(`engramMatrix_${userId}`, JSON.stringify(heavy.matrix));
+                if (heavy.matrix && Array.isArray(heavy.matrix)) {
+                    let localMatrix = [];
+                    try { localMatrix = JSON.parse(localStorage.getItem(`engramMatrix_${userId}`) || "[]"); } catch { /* ignore */ }
+                    const merged = [...localMatrix, ...heavy.matrix].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+                    localStorage.setItem(`engramMatrix_${userId}`, JSON.stringify(merged));
                 }
-                if (heavy.testSeriesHistory) {
-                    localStorage.setItem(`engram_test_series_history_${userId}`, JSON.stringify(heavy.testSeriesHistory));
+                if (heavy.testSeriesHistory && Array.isArray(heavy.testSeriesHistory)) {
+                    let localHistory = [];
+                    try { localHistory = JSON.parse(localStorage.getItem(`engram_test_series_history_${userId}`) || "[]"); } catch { /* ignore */ }
+                    const merged = [...localHistory, ...heavy.testSeriesHistory].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+                    localStorage.setItem(`engram_test_series_history_${userId}`, JSON.stringify(merged));
                 }
-                if (heavy.testSeriesPastQuestions) {
-                    localStorage.setItem(`engram_test_series_past_questions_${userId}`, JSON.stringify(heavy.testSeriesPastQuestions));
+                if (heavy.testSeriesPastQuestions && Array.isArray(heavy.testSeriesPastQuestions)) {
+                    let localQuestions = [];
+                    try { localQuestions = JSON.parse(localStorage.getItem(`engram_test_series_past_questions_${userId}`) || "[]"); } catch { /* ignore */ }
+                    const merged = [...new Set([...localQuestions, ...heavy.testSeriesPastQuestions])].slice(-100);
+                    localStorage.setItem(`engram_test_series_past_questions_${userId}`, JSON.stringify(merged));
                 }
             }
         }
@@ -536,7 +559,7 @@ export const App: React.FC = () => {
         const timeout = setTimeout(push, 5000); // 5s debounce
 
         return () => clearTimeout(timeout);
-    }, [studyLog, userSubjects, habits, currentTheme, appMode, dateTimeSettings, notificationSettings, enabledTabs, globalSyncEnabled, user, isGuest, userId, loadingData, authLoading]);
+    }, [studyLog, userSubjects, habits, currentTheme, appMode, dateTimeSettings, notificationSettings, enabledTabs, globalSyncEnabled, user, isGuest, userId, loadingData, authLoading, heavyDataSyncTrigger, podcastConfig]);
 
     // Offline Retry
     useEffect(() => {

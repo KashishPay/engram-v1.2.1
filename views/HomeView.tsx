@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { GraduationCap, ListRestart, PieChart, Filter, Layers, RotateCw, Check, X, Calendar, TrendingUp, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, History, RefreshCcw, Settings2, Trash2, Undo2, XCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ProgressChart } from '../components/ProgressChart';
@@ -83,7 +83,7 @@ const FlashCardDeck: React.FC<{
         return selectedTopicIds;
     }, [selectedTopicIds]);
 
-    useEffect(() => {
+    const loadHistory = useCallback(() => {
         try {
             const scopedKey = `engram-flashcard-history_${userId}`;
             const saved = localStorage.getItem(scopedKey);
@@ -92,9 +92,16 @@ const FlashCardDeck: React.FC<{
         } catch { setCardHistory([]); }
     }, [userId]);
 
+    useEffect(() => {
+        loadHistory();
+        window.addEventListener('engram-data-changed', loadHistory);
+        return () => window.removeEventListener('engram-data-changed', loadHistory);
+    }, [userId, loadHistory]);
+
     const saveHistory = (newHistory: FlashCard[]) => {
         setCardHistory(newHistory);
         localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(newHistory));
+        window.dispatchEvent(new CustomEvent('engram-data-changed'));
     };
 
     const handleFontChange = (delta: number, e: React.MouseEvent) => {
