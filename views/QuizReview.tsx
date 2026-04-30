@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, XCircle, Trophy, Share2, AlertCircle, ExternalLink } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Trophy, Share2, AlertCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, QuizQuestion } from '../types';
 import { SPACING_INTERVALS } from '../constants';

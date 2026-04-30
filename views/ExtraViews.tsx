@@ -348,7 +348,7 @@ export const CalendarView: React.FC<ExtraViewProps> = ({ themeColor, settings, s
                         
                         {dailySessions.length > 0 ? (
                             <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[500px] overflow-y-auto custom-scrollbar">
-                                {dailySessions.map((session, index) => (
+                                {dailySessions.map((session) => (
                                     <React.Fragment key={session.id}>
                                         <div className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                                             <div className="min-w-0 pr-4">

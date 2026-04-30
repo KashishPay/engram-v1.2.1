@@ -4,7 +4,6 @@ import { ArrowLeft, Clock, ChevronDown } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic } from '../types';
 import { goBackOrFallback } from '../utils/navigation';
-import { ExternalLink } from 'lucide-react';
 
 import { AdManager } from '../services/admob';
 

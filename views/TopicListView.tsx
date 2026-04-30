@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { ArrowLeft, CheckCircle, Check, XCircle, ExternalLink } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Check, XCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic } from '../types';
 import { VirtualList } from '../components/VirtualList';

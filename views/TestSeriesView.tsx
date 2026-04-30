@@ -123,7 +123,6 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
 
     const finishQuiz = (finalAnswers: typeof answers) => {
         setTimerRunning(false);
-        setQuizFinished(true);
         setViewMode('result');
         
         const score = finalAnswers.filter(a => a.selected === a.correct).length;
@@ -185,7 +184,6 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
 
     const resetSetup = () => {
         setQuizData(null);
-        setQuizFinished(false);
         setAnswers([]);
         setTimeTaken(0);
         setViewMode('setup');

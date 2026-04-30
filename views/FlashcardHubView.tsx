@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon, X, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon, X } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, FlashCard } from '../types';
 import { FLASHCARD_SCHEMA } from '../constants';

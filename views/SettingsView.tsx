@@ -4,8 +4,8 @@ import {
     Award, ChevronRight, Palette, Clock, Bell, Layout, 
     Info, Download, Upload, Sun, Moon, 
     Smartphone, LogOut, Key, Trash2, ShieldCheck, ExternalLink, AlertTriangle, RotateCw, Zap, Sparkles,
-    Check, Loader2, LayoutGrid, Layers, Headphones, MessageSquarePlus, Star, PartyPopper, RefreshCw, UserX, Lock, CloudSync,
-    User, CreditCard, HelpCircle, FileText, Shield, Scale, Target
+    Check, Loader2, LayoutGrid, Layers, Headphones, MessageSquarePlus, Star, PartyPopper, RefreshCw, UserX, CloudSync,
+    Target
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { validateApiKey, getUsageStats } from '../services/gemini';
