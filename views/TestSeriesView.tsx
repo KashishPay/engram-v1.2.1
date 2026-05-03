@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Play, CheckCircle, XCircle, Clock, RefreshCw, BookOpen, Target, SkipForward, History } from 'lucide-react';
+import { ArrowLeft, Play, CheckCircle, XCircle, Clock, RefreshCw, BookOpen, Target, SkipForward, History, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card } from '../components/Card';
 import { fetchExamSubjects, generateExamQuiz, TestSeriesQuestion } from '../services/testSeriesService';
 import katex from 'katex';
@@ -32,6 +32,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
     const [selectedSubject, setSelectedSubject] = useState('');
     const [difficulty, setDifficulty] = useState('Medium');
     const [numQuestions, setNumQuestions] = useState(10);
+    const [specificTopics, setSpecificTopics] = useState('');
     
     // Status State
     const [isFetchingSubjects, setIsFetchingSubjects] = useState(false);
@@ -49,6 +50,8 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
     const [history, setHistory] = useState<TestHistoryEntry[]>([]);
     const [viewMode, setViewMode] = useState<'setup' | 'active' | 'result' | 'history_list' | 'history_detail'>('setup');
     const [selectedHistory, setSelectedHistory] = useState<TestHistoryEntry | null>(null);
+    const [recentExams, setRecentExams] = useState<{exam: string; stream: string}[]>([]);
+    const [expandedHistoryGroups, setExpandedHistoryGroups] = useState<Set<string>>(new Set());
 
     // Load History
     const loadHistory = () => {
@@ -56,6 +59,26 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
         if (saved) {
             try { setHistory(JSON.parse(saved)); } catch (e) { console.warn("Failed to parse test series history", e); }
         }
+        
+        let recents: {exam: string; stream: string}[] = [];
+        const savedRecents = localStorage.getItem(`engram_recent_exams_${userId}`);
+        if (savedRecents) {
+            try { recents = JSON.parse(savedRecents); } catch (e) {}
+        }
+        
+        const savedSubjects = localStorage.getItem(`engram_exam_subjects_${userId}`);
+        if (savedSubjects) {
+            try {
+                const subjectsObj = JSON.parse(savedSubjects);
+                Object.keys(subjectsObj).forEach(key => {
+                    const [ex, st] = key.split('_');
+                    if (ex && st && !recents.find(r => r.exam.toLowerCase() === ex && r.stream.toLowerCase() === st)) {
+                        recents.push({ exam: ex.toUpperCase(), stream: st.charAt(0).toUpperCase() + st.slice(1) });
+                    }
+                });
+            } catch (e) {}
+        }
+        setRecentExams(recents);
     };
 
     useEffect(() => {
@@ -75,6 +98,25 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
         return () => { if(interval) clearInterval(interval); };
     }, [timerRunning]);
 
+    useEffect(() => {
+        if (!exam.trim() || !stream.trim()) return;
+        const key = `engram_exam_subjects_${userId}`;
+        const savedStr = localStorage.getItem(key);
+        if (savedStr) {
+            try {
+                const saved = JSON.parse(savedStr);
+                const examStreamKey = `${exam.trim().toLowerCase()}_${stream.trim().toLowerCase()}`;
+                if (saved[examStreamKey] && saved[examStreamKey].length > 0) {
+                    // Only auto-update if we don't already have them populated, to avoid jarring resets
+                    setSubjects(saved[examStreamKey]);
+                    if (!selectedSubject || !saved[examStreamKey].includes(selectedSubject)) {
+                        setSelectedSubject(saved[examStreamKey][0]);
+                    }
+                }
+            } catch (e) {}
+        }
+    }, [exam, stream, userId]);
+
     const handleFetchSubjects = async () => {
         if (!exam.trim() || !stream.trim()) {
             setError("Please enter both Exam and Stream.");
@@ -87,6 +129,23 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             setSubjects(fetchedSubjects);
             if (fetchedSubjects.length > 0) {
                 setSelectedSubject(fetchedSubjects[0]);
+                
+                // Save to localStorage
+                const key = `engram_exam_subjects_${userId}`;
+                const savedStr = localStorage.getItem(key);
+                let saved = savedStr ? JSON.parse(savedStr) : {};
+                const examStreamKey = `${exam.trim().toLowerCase()}_${stream.trim().toLowerCase()}`;
+                saved[examStreamKey] = fetchedSubjects;
+                localStorage.setItem(key, JSON.stringify(saved));
+
+                // Save to recent exams
+                setRecentExams(prev => {
+                    const newEntry = { exam: exam.trim(), stream: stream.trim() };
+                    const filtered = prev.filter(p => p.exam.toLowerCase() !== newEntry.exam.toLowerCase() || p.stream.toLowerCase() !== newEntry.stream.toLowerCase());
+                    const updated = [newEntry, ...filtered].slice(0, 10);
+                    localStorage.setItem(`engram_recent_exams_${userId}`, JSON.stringify(updated));
+                    return updated;
+                });
             }
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Failed to fetch subjects.");
@@ -106,7 +165,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             // Retrieve past questions context to avoid repetition
             const pastQuestions = JSON.parse(localStorage.getItem(`engram_test_series_past_questions_${userId}`) || '[]');
             
-            const questions = await generateExamQuiz(exam, stream, selectedSubject, difficulty, numQuestions, pastQuestions);
+            const questions = await generateExamQuiz(exam, stream, selectedSubject, difficulty, numQuestions, pastQuestions, specificTopics);
             
             if (questions.length === 0) throw new Error("No questions generated.");
             
@@ -307,6 +366,30 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
     }
 
     if (viewMode === 'history_list') {
+        const groupedHistory = history.reduce((acc, item) => {
+            const ex = (item.exam || '').trim();
+            const su = (item.subject || '').trim();
+            // Case and space insensitive key
+            const key = `${ex.toLowerCase()} - ${su.toLowerCase()}`;
+            if (!acc[key]) {
+                acc[key] = {
+                    display: `${ex} - ${su}`, // Keep first encountered display casing
+                    items: []
+                };
+            }
+            acc[key].items.push(item);
+            return acc;
+        }, {} as Record<string, { display: string; items: TestHistoryEntry[] }>);
+
+        const toggleGroup = (key: string) => {
+            setExpandedHistoryGroups(prev => {
+                const newSet = new Set(prev);
+                if (newSet.has(key)) newSet.delete(key);
+                else newSet.add(key);
+                return newSet;
+            });
+        };
+
         return (
             <div className={`flex flex-col h-full bg-gray-50 dark:bg-gray-900 p-4 overflow-y-auto`} style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}>
                 <div className="flex items-center space-x-3 mb-6">
@@ -320,22 +403,52 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                     <div className="text-center py-10 text-gray-500">No test history found.</div>
                 ) : (
                     <div className="space-y-4">
-                        {history.map(item => (
-                            <Card key={item.id} className="p-4 flex flex-col hover:shadow-md transition cursor-pointer" onClick={() => { setSelectedHistory(item); setViewMode('history_detail'); }}>
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <h3 className="font-bold text-gray-800 dark:text-white">{item.exam} - {item.subject}</h3>
-                                        <p className="text-xs text-gray-500">{new Date(item.timestamp).toLocaleString()}</p>
+                        {Object.entries(groupedHistory).map(([key, groupData]) => {
+                            const { display, items } = groupData;
+                            const isExpanded = expandedHistoryGroups.has(key);
+                            const bestScore = Math.max(...items.map(i => Math.round((i.score / i.totalQuestions) * 100)));
+                            
+                            return (
+                                <Card key={key} className="overflow-hidden">
+                                    <div 
+                                        className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition"
+                                        onClick={() => toggleGroup(key)}
+                                    >
+                                        <div>
+                                            <h3 className="font-bold text-gray-800 dark:text-white">{display}</h3>
+                                            <p className="text-xs text-gray-500">{items.length} attempt{items.length !== 1 ? 's' : ''} • Best: {bestScore}%</p>
+                                        </div>
+                                        <div className="flex items-center">
+                                            {isExpanded ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                                        </div>
                                     </div>
-                                    <div className={`text-lg font-bold text-${themeColor}-600`}>
-                                        {item.score}/{item.totalQuestions}
-                                    </div>
-                                </div>
-                                <div className="flex items-center text-xs text-gray-500 mt-2">
-                                    <Clock size={14} className="mr-1" /> {formatTime(item.timeTaken)}
-                                </div>
-                            </Card>
-                        ))}
+                                    
+                                    {isExpanded && (
+                                        <div className="border-t border-gray-100 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
+                                            {items.map(item => (
+                                                <div 
+                                                    key={item.id} 
+                                                    className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/80 transition cursor-pointer"
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedHistory(item); setViewMode('history_detail'); }}
+                                                >
+                                                    <div>
+                                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                            {new Date(item.timestamp).toLocaleString()}
+                                                        </div>
+                                                        <div className="flex items-center text-xs text-gray-500 mt-1">
+                                                            <Clock size={12} className="mr-1" /> {formatTime(item.timeTaken)}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`text-sm font-bold text-${themeColor}-600 bg-${themeColor}-50 dark:bg-${themeColor}-900/20 px-3 py-1 rounded-full`}>
+                                                        {item.score}/{item.totalQuestions}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </Card>
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -362,9 +475,9 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                     <div className="space-y-3">
                         {currentQ.options.map((opt, idx) => (
                             <button
-                                key={idx}
+                                key={`q-${currentQuestionIndex}-opt-${idx}`}
                                 onClick={() => handleAnswer(opt)}
-                                className={`w-full text-left p-4 rounded-xl border-2 border-gray-100 dark:border-gray-700 hover:border-${themeColor}-300 dark:hover:border-${themeColor}-600 hover:bg-${themeColor}-50 dark:hover:bg-${themeColor}-900/20 transition group`}
+                                className={`w-full text-left p-4 rounded-xl border-2 border-gray-100 dark:border-gray-700 hover:border-${themeColor}-300 dark:hover:border-${themeColor}-600 hover:bg-${themeColor}-50 dark:hover:bg-${themeColor}-900/20 transition group active:scale-95`}
                             >
                                 <span className="text-gray-700 dark:text-gray-200 font-medium" dangerouslySetInnerHTML={{ __html: renderMathHtml(opt) }} />
                             </button>
@@ -397,9 +510,37 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             </div>
 
             <Card className="p-6 space-y-6">
-                <div className="flex items-center mb-2">
-                    <Target className={`text-${themeColor}-500 mr-2`} size={24} />
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-white">Exam Configuration</h3>
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                        <Target className={`text-${themeColor}-500 mr-2`} size={24} />
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-white">Exam Configuration</h3>
+                    </div>
+                    {recentExams.length > 0 && (
+                        <div className="relative">
+                            <select
+                                className={`appearance-none bg-${themeColor}-50 dark:bg-${themeColor}-900/20 border border-${themeColor}-100 dark:border-${themeColor}-800 text-${themeColor}-700 dark:text-${themeColor}-300 py-1.5 pl-3 pr-8 rounded-lg text-xs font-bold outline-none cursor-pointer max-w-[150px] sm:max-w-[180px] truncate`}
+                                onChange={(e) => {
+                                    if (!e.target.value) return;
+                                    const selected = JSON.parse(e.target.value);
+                                    setExam(selected.exam);
+                                    setStream(selected.stream);
+                                }}
+                                value=""
+                            >
+                                <option value="">Recent Searches</option>
+                                {recentExams.map((re, idx) => (
+                                    <option key={idx} value={JSON.stringify(re)}>
+                                        {re.exam} - {re.stream}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                </svg>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 
                 <div className="space-y-4">
@@ -445,6 +586,17 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                             >
                                 {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Specific Topics (Optional)</label>
+                            <input 
+                                type="text" 
+                                value={specificTopics}
+                                onChange={(e) => setSpecificTopics(e.target.value)}
+                                placeholder="e.g., MPT theorem, Thevenin's theorem"
+                                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-white"
+                            />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

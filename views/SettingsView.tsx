@@ -175,7 +175,7 @@ const CelebrationOverlay: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
     userProfile, userId, userEmail, isGuest, currentTheme, navigateTo, 
     handleExportData, handleImportData, appMode, setAppMode, onSignOut, onDeleteProfile, level, badgeCount, streak = 0,
-    globalSyncEnabled, setGlobalSyncEnabled
+    onManualSync, isSyncing
 }) => {
     const [showCelebration, setShowCelebration] = useState(false);
     const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
@@ -196,13 +196,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     // Delete Account State
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-
-    const handleGlobalSyncToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const isEnabled = e.target.checked;
-        setGlobalSyncEnabled(isEnabled);
-        localStorage.setItem(`engramGlobalSyncEnabled_${userId}`, String(isEnabled));
-        console.log("Global sync toggled:", isEnabled);
-    };
 
     // Initial Load
     useEffect(() => {
@@ -583,14 +576,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                                     <CloudSync size={18} className="text-purple-600 dark:text-purple-400" />
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300">Global Sync</h4>
-                                                    <p className="text-xs text-purple-700 dark:text-purple-400/80">Automatically sync your exports</p>
+                                                    <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300">Cloud Sync</h4>
+                                                    <p className="text-xs text-purple-700 dark:text-purple-400/80">Save and load your data</p>
                                                 </div>
                                             </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input type="checkbox" className="sr-only peer" checked={globalSyncEnabled} onChange={handleGlobalSyncToggle} />
-                                                <div className="w-11 h-6 bg-purple-200 dark:bg-purple-900/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                            </label>
+                                            <button 
+                                                onClick={onManualSync}
+                                                disabled={isSyncing}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition ${isSyncing ? 'bg-purple-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                                            >
+                                                {isSyncing ? 'Syncing...' : 'Sync Now'}
+                                            </button>
                                         </div>
                                     </div>
                                 )}

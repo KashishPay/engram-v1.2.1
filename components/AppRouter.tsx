@@ -104,8 +104,8 @@ interface AppRouterProps {
     setAppMode: (mode: string) => void;
     enabledTabs: string[];
     setEnabledTabs: (tabs: string[]) => void;
-    globalSyncEnabled: boolean;
-    setGlobalSyncEnabled: (enabled: boolean) => void;
+    onManualSync: () => Promise<void>;
+    isSyncing: boolean;
     permissionsGranted: boolean;
     handleAllowPermissions: () => void;
 
@@ -1087,7 +1087,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     : <ErrorCard error={new Error("Failed to load quiz results.")} resetErrorBoundary={() => navigateTo('home')} />
             )}
             {currentView === 'chat' && <ChatView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} />}
-            {currentView === 'settings' && <SettingsView userProfile={props.userProfile} userId={props.userId} userEmail={props.user?.email} isGuest={props.isGuest} currentTheme={props.currentTheme} navigateTo={navigateTo} setShowFeedbackModal={setShowFeedbackModal} handleExportData={handleExportData} handleImportData={handleImportData} appMode={props.appMode} setAppMode={props.setAppMode} onSignOut={props.onSignOut} onDeleteProfile={props.onDeleteProfile} level={Math.floor((props.earnedBadges?.length || 0) / 3) + 1} badgeCount={props.earnedBadges?.length || 0} streak={props.currentStreak} globalSyncEnabled={props.globalSyncEnabled} setGlobalSyncEnabled={props.setGlobalSyncEnabled} />}
+            {currentView === 'settings' && <SettingsView userProfile={props.userProfile} userId={props.userId} userEmail={props.user?.email} isGuest={props.isGuest} currentTheme={props.currentTheme} navigateTo={navigateTo} setShowFeedbackModal={setShowFeedbackModal} handleExportData={handleExportData} handleImportData={handleImportData} appMode={props.appMode} setAppMode={props.setAppMode} onSignOut={props.onSignOut} onDeleteProfile={props.onDeleteProfile} level={Math.floor((props.earnedBadges?.length || 0) / 3) + 1} badgeCount={props.earnedBadges?.length || 0} streak={props.currentStreak} onManualSync={props.onManualSync} isSyncing={props.isSyncing} />}
             {currentView === 'profile' && <ProfileView userId={props.userId} studyLog={props.studyLog} userProfile={props.userProfile} onUpdateProfile={props.setUserProfile} habits={props.habits} onUpdateHabits={props.setHabits} navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} availableProfiles={props.profiles} onSwitchProfile={props.onSwitchProfile} onAddProfile={props.onAddProfile} onSignOut={props.onSignOut} />}
             {currentView === 'topicList' && <TopicListView title={topicListData.title} topics={topicListData.topics} navigateTo={navigateTo} themeColor={props.currentTheme} />}
             {currentView === 'studyBreakdown' && <StudyBreakdownView studyLog={props.studyLog} initialFilter={breakdownFilter} navigateTo={navigateTo} themeColor={props.currentTheme} />}

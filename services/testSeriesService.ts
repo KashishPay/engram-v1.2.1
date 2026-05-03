@@ -26,7 +26,7 @@ Return ONLY a JSON array of strings representing the subjects. Keep the subject 
 
     try {
         const response = await client.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -53,7 +53,8 @@ export const generateExamQuiz = async (
     subject: string, 
     difficulty: string, 
     numQuestions: number, 
-    pastQuestionsContext: string[]
+    pastQuestionsContext: string[],
+    specificTopics?: string
 ): Promise<TestSeriesQuestion[]> => {
     checkUsageLimit();
     const { client } = getAiClient();
@@ -62,16 +63,20 @@ export const generateExamQuiz = async (
         ? `\nIMPORTANT: Do NOT generate questions that are identical or highly similar to these past questions:\n${pastQuestionsContext.slice(-20).map((q, i) => `${i+1}. ${q}`).join('\n')}`
         : '';
 
+    const specificTopicsStr = specificTopics && specificTopics.trim().length > 0
+        ? `\nIMPORTANT: The user has requested to ONLY test the following specific topics: "${specificTopics}". Ensure ALL questions strictly focus on these topics.`
+        : '';
+
     const prompt = `You are an expert examiner for the ${exam} exam (${stream} stream).
-Generate a practice test for the subject: "${subject}".
+Generate a practice test for the subject: "${subject}".${specificTopicsStr}
 Difficulty level: ${difficulty}.
-Number of questions: ${numQuestions}.
+Number of questions: EXACTLY ${numQuestions}. You MUST generate exactly ${numQuestions} questions, no more, no less.
 
 The questions should closely match the pattern, style, and syllabus of the actual ${exam} exam.
 Include a mix of conceptual and numerical questions if applicable to the subject.
 ${pastContextStr}
 
-Return the output strictly as a JSON array of objects. Each object must have:
+Return the output strictly as a JSON array of exactly ${numQuestions} objects. Each object must have:
 - "question": The question text.
 - "options": An array of exactly 4 string options.
 - "correctAnswer": The exact string of the correct option.
@@ -96,12 +101,13 @@ Return the output strictly as a JSON array of objects. Each object must have:
 
     try {
         const response = await client.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: responseSchema,
-                temperature: 0.7
+                temperature: 0.7,
+                maxOutputTokens: 8192
             }
         });
 

@@ -406,63 +406,29 @@ export const App: React.FC = () => {
         }
     };
 
-    // Pull Data on Load
-    useEffect(() => {
-        if (authLoading || loadingData || !user || isGuest || !globalSyncEnabled) return;
+    const [isSyncing, setIsSyncing] = useState(false);
 
-        // Only pull once per session to avoid infinite loops
-        const hasPulled = sessionStorage.getItem(`engram_sync_pulled_${userId}`);
-        if (hasPulled) return;
+    const performManualSync = async () => {
+        if (!user || isGuest || authLoading || loadingData) {
+            alert("No account found to sync.");
+            return;
+        }
+        if (!navigator.onLine) {
+            alert("No internet connection.");
+            return;
+        }
 
-        SyncService.pullData(userId).then(remoteData => {
-            sessionStorage.setItem(`engram_sync_pulled_${userId}`, 'true');
-            if (remoteData && remoteData.study_logs && remoteData.study_logs.length > 0) {
-                const lastSyncTimeStr = localStorage.getItem(`engram_last_sync_time_${userId}`);
-                const lastSyncTime = lastSyncTimeStr ? new Date(lastSyncTimeStr).getTime() : 0;
-                const remoteTime = remoteData.updated_at ? new Date(remoteData.updated_at).getTime() : 0;
-
-                if (studyLog.length === 0) {
-                    // Auto-download if local is empty
-                    console.debug("[APP] Local empty, auto-downloading remote data.");
-                    handleIncomingSyncPayload(remoteData);
-                    localStorage.setItem(`engram_last_sync_time_${userId}`, remoteData.updated_at || new Date().toISOString());
-                } else if (!lastSyncTimeStr || remoteTime > lastSyncTime) {
-                    const alreadyPrompted = localStorage.getItem(`engram_sync_prompt_shown_${userId}`);
-                    if (!alreadyPrompted) {
-                        // Prompt to merge
-                        console.debug("[APP] Local and remote data found. Prompting user.");
-                        setPendingSyncData(remoteData);
-                        setShowSyncPrompt(true);
-                    } else {
-                        // Silently merge
-                        console.debug("[APP] Local and remote data found. Silently merging.");
-                        handleIncomingSyncPayload(remoteData);
-                        localStorage.setItem(`engram_last_sync_time_${userId}`, remoteData.updated_at || new Date().toISOString());
-                    }
-                } else {
-                    console.debug("[APP] Remote data is not newer than local. Skipping prompt.");
-                }
-            }
-        }).catch(err => console.error("[APP] Sync pull failed", err));
-    }, [authLoading, loadingData, user, isGuest, globalSyncEnabled, userId, studyLog.length, importStudyLog]);
-
-    const lastPushTimestamp = useRef<number>(0);
-    const syncDirty = useRef<boolean>(false);
-
-    // Push Data on Change
-    useEffect(() => {
-        if (authLoading || loadingData || !user || isGuest || !globalSyncEnabled) return;
-
-        const push = async () => {
-            if (!navigator.onLine) {
-                console.debug("[APP] Offline, queuing push.");
-                syncDirty.current = true;
-                return;
-            }
-
-            console.debug("[APP] Pushing data to Supabase...");
+        setIsSyncing(true);
+        try {
+            console.debug("[APP] Manual Sync started.");
             
-            // Gather heavy data
+            // 1. Pull Data
+            const remoteData = await SyncService.pullData(userId);
+            if (remoteData) {
+                handleIncomingSyncPayload(remoteData);
+            }
+
+            // 2. Push Data
             const topicIds = studyLog.map(t => t.id);
             const notesByTopicId = await batchGetTopicBodies(userId, topicIds);
             
@@ -529,9 +495,16 @@ export const App: React.FC = () => {
                 if (raw) aiPrefs = JSON.parse(raw);
             } catch { /* ignore */ }
 
+            // Strip podcast audio from study log to prevent massive DB bloat
+            const sanitizedStudyLog = studyLog.map(item => {
+                const newItem = { ...item };
+                delete newItem.podcastAudio;
+                return newItem;
+            });
+
             const success = await SyncService.pushData(userId, {
                 subjects: userSubjects,
-                study_logs: studyLog,
+                study_logs: sanitizedStudyLog,
                 habits: habits,
                 settings: {
                     theme: currentTheme,
@@ -548,52 +521,18 @@ export const App: React.FC = () => {
             });
 
             if (success) {
-                lastPushTimestamp.current = Date.now();
-                syncDirty.current = false;
                 localStorage.setItem(`engram_last_sync_time_${userId}`, new Date().toISOString());
+                alert("Data sync successful!");
             } else {
-                syncDirty.current = true;
+                alert("Failed to sync data. Please check your data limits or internet connection.");
             }
-        };
-
-        const timeout = setTimeout(push, 5000); // 5s debounce
-
-        return () => clearTimeout(timeout);
-    }, [studyLog, userSubjects, habits, currentTheme, appMode, dateTimeSettings, notificationSettings, enabledTabs, globalSyncEnabled, user, isGuest, userId, loadingData, authLoading, heavyDataSyncTrigger, podcastConfig]);
-
-    // Offline Retry
-    useEffect(() => {
-        const handleOnline = () => {
-            if (syncDirty.current && globalSyncEnabled && user && !isGuest) {
-                console.debug("[APP] Back online, retrying push...");
-                // Force a state update to trigger the push effect
-                setHabits(prev => [...prev]);
-            }
-        };
-
-        window.addEventListener('online', handleOnline);
-        return () => window.removeEventListener('online', handleOnline);
-    }, [globalSyncEnabled, user, isGuest]);
-
-    // Realtime Subscription
-    useEffect(() => {
-        if (authLoading || loadingData || !user || isGuest || !globalSyncEnabled) return;
-
-        const unsubscribe = SyncService.subscribeToSyncState(userId, (payload) => {
-            // Ignore updates that are likely our own recent pushes (within 10 seconds)
-            const timeSinceLastPush = Date.now() - lastPushTimestamp.current;
-            if (timeSinceLastPush < 10000) {
-                console.debug("[APP] Ignoring realtime update (likely our own push).");
-                return;
-            }
-
-            console.debug("[APP] Realtime update applied.");
-            handleIncomingSyncPayload(payload);
-            localStorage.setItem(`engram_last_sync_time_${userId}`, payload.updated_at || new Date().toISOString());
-        });
-
-        return () => unsubscribe();
-    }, [authLoading, loadingData, user, isGuest, globalSyncEnabled, userId, importStudyLog]);
+        } catch (err) {
+            console.error("[APP] Sync error:", err);
+            alert("Error during sync. You may have exceeded your database quota.");
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     useNotifications(studyLog, notificationSettings);
     
@@ -1046,8 +985,8 @@ export const App: React.FC = () => {
                 setAppMode={setAppMode}
                 enabledTabs={enabledTabs}
                 setEnabledTabs={setEnabledTabs}
-                globalSyncEnabled={globalSyncEnabled}
-                setGlobalSyncEnabled={setGlobalSyncEnabled}
+                onManualSync={performManualSync}
+                isSyncing={isSyncing}
                 permissionsGranted={permissionsGranted}
                 handleAllowPermissions={handleAllowPermissions}
 
