@@ -78,9 +78,10 @@ ${pastContextStr}
 
 Return the output strictly as a JSON array of exactly ${numQuestions} objects. Each object must have:
 - "question": The question text.
+- "stepByStepReasoning": Work out the correct answer step-by-step internally here FIRST before generating options.
 - "options": An array of exactly 4 string options.
 - "correctAnswer": The exact string of the correct option.
-- "explanation": A detailed explanation of why the answer is correct.`;
+- "explanation": A detailed, polished explanation of why the answer is correct (do NOT include self-corrections like "Wait..." here, just the final clear explanation).`;
 
     const responseSchema: Schema = {
         type: Type.ARRAY,
@@ -88,6 +89,7 @@ Return the output strictly as a JSON array of exactly ${numQuestions} objects. E
             type: Type.OBJECT,
             properties: {
                 question: { type: Type.STRING },
+                stepByStepReasoning: { type: Type.STRING },
                 options: { 
                     type: Type.ARRAY,
                     items: { type: Type.STRING }
@@ -95,7 +97,7 @@ Return the output strictly as a JSON array of exactly ${numQuestions} objects. E
                 correctAnswer: { type: Type.STRING },
                 explanation: { type: Type.STRING }
             },
-            required: ["question", "options", "correctAnswer", "explanation"]
+            required: ["question", "stepByStepReasoning", "options", "correctAnswer", "explanation"]
         }
     };
 
