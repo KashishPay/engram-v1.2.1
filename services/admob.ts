@@ -12,7 +12,17 @@ export interface AdConfig {
 
 class AdManagerService {
     private isInitialized = false;
-    private config: AdConfig | null = null;
+    private config: AdConfig = {
+        banner_ad_unit_id: Capacitor.getPlatform() === 'ios' 
+            ? 'ca-app-pub-3940256099942544/2934735716' // iOS Test Banner
+            : 'ca-app-pub-1930133918087114/4505148021', // Android Live Banner
+        interstitial_ad_unit_id: Capacitor.getPlatform() === 'ios'
+            ? 'ca-app-pub-3940256099942544/4411468910' // iOS Test Interstitial
+            : 'ca-app-pub-1930133918087114/1346538190', // Android Live Interstitial
+        min_interval: 3,
+        max_interval: 4,
+        is_active: true
+    };
     private isBannerShowing = false;
     private lastInterstitialTime = 0;
     private bannerPromise: Promise<void> | null = null;
@@ -94,18 +104,7 @@ class AdManagerService {
             }
         } catch (error) {
             console.error('Failed to fetch ad config', error);
-            // Fallback config if network fails
-            this.config = {
-                banner_ad_unit_id: Capacitor.getPlatform() === 'ios' 
-                    ? 'ca-app-pub-3940256099942544/2934735716' // iOS Test Banner
-                    : 'ca-app-pub-3940256099942544/6300978111', // Android Test Banner
-                interstitial_ad_unit_id: Capacitor.getPlatform() === 'ios'
-                    ? 'ca-app-pub-3940256099942544/4411468910' // iOS Test Interstitial
-                    : 'ca-app-pub-3940256099942544/1033173712', // Android Test Interstitial
-                min_interval: 3,
-                max_interval: 5,
-                is_active: true
-            };
+            // Keep hardcoded live config if network fails
         }
     }
 
@@ -115,7 +114,7 @@ class AdManagerService {
 
     async showFlashcardBanner() {
         const options: BannerAdOptions = {
-            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-1930133918087114/4505148021'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
             position: BannerAdPosition.TOP_CENTER,
             margin: 240, // Pushed down further to center perfectly in the flashcard container
@@ -126,7 +125,7 @@ class AdManagerService {
 
     async showPodcastBanner() {
         const options: BannerAdOptions = {
-            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-1930133918087114/4505148021'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
             position: BannerAdPosition.TOP_CENTER,
             margin: 80, // Approximate offset to overlay the album art
@@ -137,7 +136,7 @@ class AdManagerService {
 
     async showReviewBanner() {
         const options: BannerAdOptions = {
-            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-1930133918087114/4505148021'),
             adSize: BannerAdSize.BANNER, // 320x50
             position: BannerAdPosition.BOTTOM_CENTER,
             margin: 60, // Clear the tab bar
@@ -148,7 +147,7 @@ class AdManagerService {
 
     async showQuizReviewBanner() {
         const options: BannerAdOptions = {
-            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-1930133918087114/4505148021'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
             position: BannerAdPosition.BOTTOM_CENTER,
             margin: 80, // Clear the bottom buttons
@@ -159,7 +158,7 @@ class AdManagerService {
 
     async showSourceViewerBanner() {
         const options: BannerAdOptions = {
-            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-1930133918087114/4505148021'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE,
             position: BannerAdPosition.BOTTOM_CENTER,
             margin: 20,
@@ -170,7 +169,7 @@ class AdManagerService {
 
     async showTopicSelectorBanner() {
         const options: BannerAdOptions = {
-            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-1930133918087114/4505148021'),
             adSize: BannerAdSize.BANNER,
             position: BannerAdPosition.TOP_CENTER,
             margin: 60, // Clear the header
@@ -181,7 +180,7 @@ class AdManagerService {
 
     async showChatBanner() {
         const options: BannerAdOptions = {
-            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111'),
+            adId: this.config?.banner_ad_unit_id || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-1930133918087114/4505148021'),
             adSize: BannerAdSize.MEDIUM_RECTANGLE, // User requested rectangular banner
             position: BannerAdPosition.TOP_CENTER,
             margin: 60, // Clear the header
@@ -202,7 +201,7 @@ class AdManagerService {
         try {
             const adId = this.config?.interstitial_ad_unit_id || (Capacitor.getPlatform() === 'ios' 
                 ? 'ca-app-pub-3940256099942544/4411468910' // iOS Test Interstitial
-                : 'ca-app-pub-3940256099942544/1033173712'); // Android Test Interstitial
+                : 'ca-app-pub-1930133918087114/1346538190'); // Android Test Interstitial
 
             await AdMob.prepareInterstitial({
                 adId,
