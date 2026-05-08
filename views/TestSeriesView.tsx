@@ -4,6 +4,7 @@ import { Card } from '../components/Card';
 import { fetchExamSubjects, generateExamQuiz, TestSeriesQuestion } from '../services/testSeriesService';
 import katex from 'katex';
 import DOMPurify from 'dompurify';
+import { AdManager } from '../services/admob';
 
 interface TestSeriesViewProps {
     userId: string;
@@ -162,6 +163,9 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
         setIsGeneratingQuiz(true);
         setError(null);
         try {
+            // Show rewarded ad here before quiz generation
+            await AdManager.showRewardVideo();
+
             // Retrieve past questions context to avoid repetition
             const pastQuestions = JSON.parse(localStorage.getItem(`engram_test_series_past_questions_${userId}`) || '[]');
             

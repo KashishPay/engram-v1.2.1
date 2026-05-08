@@ -4,6 +4,7 @@ import { RotateCw } from 'lucide-react';
 
 import { DateTimeSettings, UserProfile, Habit, NotificationSettings } from './types';
 import { AppRouter } from './components/AppRouter';
+import { AdManager } from './services/admob';
 
 import { useAuth } from './context/AuthContext';
 import { useStudyData } from './hooks/useStudyData';
@@ -27,7 +28,6 @@ import { AnalyticsService } from './services/analytics';
 import { ProfileService } from './services/profile';
 import { getFeatureConfig } from './services/gemini';
 import { SyncService, SyncPayload } from './services/sync';
-import { AdManager } from './services/admob';
 
 export const App: React.FC = () => {
     // [AUTH DIAGNOSIS] Boot Logs & Upload Diagnostics

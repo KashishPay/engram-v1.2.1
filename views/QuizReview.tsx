@@ -8,7 +8,6 @@ import katex from 'katex';
 import DOMPurify from 'dompurify';
 import { triggerHaptic } from '../utils/haptics';
 
-import { AdManager } from '../services/admob';
 
 interface QuizReviewProps {
     topic: Topic;
@@ -27,10 +26,8 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
     useEffect(() => {
         if (topic) {
             console.debug(`[REVIEW] View mounted. Topic: ${topic.topicName}, Repetition: ${repetitionNumber} (1-based)`);
-            AdManager.showQuizReviewBanner();
         }
         return () => {
-            AdManager.hideBanner();
         };
     }, [topic?.id, repetitionNumber]);
 

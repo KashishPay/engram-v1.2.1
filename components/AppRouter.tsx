@@ -886,12 +886,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
 
     const handleExportData = async () => {
         try {
-            // 1. Sanitize Study Log (Exclude Podcast Audio, Keep Script)
-            // Strip audio data to save space, but keep the transcript (script)
+            // 1. Get Study Log (Including Podcast Audio)
             const sanitizedLog = props.studyLog.map(item => {
                 const newItem = { ...item };
-                delete newItem.podcastAudio;
-                newItem.hasSavedAudio = false;
                 return newItem;
             });
 

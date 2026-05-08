@@ -8,7 +8,6 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { triggerHaptic } from '../utils/haptics';
 import { showLocalNotification, requestNotificationPermission } from '../utils/notifications';
-import { AdManager } from '../services/admob';
 
 interface PermissionModalProps {
     onAllow: () => void;
@@ -90,9 +89,7 @@ export const SourceViewerModal: React.FC<SourceViewerModalProps> = ({ topicId, t
     const [activeViewerImage, setActiveViewerImage] = useState<string | null>(null);
 
     useEffect(() => {
-        AdManager.showSourceViewerBanner();
         return () => {
-            AdManager.hideBanner();
         };
     }, []);
 

@@ -8,7 +8,6 @@ import { goBackOrFallback } from '../utils/navigation';
 import { callGeminiApiWithRetry } from '../services/gemini';
 import { triggerHaptic } from '../utils/haptics';
 import { compressImage } from '../utils/media';
-import { AdManager } from '../services/admob';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
 
@@ -21,9 +20,7 @@ interface FlashcardHubViewProps {
 export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, themeColor }) => {
     
     React.useEffect(() => {
-        AdManager.showReviewBanner();
         return () => {
-            AdManager.hideBanner();
         };
     }, []);
 

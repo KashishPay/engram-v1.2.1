@@ -10,7 +10,6 @@ import { ensureAudioContext } from '../utils/audioCue';
 import { getErrorImage, getFallbackImage } from '../utils/errorImages';
 import katex from 'katex';
 import { KeepAwake } from '@capacitor-community/keep-awake';
-import { AdManager } from '../services/admob';
 
 export const PodcastSettingsView: React.FC<{ 
     config: { language: 'English' | 'Hinglish' }; 
@@ -361,13 +360,10 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
     // Manage podcast banner ad visibility
     useEffect(() => {
         if (showPlayerUI && !showScript) {
-            AdManager.showPodcastBanner();
         } else {
-            AdManager.hideBanner();
         }
 
         return () => {
-            AdManager.hideBanner();
         };
     }, [showPlayerUI, showScript]);
 

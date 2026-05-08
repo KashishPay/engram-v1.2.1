@@ -411,8 +411,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     return (
         <>
             {showCelebration && <CelebrationOverlay onClose={handleCloseCelebration} />}
-            {/* Added extra bottom padding (pb-40) to ensure scrolling clears the tab bar */}
-            <div className={`bg-${currentTheme}-50 dark:bg-gray-900 -mx-1.5 px-1.5 pt-10 space-y-5 min-h-full pb-40`}>
+            <div className={`bg-${currentTheme}-50 dark:bg-gray-900 -mx-1.5 px-1.5 pt-10 space-y-5 min-h-full pb-4`}>
                 <div className="flex items-center space-x-4 mb-2 cursor-pointer transition hover:opacity-80" onClick={() => navigateTo('profile')}>
                     <div className="relative">
                         <div className={`w-16 h-16 rounded-full bg-${currentTheme}-200 overflow-hidden border-4 border-white dark:border-gray-700 shadow-md relative`}>
@@ -710,6 +709,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         </div>
                     </div>
                 </div>
+                <div className="h-12 w-full shrink-0" />
             </div>
         </>
     );

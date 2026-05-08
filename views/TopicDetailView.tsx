@@ -11,7 +11,6 @@ import { useProcessing } from '../context/ProcessingContext';
 import { AnalyticsService } from '../services/analytics';
 import { logTopicSession, getLocalISODate } from '../utils/sessionLog';
 import { ErrorCard } from '../components/ErrorCard';
-import { AdManager } from '../services/admob';
 
 interface TopicDetailViewProps {
     topic: Topic | null;
@@ -195,7 +194,6 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
         if (!files || files.length === 0) return;
         
         try {
-            AdManager.showInterstitial();
             await startProcessing(userId, topic.id, files);
         } catch (err) {
             console.error("[VSHORT] processing trigger failed", err);

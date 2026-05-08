@@ -139,6 +139,8 @@ const FlashCardDeck: React.FC<{
         
         console.debug("[FLASHCARDS] requested", { desiredCount, poolSize: pool.length });
         
+        await AdManager.showRewardVideo();
+
         setLoading(true);
         setCompleted(false);
         setIndex(0);
@@ -244,7 +246,11 @@ const FlashCardDeck: React.FC<{
         }
     };
 
-    const revisitCards = (filter: 'all' | 'missed' | 'others' = 'all') => {
+    const revisitCards = async (filter: 'all' | 'missed' | 'others' = 'all') => {
+        if (filter === 'missed') {
+            await AdManager.showInterstitial();
+        }
+
         let historyPool = cardHistory; 
 
         if (filter === 'missed') {
@@ -359,7 +365,6 @@ const FlashCardDeck: React.FC<{
     useEffect(() => {
         const currentCard = cards[index];
         if (currentCard?.isAd && !completed) {
-            AdManager.showFlashcardBanner();
             setAdDelay(3); // 3 seconds delay for ads
             const timer = setInterval(() => {
                 setAdDelay(prev => {
@@ -372,15 +377,12 @@ const FlashCardDeck: React.FC<{
             }, 1000);
             return () => {
                 clearInterval(timer);
-                AdManager.hideBanner();
             };
         } else {
             setAdDelay(0);
-            AdManager.hideBanner();
         }
         
         return () => {
-            AdManager.hideBanner();
         };
     }, [index, cards, completed]);
 

@@ -79,10 +79,6 @@ export const AppShell: React.FC<AppShellProps> = ({
 
     // Base padding for tab bar (~64px) + env(safe-area)
     const bottomPaddingBase = 64; // px
-    
-    const contentPaddingStyle = {
-        paddingBottom: `calc(${bottomPaddingBase}px + env(safe-area-inset-bottom, 20px))`
-    };
 
     // MOUNT GATE: Only mount Floating Timer if we are NOT on the detail view of the currently active topic.
     const showFloatingTimer = isLoggedIn && 
@@ -330,11 +326,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <main 
                     id="main-scroll-container" 
                     className={mainClasses}
-                    // FIX: Apply padding whenever the tab bar is visible.
-                    // This prevents content (like the notebook) from being hidden behind the fixed footer.
-                    style={showTabBar ? contentPaddingStyle : undefined}
                 >
                     {children}
+                    {/* Physical spacer to ensure scroll content clears the fixed bottom tab bar */}
+                    {showTabBar && (
+                        <div style={{ height: `calc(${bottomPaddingBase}px + env(safe-area-inset-bottom, 20px))` }} className="shrink-0 w-full pointer-events-none" />
+                    )}
                 </main>
                 
                 <audio 

@@ -2,7 +2,6 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Search, Check, X, Filter, Layers, BookOpenText } from 'lucide-react';
 import { Topic, Subject } from '../types';
 import { VirtualList } from './VirtualList';
-import { AdManager } from '../services/admob';
 
 type ListItem = { type: 'topic'; data: Topic };
 
@@ -29,9 +28,7 @@ export const TopicSelectorModal: React.FC<TopicSelectorModalProps> = ({
             setSelectedIds(new Set(initialSelection));
             setSearchQuery('');
             setFilterSubject('all');
-            AdManager.showTopicSelectorBanner();
         } else {
-            AdManager.hideBanner();
         }
     }, [isOpen, initialSelection]);
 

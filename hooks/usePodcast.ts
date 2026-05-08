@@ -156,6 +156,11 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
     const playTopic = useCallback(async (topic: Topic, onUpdateTopic?: (t: Topic) => void) => {
         if (loading) return;
         
+        // Show ad when starting a new podcast
+        if (currentTopic?.id !== topic.id || (!audioSrc && !loading)) {
+            await AdManager.showInterstitial();
+        }
+
         // Mobile Autoplay Policy: Prime the context and element immediately
         ensureAudioContext();
         if (audioRef.current) {
@@ -208,8 +213,6 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
         
         const isRecap = topic.id.startsWith('subject-recap');
         setStatus(isRecap ? 'Synthesizing Subject Recap...' : 'Generating Deep Dive...');
-        
-        AdManager.showInterstitial();
         
         const { targetDuration, estimatedWait } = calculateDurations(topic, isRecap);
         setEstimatedDuration(estimatedWait);

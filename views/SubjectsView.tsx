@@ -5,7 +5,6 @@ import { Card } from '../components/Card';
 import { Topic, Subject } from '../types';
 import { INITIAL_SUBJECTS } from '../constants';
 import { VirtualList } from '../components/VirtualList';
-import { AdManager } from '../services/admob';
 
 interface SubjectsViewProps {
     allSubjects: Subject[];
@@ -58,13 +57,10 @@ const SubjectItem = React.memo(({
 
     useEffect(() => {
         if (!collapsed) {
-            AdManager.showReviewBanner();
         } else {
-            AdManager.hideBanner();
         }
         
         return () => {
-            AdManager.hideBanner();
         };
     }, [collapsed]);
 

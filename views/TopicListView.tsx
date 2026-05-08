@@ -4,7 +4,6 @@ import { ArrowLeft, CheckCircle, Check, XCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic } from '../types';
 import { VirtualList } from '../components/VirtualList';
-import { AdManager } from '../services/admob';
 
 interface TopicListViewProps {
     title: string;
@@ -20,11 +19,9 @@ export const TopicListView: React.FC<TopicListViewProps> = ({ title, topics, nav
     React.useEffect(() => {
         const adEligibleTitles = ['Due for Review', 'Recent Quizzes', 'Active Topics'];
         if (adEligibleTitles.includes(title)) {
-            AdManager.showReviewBanner();
         }
         return () => {
             if (adEligibleTitles.includes(title)) {
-                AdManager.hideBanner();
             }
         };
     }, [title]);

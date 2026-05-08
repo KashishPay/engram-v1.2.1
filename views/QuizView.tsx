@@ -121,6 +121,8 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
         
         generationAttemptedRef.current = true;
         
+        await AdManager.showInterstitial();
+        
         // Setup AbortController for Timeout
         if (abortControllerRef.current) abortControllerRef.current.abort();
         const controller = new AbortController();
@@ -137,8 +139,6 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
 
         console.debug("[POPQUIZ] start", { topicId: topic.id, userId });
         
-        AdManager.showInterstitial();
-
         // 30 Second Timeout Race
         const timeoutId = setTimeout(() => {
             if (isMounted.current && status === 'loading') {

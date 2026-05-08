@@ -4,7 +4,6 @@ import { Send, ArrowLeft, Sparkles, StopCircle, Copy, Check, RotateCw, ChevronDo
 import { Topic } from '../types';
 import { chatWithNotesStream } from '../services/gemini';
 import { ensureTopicContent, getChatFromIDB, saveChatToIDB } from '../services/storage';
-import { AdManager } from '../services/admob';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -198,9 +197,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
     }, [messages.length, isTyping]);
 
     useEffect(() => {
-        AdManager.showChatBanner();
         return () => {
-            AdManager.hideBanner();
         };
     }, []);
 

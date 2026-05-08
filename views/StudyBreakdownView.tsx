@@ -5,7 +5,6 @@ import { Card } from '../components/Card';
 import { Topic } from '../types';
 import { goBackOrFallback } from '../utils/navigation';
 
-import { AdManager } from '../services/admob';
 
 interface StudyBreakdownViewProps {
     studyLog: Topic[];
@@ -17,9 +16,7 @@ interface StudyBreakdownViewProps {
 export const StudyBreakdownView: React.FC<StudyBreakdownViewProps> = ({ studyLog, initialFilter, themeColor }) => {
     
     React.useEffect(() => {
-        AdManager.showReviewBanner();
         return () => {
-            AdManager.hideBanner();
         };
     }, []);
 
