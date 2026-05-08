@@ -29,8 +29,6 @@ import { getFeatureConfig } from './services/gemini';
 import { SyncService, SyncPayload } from './services/sync';
 import { AdManager } from './services/admob';
 
-import { UpdateChecker } from './components/UpdateChecker';
-
 export const App: React.FC = () => {
     // [AUTH DIAGNOSIS] Boot Logs & Upload Diagnostics
     useEffect(() => {
@@ -937,7 +935,6 @@ export const App: React.FC = () => {
                     </div>
                 </div>
             )}
-            <UpdateChecker />
             <FocusProvider userId={userId} key={userId}>
             <AppRouter 
                 user={user}
