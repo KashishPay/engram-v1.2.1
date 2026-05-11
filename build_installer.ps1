@@ -185,6 +185,19 @@ if (Test-Path "android") {
             Write-Output "Injected AdMob App ID into AndroidManifest.xml."
         }
     }
+
+    # 5. Auto-increment versionCode in app/build.gradle to allow app updates over previous installs
+    $appGradleFile = "android\app\build.gradle"
+    if (Test-Path $appGradleFile) {
+        $appGradleContent = Get-Content $appGradleFile -Raw
+        if ($appGradleContent -match 'versionCode\s+(\d+)') {
+            $currentVersionCode = [int]$matches[1]
+            $newVersionCode = $currentVersionCode + 1
+            $appGradleContent = $appGradleContent -replace "versionCode\s+$currentVersionCode", "versionCode $newVersionCode"
+            Set-Content -Path $appGradleFile -Value $appGradleContent
+            Write-Output "Auto-incremented versionCode to $newVersionCode in app/build.gradle to fix package update errors."
+        }
+    }
 }
 
 # 10) Sync & Launch
