@@ -142,11 +142,21 @@ if (Test-Path "android") {
     $varsFile = "android\variables.gradle"
     if (Test-Path $varsFile) {
         $varsContent = Get-Content $varsFile -Raw
-        $varsContent = $varsContent -replace 'compileSdkVersion = \d+', 'compileSdkVersion = 35'
-        $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 35'
+        $varsContent = $varsContent -replace 'compileSdkVersion = \d+', 'compileSdkVersion = 36'
+        $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 36'
         $varsContent = $varsContent -replace 'minSdkVersion = \d+', 'minSdkVersion = 24'
+        $varsContent = $varsContent -replace "androidxCoreVersion = '[^']+'", "androidxCoreVersion = '1.17.0'"
         Set-Content -Path $varsFile -Value $varsContent
-        Write-Output "Updated variables.gradle (compile/target=35, min=24)."
+        Write-Output "Updated variables.gradle (compile/target=36, min=24, androidxCoreVersion=1.17.0)."
+    }
+
+    # 1.1 Update gradle-wrapper.properties
+    $gradleWrapperFile = "android\gradle\wrapper\gradle-wrapper.properties"
+    if (Test-Path $gradleWrapperFile) {
+        $wrapperContent = Get-Content $gradleWrapperFile -Raw
+        $wrapperContent = $wrapperContent -replace 'distributionUrl=.*', 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-bin.zip'
+        Set-Content -Path $gradleWrapperFile -Value $wrapperContent
+        Write-Output "Updated gradle-wrapper.properties to use gradle-8.9"
     }
 
     # 2. Disable VFS watch to prevent file locking issues on Windows
