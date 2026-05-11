@@ -154,9 +154,19 @@ if (Test-Path "android") {
     $gradleWrapperFile = "android\gradle\wrapper\gradle-wrapper.properties"
     if (Test-Path $gradleWrapperFile) {
         $wrapperContent = Get-Content $gradleWrapperFile -Raw
-        $wrapperContent = $wrapperContent -replace 'distributionUrl=.*', 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-bin.zip'
+        $wrapperContent = $wrapperContent -replace 'distributionUrl=.*', 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.11.1-bin.zip'
         Set-Content -Path $gradleWrapperFile -Value $wrapperContent
-        Write-Output "Updated gradle-wrapper.properties to use gradle-8.9"
+        Write-Output "Updated gradle-wrapper.properties to use gradle-8.11.1"
+    }
+
+    # 1.2 Update AGP version in root build.gradle
+    $rootGradleFile = "android\build.gradle"
+    if (Test-Path $rootGradleFile) {
+        $rootGradleContent = Get-Content $rootGradleFile -Raw
+        # Also handle standard AGP classpaths as well as variables if any
+        $rootGradleContent = $rootGradleContent -replace "classpath 'com\.android\.tools\.build:gradle:[^']+'", "classpath 'com.android.tools.build:gradle:8.9.1'"
+        Set-Content -Path $rootGradleFile -Value $rootGradleContent
+        Write-Output "Updated Android Gradle Plugin (AGP) version to 8.9.1 in build.gradle."
     }
 
     # 2. Disable VFS watch to prevent file locking issues on Windows
@@ -204,20 +214,4 @@ if (Test-Path "android") {
 Write-Output "--- Step 10: Syncing to Android ---"
 npx cap sync android
 
-# 11) Push to GitHub
-Write-Output "--- Step 11: Pushing to GitHub for Vercel ---"
-Set-Location $repo
-git init
-git add -A
-git commit -m "Initial commit"
-git branch -M main
-git remote remove origin 2>$null
-git remote add origin https://github.com/deepthinkkashish/engramV1.0.git
-git push origin main --force
 
-Write-Output "--- FINISHED ---"
-Write-Output "1. Code successfully pushed to GitHub (Vercel should start deploying now)."
-Write-Output "2. Opening Android Studio..."
-Write-Output "3. IMPORTANT: In Android Studio, go to Settings -> Build, Execution, Deployment -> Build Tools -> Gradle"
-Write-Output "4. Ensure 'Gradle JDK' is set to version 21 (or 17+)."
-npx cap open android
