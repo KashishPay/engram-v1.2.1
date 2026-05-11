@@ -181,8 +181,20 @@ if (Test-Path "android") {
 Write-Output "--- Step 10: Syncing to Android ---"
 npx cap sync android
 
+# 11) Push to GitHub
+Write-Output "--- Step 11: Pushing to GitHub for Vercel ---"
+Set-Location $repo
+git init
+git add -A
+git commit -m "Initial commit"
+git branch -M main
+git remote remove origin 2>$null
+git remote add origin https://github.com/deepthinkkashish/engramV1.0.git
+git push origin main --force
+
 Write-Output "--- FINISHED ---"
-Write-Output "1. Opening Android Studio..."
-Write-Output "2. IMPORTANT: In Android Studio, go to Settings -> Build, Execution, Deployment -> Build Tools -> Gradle"
-Write-Output "3. Ensure 'Gradle JDK' is set to version 21 (or 17+)."
+Write-Output "1. Code successfully pushed to GitHub (Vercel should start deploying now)."
+Write-Output "2. Opening Android Studio..."
+Write-Output "3. IMPORTANT: In Android Studio, go to Settings -> Build, Execution, Deployment -> Build Tools -> Gradle"
+Write-Output "4. Ensure 'Gradle JDK' is set to version 21 (or 17+)."
 npx cap open android
