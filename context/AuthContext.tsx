@@ -105,10 +105,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         provider: 'google',
         options: { 
             redirectTo,
-            skipBrowserRedirect: true,
-            queryParams: {
-                prompt: 'select_account'
-            }
+            skipBrowserRedirect: true
         }
     });
 
