@@ -527,7 +527,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onComplete, onSignInSucces
                 <div className="mb-8 relative group cursor-pointer">
                     <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-xl bg-gray-100 dark:bg-gray-800 relative">
                         {avatar ? (
-                            <img src={avatar} alt="Profile" className="w-full h-full object-cover" />
+                            <img src={avatar} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/9.x/avataaars/svg?seed=new_user&backgroundColor=b6e3f4`; }} />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50 dark:bg-gray-800">
                                  <Camera size={32} />
