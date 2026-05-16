@@ -28,7 +28,6 @@ export const TopicSelectorModal: React.FC<TopicSelectorModalProps> = ({
             setSelectedIds(new Set(initialSelection));
             setSearchQuery('');
             setFilterSubject('all');
-        } else {
         }
     }, [isOpen, initialSelection]);
 

@@ -64,7 +64,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
         let recents: {exam: string; stream: string}[] = [];
         const savedRecents = localStorage.getItem(`engram_recent_exams_${userId}`);
         if (savedRecents) {
-            try { recents = JSON.parse(savedRecents); } catch (e) {}
+            try { recents = JSON.parse(savedRecents); } catch { /* ignore */ }
         }
         
         const savedSubjects = localStorage.getItem(`engram_exam_subjects_${userId}`);
@@ -77,7 +77,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                         recents.push({ exam: ex.toUpperCase(), stream: st.charAt(0).toUpperCase() + st.slice(1) });
                     }
                 });
-            } catch (e) {}
+            } catch { /* ignore */ }
         }
         setRecentExams(recents);
     };
@@ -110,11 +110,11 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                 if (saved[examStreamKey] && saved[examStreamKey].length > 0) {
                     // Only auto-update if we don't already have them populated, to avoid jarring resets
                     setSubjects(saved[examStreamKey]);
-                    if (!selectedSubject || !saved[examStreamKey].includes(selectedSubject)) {
-                        setSelectedSubject(saved[examStreamKey][0]);
+                    if (!selectedSubject || (!saved[examStreamKey].includes(selectedSubject) && selectedSubject !== "All Subjects")) {
+                        setSelectedSubject("All Subjects");
                     }
                 }
-            } catch (e) {}
+            } catch { /* ignore */ }
         }
     }, [exam, stream, userId]);
 
@@ -129,12 +129,12 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             const fetchedSubjects = await fetchExamSubjects(exam, stream);
             setSubjects(fetchedSubjects);
             if (fetchedSubjects.length > 0) {
-                setSelectedSubject(fetchedSubjects[0]);
+                setSelectedSubject("All Subjects");
                 
                 // Save to localStorage
                 const key = `engram_exam_subjects_${userId}`;
                 const savedStr = localStorage.getItem(key);
-                let saved = savedStr ? JSON.parse(savedStr) : {};
+                const saved = savedStr ? JSON.parse(savedStr) : {};
                 const examStreamKey = `${exam.trim().toLowerCase()}_${stream.trim().toLowerCase()}`;
                 saved[examStreamKey] = fetchedSubjects;
                 localStorage.setItem(key, JSON.stringify(saved));
@@ -614,6 +614,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                                 onChange={(e) => setSelectedSubject(e.target.value)}
                                 className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-white appearance-none"
                             >
+                                <option value="All Subjects">-- All Subjects --</option>
                                 {subjects.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>

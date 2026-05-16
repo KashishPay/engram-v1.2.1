@@ -80,7 +80,7 @@ const MarkdownContent = ({ text }: { text: string }) => {
                             }
                         }}
                     >{markdownText}</ReactMarkdown>
-                    <PlotComponent data={plotData.data} title={plotData.title} />
+                    <PlotComponent data={plotData.data} title={plotData.title} xAxisLabel={plotData.xAxisLabel} yAxisLabel={plotData.yAxisLabel} />
                 </>
             );
         } catch (e) {
@@ -114,9 +114,51 @@ const MarkdownContent = ({ text }: { text: string }) => {
     );
 };
 
+const ChatInputArea: React.FC<{
+    onSend: (text: string) => void;
+    isTyping: boolean;
+    isReady: boolean;
+    themeColor: string;
+}> = ({ onSend, isTyping, isReady, themeColor }) => {
+    const [input, setInput] = useState('');
+
+    const handleSend = () => {
+        if (!input.trim() || isTyping || !isReady) return;
+        onSend(input);
+        setInput('');
+    };
+
+    return (
+        <div className="shrink-0 p-3 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 z-20 safe-area-bottom">
+            <div className="max-w-3xl mx-auto relative">
+                <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !isTyping && handleSend()}
+                    placeholder={!isReady ? "Loading notes..." : "Ask a question..."}
+                    className="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl py-3 pl-4 pr-12 outline-none focus:ring-2 focus:ring-blue-500/50 transition shadow-sm border border-transparent focus:border-blue-500/50 placeholder-gray-400 text-sm"
+                    disabled={isTyping || !isReady}
+                    autoFocus
+                />
+                <button 
+                    onClick={handleSend}
+                    disabled={!input.trim() || isTyping || !isReady}
+                    className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-lg transition ${
+                        !input.trim() || isTyping
+                            ? 'text-gray-400 dark:text-gray-600' 
+                            : `bg-${themeColor}-500 text-white shadow-md hover:bg-${themeColor}-600`
+                    }`}
+                >
+                    {isTyping ? <StopCircle size={16} className="animate-pulse" /> : <Send size={16} />}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, themeColor }) => {
     const [messages, setMessages] = useState<Message[]>([]);
-    const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [isLoadingHistory, setIsLoadingHistory] = useState(true);
     const [showNavigator, setShowNavigator] = useState(false);
@@ -201,16 +243,15 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
         };
     }, []);
 
-    const handleSend = async () => {
-        if (!input.trim() || !topic || isTyping) return;
+    const handleSend = async (textToSend: string) => {
+        if (!textToSend.trim() || !topic || isTyping) return;
 
-        const userMsg: Message = { id: Date.now().toString(), role: 'user', text: input.trim(), timestamp: Date.now() };
+        const userMsg: Message = { id: Date.now().toString(), role: 'user', text: textToSend.trim(), timestamp: Date.now() };
         
         const botMsgId = (Date.now() + 1).toString();
         const initialBotMsg: Message = { id: botMsgId, role: 'model', text: '', timestamp: Date.now(), isStreaming: true };
         
         setMessages(prev => [...prev, userMsg, initialBotMsg]);
-        setInput('');
         setIsTyping(true);
 
         const history = messages.filter(m => m.role !== 'ad').map(m => ({ role: m.role, text: m.text }));
@@ -375,31 +416,12 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
             </div>
 
             {/* Input Area */}
-            <div className="shrink-0 p-3 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 z-20 safe-area-bottom">
-                <div className="max-w-3xl mx-auto relative">
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !isTyping && handleSend()}
-                        placeholder={!fullNotes ? "Loading notes..." : "Ask a question..."}
-                        className="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl py-3 pl-4 pr-12 outline-none focus:ring-2 focus:ring-blue-500/50 transition shadow-sm border border-transparent focus:border-blue-500/50 placeholder-gray-400 text-sm"
-                        disabled={isTyping || !fullNotes}
-                        autoFocus
-                    />
-                    <button 
-                        onClick={handleSend}
-                        disabled={!input.trim() || isTyping || !fullNotes}
-                        className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-lg transition ${
-                            !input.trim() || isTyping
-                                ? 'text-gray-400 dark:text-gray-600' 
-                                : `bg-${themeColor}-500 text-white shadow-md hover:bg-${themeColor}-600`
-                        }`}
-                    >
-                        {isTyping ? <StopCircle size={16} className="animate-pulse" /> : <Send size={16} />}
-                    </button>
-                </div>
-            </div>
+            <ChatInputArea 
+                onSend={handleSend}
+                isTyping={isTyping}
+                isReady={Boolean(fullNotes)}
+                themeColor={themeColor}
+            />
         </div>
     );
 };

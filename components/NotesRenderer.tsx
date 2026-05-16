@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Image as ImageIcon, Loader, Layers, Plus } from 'lucide-react';
+import { Image as ImageIcon, Loader, Layers, Plus, Trash2 } from 'lucide-react';
 import { getImageFromIDB } from '../services/storage';
 import { ImageViewer } from './ImageViewer';
 import katex from 'katex';
 import DOMPurify from 'dompurify';
+import { jsonrepair } from 'jsonrepair';
+import { getAiClient } from '../services/gemini';
 
 interface NotesRendererProps {
   content: string;
@@ -450,9 +452,11 @@ function splitRawContent(text: string): string[] {
 const AutoTextArea: React.FC<{
     value: string,
     onChange: (val: string) => void,
-    onBlur: () => void
-}> = ({ value, onChange, onBlur }) => {
+    onBlur: () => void,
+    onDelete?: () => void
+}> = ({ value, onChange, onBlur, onDelete }) => {
     const ref = useRef<HTMLTextAreaElement>(null);
+    const [feedback, setFeedback] = useState<string | null>(null);
 
     useEffect(() => {
         if (ref.current) {
@@ -461,16 +465,114 @@ const AutoTextArea: React.FC<{
         }
     }, [value]);
 
+    const handleJsonRepair = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        setFeedback('Checking...');
+        let fixed = value;
+
+        try {
+            // If it's a JSON string that is broken, use jsonrepair
+            if (fixed.trim().startsWith('{') || fixed.trim().startsWith('[')) {
+                fixed = jsonrepair(fixed);
+            }
+        } catch {
+            // Ignore if it's not JSON
+        }
+
+        try {
+            const { client } = getAiClient();
+            const response = await client.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: `The following text contains malformed KaTeX/LaTeX, Markdown formatting, or raw HTML exports of KaTeX that need to be reverted. I am using it in a React app with a custom KaTeX renderer that expects RAW markdown and LaTeX.
+Your job is to fix any broken syntax, unclosed braces, AI hallucination artifacts, or raw HTML and convert it back to clean readable markdown.
+
+CRITICAL RULES:
+1. Maintain the raw Markdown and LaTeX notation (using \\[ ... \\], \\( ... \\)).
+2. If you see raw HTML tags like <span class="katex">, <math>, or similar, you MUST convert all of that back into clean, raw LaTeX math notation (e.g. \\[ 99 \\times 999 \\]). DO NOT output HTML.
+3. Remove random hallucinated characters like /.{{...}\\quad or random extra braces.
+4. STRIP OUT ANY unwanted markdown symbols like excessive # markers (e.g. ###, ##), invalid punctuation, or garbage characters that corrupt the math or text content. The custom notes renderer breaks if there are unneeded # markers.
+5. Do NOT wrap in markdown \`\`\` code blocks unless the original explicitly started with them.
+6. ONLY return the corrected raw text. Include no conversational fluff.
+
+Input:
+${fixed}`,
+            });
+            let reply = response.text || fixed;
+            if (!fixed.trim().startsWith('```') && reply.trim().startsWith('```')) {
+                 reply = reply.replace(/^```[a-zA-Z]*\n?/g, '').replace(/```$/g, '').trim();
+            }
+            fixed = reply;
+        } catch (error) {
+            console.error("AI Repair failed, using heuristics", error);
+            // KaTeX/LaTeX instant fixes heuristic fallback
+            const openBraces = (fixed.match(/\{/g) || []).length;
+            const closeBraces = (fixed.match(/\}/g) || []).length;
+            if (openBraces > closeBraces) fixed += '}'.repeat(openBraces - closeBraces);
+
+            const openBlock = (fixed.match(/\\\[/g) || []).length;
+            const closeBlock = (fixed.match(/\\\]/g) || []).length;
+            if (openBlock > closeBlock) fixed += '\n\\]';
+
+            const beginMatches = [...fixed.matchAll(/\\begin\{([a-zA-Z0-9*]+)\}/g)].map(m => m[1]);
+            const endMatches = [...fixed.matchAll(/\\end\{([a-zA-Z0-9*]+)\}/g)].map(m => m[1]);
+            const openBlocks = [...beginMatches];
+            for (const end of endMatches) {
+                const idx = openBlocks.lastIndexOf(end);
+                if (idx !== -1) openBlocks.splice(idx, 1);
+            }
+            for (let i = openBlocks.length - 1; i >= 0; i--) {
+                fixed += `\n\\end{${openBlocks[i]}}`;
+            }
+            
+            fixed = fixed.replace(/([^\\])\\(\s+)?$/gm, '$1\\\\');
+        }
+
+        if (fixed !== value && fixed) {
+            onChange(fixed);
+            setFeedback('Fixed!');
+        } else {
+            setFeedback('Looks good!');
+        }
+        setTimeout(() => setFeedback(null), 2000);
+    };
+
     return (
-        <textarea
-            ref={ref}
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            onBlur={onBlur}
-            autoFocus
-            className="w-full bg-transparent outline-none resize-none font-mono text-sm p-3 rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/10"
-            rows={1}
-        />
+        <div className="relative group">
+            <textarea
+                ref={ref}
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                onBlur={onBlur}
+                autoFocus
+                className="w-full bg-transparent outline-none resize-none font-mono text-sm p-3 pb-8 rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/10 focus:ring-2 focus:ring-blue-500"
+                rows={1}
+            />
+            <button 
+                onMouseDown={handleJsonRepair} 
+                disabled={feedback === 'Checking...'}
+                className={`absolute top-2 right-2 px-2 py-1 bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 text-[10px] font-bold rounded shadow-sm flex items-center transition-all active:scale-95 z-10 opacity-70 hover:opacity-100 backdrop-blur-sm ${feedback === 'Checking...' ? 'cursor-wait opacity-100' : ''}`}
+                title="Attempt to automatically repair formatting errors"
+            >
+                {feedback === 'Checking...' ? (
+                    <><svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Checking...</>
+                ) : feedback ? feedback : <><span className="mr-1">✨</span> Refresh</>}
+            </button>
+            {onDelete && (
+                <button
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onDelete();
+                    }}
+                    className="absolute bottom-2 right-2 p-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/50 text-red-600 dark:text-red-400 rounded transition-colors"
+                    title="Delete this section"
+                >
+                    <Trash2 size={14} />
+                </button>
+            )}
+        </div>
     );
 };
 
@@ -524,6 +626,18 @@ export const InteractiveNoteEditor: React.FC<InteractiveNoteEditorProps> = ({ co
         onChange(newState.header + newBlocks.join('\n'));
     };
 
+    const handleDeleteBlock = (index: number) => {
+        const newBlocks = [...blocks];
+        newBlocks.splice(index, 1);
+        
+        const newState = { ...state, blocks: newBlocks };
+        setState(newState);
+        setEditIndex(null);
+        
+        // Sync to parent immediately
+        onChange(newState.header + newBlocks.join('\n'));
+    };
+
     const handleAddBlock = () => {
         const newBlocks = [...blocks, ''];
         const newState = { ...state, blocks: newBlocks };
@@ -541,6 +655,7 @@ export const InteractiveNoteEditor: React.FC<InteractiveNoteEditorProps> = ({ co
                             value={block}
                             onChange={(val) => handleBlockUpdate(idx, val)}
                             onBlur={() => setEditIndex(null)}
+                            onDelete={() => handleDeleteBlock(idx)}
                         />
                     ) : (
                         <div 

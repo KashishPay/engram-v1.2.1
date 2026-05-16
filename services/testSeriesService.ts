@@ -1,5 +1,6 @@
 import { getAiClient, checkUsageLimit, incrementUsage } from './gemini';
 import { Type, Schema } from "@google/genai";
+import { jsonrepair } from 'jsonrepair';
 
 export interface TestSeriesQuestion {
     question: string;
@@ -7,6 +8,23 @@ export interface TestSeriesQuestion {
     correctAnswer: string;
     explanation: string;
 }
+
+const safeParseJSON = (text: string) => {
+    try {
+        // Find the first '[' and last ']' to extract array if it's wrapped in markdown
+        const match = text.match(/\[[\s\S]*\]/);
+        const jsonString = match ? match[0] : text;
+        try {
+            return JSON.parse(jsonString);
+        } catch {
+            // Fallback to jsonrepair for truncated or malformed JSON
+            return JSON.parse(jsonrepair(jsonString));
+        }
+    } catch {
+        console.error("JSON Repair failed");
+        throw new Error("Unable to parse the generated response.");
+    }
+};
 
 export const fetchExamSubjects = async (exam: string, stream: string): Promise<string[]> => {
     checkUsageLimit();
@@ -39,7 +57,7 @@ Return ONLY a JSON array of strings representing the subjects. Keep the subject 
         const text = response.text;
         if (!text) throw new Error("Empty response from Gemini");
         
-        const subjects = JSON.parse(text);
+        const subjects = safeParseJSON(text);
         return Array.isArray(subjects) ? subjects : [];
     } catch (error) {
         console.error("Failed to fetch exam subjects:", error);
@@ -67,8 +85,13 @@ export const generateExamQuiz = async (
         ? `\nIMPORTANT: The user has requested to ONLY test the following specific topics: "${specificTopics}". Ensure ALL questions strictly focus on these topics.`
         : '';
 
+    // If requesting many questions, chunking or increasing limit logic might be needed, but 8192 usually covers up to ~30 questions.
+    const subjectPrompt = subject === "All Subjects" 
+        ? "the entire syllabus encompassing all relevant subjects for this exam"
+        : `the subject: "${subject}"`;
+
     const prompt = `You are an expert examiner for the ${exam} exam (${stream} stream).
-Generate a practice test for the subject: "${subject}".${specificTopicsStr}
+Generate a practice test for ${subjectPrompt}.${specificTopicsStr}
 Difficulty level: ${difficulty}.
 Number of questions: EXACTLY ${numQuestions}. You MUST generate exactly ${numQuestions} questions, no more, no less.
 
@@ -117,7 +140,7 @@ Return the output strictly as a JSON array of exactly ${numQuestions} objects. E
         const text = response.text;
         if (!text) throw new Error("Empty response from Gemini");
         
-        const questions = JSON.parse(text);
+        const questions = safeParseJSON(text);
         return Array.isArray(questions) ? questions : [];
     } catch (error) {
         console.error("Failed to generate exam quiz:", error);

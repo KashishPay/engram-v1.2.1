@@ -1,13 +1,11 @@
-import { AdMob, BannerAdOptions, BannerAdSize, BannerAdPosition, RewardAdPluginEvents, InterstitialAdPluginEvents } from '@capacitor-community/admob';
-import { Capacitor } from '@capacitor/core';
+import { AdMob, RewardAdPluginEvents, InterstitialAdPluginEvents } from '@capacitor-community/admob';
+import { Capacitor, PluginListenerHandle } from '@capacitor/core';
 import { supabase } from './supabase';
 
 export interface AdConfig {
     banner_ad_unit_id: string;
     interstitial_ad_unit_id?: string;
     reward_ad_unit_id?: string;
-    min_interval: number;
-    max_interval: number;
     is_active: boolean;
 }
 
@@ -22,9 +20,7 @@ class AdManagerService {
             : 'ca-app-pub-1930133918087114/1346538190', // Android Live Interstitial
         reward_ad_unit_id: Capacitor.getPlatform() === 'ios'
             ? 'ca-app-pub-3940256099942544/1712485313' // iOS Test Reward
-            : 'ca-app-pub-1930133918087114/3504868016', // Android Live Reward (using placeholder but better live or test)
-        min_interval: 3,
-        max_interval: 4,
+            : 'ca-app-pub-1930133918087114/9090827465', // Android Live Reward
         is_active: true
     };
     async initialize() {
@@ -75,7 +71,7 @@ class AdManagerService {
         }
 
         return new Promise<void>((resolve) => {
-            const listeners: any[] = [];
+            const listeners: PluginListenerHandle[] = [];
             const clearListeners = () => {
                 listeners.forEach(l => l.remove());
             };
@@ -134,9 +130,9 @@ class AdManagerService {
                 try {
                     const adId = this.config?.reward_ad_unit_id || (Capacitor.getPlatform() === 'ios' 
                         ? 'ca-app-pub-3940256099942544/1712485313' 
-                        : 'ca-app-pub-3940256099942544/5224354917'); // Android Test Reward, as backup
+                        : 'ca-app-pub-1930133918087114/9090827465'); // Android Live Reward, as backup
 
-                    const listeners: any[] = [];
+                    const listeners: PluginListenerHandle[] = [];
                     
                     const clearListeners = () => {
                        listeners.forEach(l => l.remove());

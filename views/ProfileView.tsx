@@ -472,7 +472,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                                     className={`w-full flex items-center p-3 rounded-xl transition ${p.id === userId ? `bg-${themeColor}-50 border border-${themeColor}-200` : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                                 >
                                     <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden mr-3">
-                                        {p.avatar ? <img src={p.avatar} className="w-full h-full object-cover"/> : <div className="w-full h-full bg-gray-300"/>}
+                                        {p.avatar ? <img src={p.avatar} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${p.id}&backgroundColor=b6e3f4`; }}/> : <div className="w-full h-full bg-gray-300"/>}
                                     </div>
                                     <span className={`font-bold ${p.id === userId ? `text-${themeColor}-700` : 'text-gray-700 dark:text-gray-200'}`}>{p.name}</span>
                                     {p.id === userId && <Check size={16} className={`ml-auto text-${themeColor}-600`} />}
@@ -539,7 +539,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <div className="relative group cursor-pointer z-10">
                     <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-lg bg-blue-100 relative">
                         {userProfile.avatar ? (
-                            <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
+                            <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${userId}&backgroundColor=b6e3f4`; }} />
                         ) : (
                             <img 
                                 src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${userId}&backgroundColor=b6e3f4`} 

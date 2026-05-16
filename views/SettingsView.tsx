@@ -415,7 +415,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="flex items-center space-x-4 mb-2 cursor-pointer transition hover:opacity-80" onClick={() => navigateTo('profile')}>
                     <div className="relative">
                         <div className={`w-16 h-16 rounded-full bg-${currentTheme}-200 overflow-hidden border-4 border-white dark:border-gray-700 shadow-md relative`}>
-                            {userProfile.avatar ? <img src={userProfile.avatar} alt="Avatar" className="w-full h-full object-cover" /> : <img src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${userId}&backgroundColor=b6e3f4`} alt="Avatar" className="w-full h-full" />}
+                            {userProfile.avatar ? <img src={userProfile.avatar} alt="Avatar" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${userId}&backgroundColor=b6e3f4`; }} /> : <img src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${userId}&backgroundColor=b6e3f4`} alt="Avatar" className="w-full h-full" />}
                         </div>
                     </div>
                     <div className="flex-1">

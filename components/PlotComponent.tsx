@@ -9,9 +9,11 @@ interface PlotData {
 interface PlotComponentProps {
     data: PlotData[];
     title: string;
+    xAxisLabel?: string;
+    yAxisLabel?: string;
 }
 
-export const PlotComponent: React.FC<PlotComponentProps> = ({ data, title }) => {
+export const PlotComponent: React.FC<PlotComponentProps> = ({ data, title, xAxisLabel, yAxisLabel }) => {
     const svgRef = useRef<SVGSVGElement>(null);
 
     useEffect(() => {
@@ -58,7 +60,7 @@ export const PlotComponent: React.FC<PlotComponentProps> = ({ data, title }) => 
             .attr("fill", "black")
             .attr("text-anchor", "middle")
             .style("font-size", "12px")
-            .text("Time (s)");
+            .text(xAxisLabel || "Time (s)");
 
         // Y-axis
         svg.append('g')
@@ -73,7 +75,30 @@ export const PlotComponent: React.FC<PlotComponentProps> = ({ data, title }) => 
             .attr("fill", "black")
             .attr("text-anchor", "middle")
             .style("font-size", "12px")
-            .text("Voltage (V)");
+            .text(yAxisLabel || "Voltage (V)");
+
+        // Origin lines (Zero-crossings)
+        if (yDomain[0] < 0 && yDomain[1] > 0) {
+            svg.append('line')
+                .attr('x1', margin.left)
+                .attr('x2', width - margin.right)
+                .attr('y1', y(0))
+                .attr('y2', y(0))
+                .attr('stroke', 'rgba(0,0,0,0.3)')
+                .attr('stroke-width', 1.5)
+                .attr('stroke-dasharray', '4,4');
+        }
+
+        if (xDomain[0] < 0 && xDomain[1] > 0) {
+            svg.append('line')
+                .attr('x1', x(0))
+                .attr('x2', x(0))
+                .attr('y1', margin.top)
+                .attr('y2', height - margin.bottom)
+                .attr('stroke', 'rgba(0,0,0,0.3)')
+                .attr('stroke-width', 1.5)
+                .attr('stroke-dasharray', '4,4');
+        }
 
         const line = d3.line<PlotData>()
             .x(d => x(d.x))

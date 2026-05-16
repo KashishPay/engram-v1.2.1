@@ -357,15 +357,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
         };
     }, [state.isPlaying]);
 
-    // Manage podcast banner ad visibility
-    useEffect(() => {
-        if (showPlayerUI && !showScript) {
-        } else {
-        }
-
-        return () => {
-        };
-    }, [showPlayerUI, showScript]);
+    // Manage podcast banner ad visibility (Removed empty useEffect)
 
     // --- INTEGRITY CHECK ---
     // Scan IDB when library opens to ensure audio flags match reality

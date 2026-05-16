@@ -16,16 +16,6 @@ type ListItem = { type: 'topic'; data: Topic };
 
 export const TopicListView: React.FC<TopicListViewProps> = ({ title, topics, navigateTo, themeColor }) => {
     
-    React.useEffect(() => {
-        const adEligibleTitles = ['Due for Review', 'Recent Quizzes', 'Active Topics'];
-        if (adEligibleTitles.includes(title)) {
-        }
-        return () => {
-            if (adEligibleTitles.includes(title)) {
-            }
-        };
-    }, [title]);
-
     const listItems = useMemo(() => {
         return topics.map(t => ({ type: 'topic' as const, data: t }));
     }, [topics]);

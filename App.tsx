@@ -77,7 +77,7 @@ export const App: React.FC = () => {
     const [checkingProfile, setCheckingProfile] = useState(true);
 
     // Global Sync State
-    const [globalSyncEnabled, setGlobalSyncEnabled] = useState<boolean>(() => {
+    const [, setGlobalSyncEnabled] = useState<boolean>(() => {
         const uid = localStorage.getItem('engramCurrentUserId') || 'default';
         return localStorage.getItem(`engramGlobalSyncEnabled_${uid}`) === 'true';
     });
@@ -246,7 +246,7 @@ export const App: React.FC = () => {
         return { language: 'Hinglish' };
     });
 
-    const [heavyDataSyncTrigger, setHeavyDataSyncTrigger] = useState(Date.now());
+    const [, setHeavyDataSyncTrigger] = useState(Date.now());
 
     useEffect(() => {
         const handleDataChanged = () => setHeavyDataSyncTrigger(Date.now());

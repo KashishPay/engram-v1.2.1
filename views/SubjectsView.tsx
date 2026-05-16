@@ -55,15 +55,6 @@ const SubjectItem = React.memo(({
         setEditName(subject.name);
     }, [subject.name]);
 
-    useEffect(() => {
-        if (!collapsed) {
-        } else {
-        }
-        
-        return () => {
-        };
-    }, [collapsed]);
-
     const formatTime = (minutes: number) => {
         if (!minutes) return '0m';
         if (minutes < 60) return `${Math.round(minutes)}m`;
