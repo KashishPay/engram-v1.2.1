@@ -1,6 +1,6 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, ArrowLeft, Sparkles, StopCircle, Copy, Check, RotateCw, ChevronDown, Hash } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Send, ArrowLeft, Sparkles, StopCircle, Copy, Check, RotateCw, ChevronDown, Hash, Download } from 'lucide-react';
 import { Topic } from '../types';
 import { chatWithNotesStream } from '../services/gemini';
 import { ensureTopicContent, getChatFromIDB, saveChatToIDB } from '../services/storage';
@@ -9,6 +9,8 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { PlotComponent } from '../components/PlotComponent';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface ChatViewProps {
     topic: Topic | null;
@@ -188,6 +190,130 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
         }
     };
 
+    const [isExporting, setIsExporting] = useState(false);
+    const pdfExportRef = useRef<HTMLDivElement>(null);
+
+    const validMessages = useMemo(() => {
+        const valid: Message[] = [];
+        for (let i = 0; i < messages.length; i++) {
+            const msg = messages[i];
+            if (msg.role === 'user') {
+                const nextMsg = messages[i+1];
+                if (nextMsg && nextMsg.role === 'model' && nextMsg.text.includes('Connection error')) {
+                    i++; // skip next message
+                    continue;
+                }
+            } else if (msg.role === 'model' && msg.text.includes('Connection error')) {
+                continue;
+            }
+            if (msg.role !== 'ad') {
+                valid.push(msg);
+            }
+        }
+        return valid;
+    }, [messages]);
+
+    const handleDownloadPdf = async () => {
+        if (!topic || !pdfExportRef.current) return;
+        setIsExporting(true);
+        try {
+            // Provide a tiny delay to allow React to render the hidden container if it needs to
+            await new Promise(res => setTimeout(res, 100));
+            
+            const element = pdfExportRef.current;
+            const canvas = await html2canvas(element, { 
+                scale: 2, 
+                useCORS: true, 
+                logging: false,
+                backgroundColor: '#ffffff' 
+            });
+            
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = 210;
+            const pdfHeight = 297;
+            const margin = 10;
+            const footerHeight = 15;
+            const usableWidth = pdfWidth - margin * 2;
+            const usableHeight = pdfHeight - margin - footerHeight - 5; // 5mm extra gap
+            
+            // Calculate HTML chunk height based on usable aspect ratio
+            const htmlWidth = canvas.width;
+            const htmlChunkHeight = Math.floor(htmlWidth * (usableHeight / usableWidth));
+            
+            let currentY = 0;
+            let pageNum = 1;
+            
+            // Load logo
+            const logoImg = new Image();
+            logoImg.src = '/brand/engram_logo/engram_logo_128.png';
+            await new Promise(res => {
+                logoImg.onload = res;
+                logoImg.onerror = res;
+            });
+
+            while (currentY < canvas.height) {
+                if (pageNum > 1) {
+                    pdf.addPage();
+                }
+                
+                // Create a temporary canvas for the slice
+                const sliceCanvas = document.createElement('canvas');
+                sliceCanvas.width = htmlWidth;
+                const remainingHeight = canvas.height - currentY;
+                const sliceHeight = Math.min(htmlChunkHeight, remainingHeight);
+                sliceCanvas.height = sliceHeight;
+                
+                const ctx = sliceCanvas.getContext('2d');
+                if (ctx) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+                    ctx.drawImage(
+                        canvas,
+                        0, currentY, htmlWidth, sliceHeight,
+                        0, 0, htmlWidth, sliceHeight
+                    );
+                }
+                
+                const sliceDataUrl = sliceCanvas.toDataURL('image/jpeg', 0.95);
+                const printHeight = usableHeight * (sliceHeight / htmlChunkHeight);
+                
+                pdf.addImage(sliceDataUrl, 'JPEG', margin, margin, usableWidth, printHeight);
+                
+                // Add Footer
+                pdf.setDrawColor(230, 230, 230);
+                pdf.line(margin, pdfHeight - footerHeight, pdfWidth - margin, pdfHeight - footerHeight);
+                
+                let logoOffset = 0;
+                if (logoImg.width > 0) {
+                    pdf.addImage(logoImg, 'PNG', margin, pdfHeight - footerHeight + 4, 6, 6);
+                    logoOffset = 8;
+                }
+                
+                pdf.setFontSize(9);
+                pdf.setTextColor(120, 120, 120);
+                const footerText = "Engram: A self-help AI company that organizes your workflow.";
+                pdf.text(footerText, margin + logoOffset, pdfHeight - footerHeight + 8.5);
+                
+                // Add hyperlink covering logo and text
+                const textWidthLink = (pdf.getStringUnitWidth(footerText) * 9) / pdf.internal.scaleFactor;
+                pdf.link(margin, pdfHeight - footerHeight + 2, logoOffset + textWidthLink, 12, { url: 'https://engram-space.vercel.app/' });
+                
+                const pageText = `Page ${pageNum}`;
+                const textWidth = pdf.getStringUnitWidth(pageText) * 9 / pdf.internal.scaleFactor;
+                pdf.text(pageText, pdfWidth - margin - textWidth, pdfHeight - footerHeight + 8.5);
+                
+                currentY += htmlChunkHeight;
+                pageNum++;
+            }
+            
+            pdf.save(`Chat_${topic.topicName.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+        } catch (e) {
+            console.error("PDF generation failed:", e);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     useEffect(() => {
         if (!topic) return;
         const init = async () => {
@@ -256,42 +382,68 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
 
         const history = messages.filter(m => m.role !== 'ad').map(m => ({ role: m.role, text: m.text }));
 
-        try {
-            let accumulatedText = "";
-            await chatWithNotesStream(
-                history,
-                userMsg.text,
-                fullNotes,
-                topic.subject,
-                'chat',
-                (chunk) => {
-                    accumulatedText += chunk;
+        let attempts = 0;
+        const maxAttempts = 3;
+        let success = false;
+
+        while (attempts < maxAttempts && !success) {
+            attempts++;
+            try {
+                let accumulatedText = "";
+                // Fallback to lighter model on retries
+                let fallbackModel: string | undefined = undefined;
+                if (attempts > 1) {
+                    fallbackModel = 'gemini-3-flash-preview';
+                }
+
+                await chatWithNotesStream(
+                    history,
+                    userMsg.text,
+                    fullNotes,
+                    topic.subject,
+                    'chat',
+                    (chunk) => {
+                        accumulatedText += chunk;
+                        setMessages(prev => prev.map(msg => 
+                            msg.id === botMsgId 
+                                ? { ...msg, text: accumulatedText } 
+                                : msg
+                        ));
+                        if (scrollContainerRef.current) {
+                            const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+                            if (scrollHeight - scrollTop - clientHeight < 100) {
+                                scrollContainerRef.current.scrollTop = scrollHeight;
+                            }
+                        }
+                    },
+                    fallbackModel
+                );
+                success = true;
+                setMessages(prev => prev.map(msg => 
+                    msg.id === botMsgId ? { ...msg, isStreaming: false } : msg
+                ));
+            } catch (error) {
+                console.error(`Attempt ${attempts} failed:`, error);
+                if (attempts === maxAttempts) {
                     setMessages(prev => prev.map(msg => 
                         msg.id === botMsgId 
-                            ? { ...msg, text: accumulatedText } 
+                            ? { ...msg, text: msg.text + "\n\n*[Connection error. Please try again.]*", isStreaming: false } 
                             : msg
                     ));
-                    if (scrollContainerRef.current) {
-                        const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-                        if (scrollHeight - scrollTop - clientHeight < 100) {
-                            scrollContainerRef.current.scrollTop = scrollHeight;
-                        }
-                    }
+                } else {
+                    // Exponential backoff
+                    const delay = Math.pow(2, attempts) * 1000 + Math.random() * 1000;
+                    setMessages(prev => prev.map(msg => 
+                        msg.id === botMsgId 
+                            ? { ...msg, text: msg.text + `\n\n*[Connection error. Retrying... (${attempts}/${maxAttempts})]*\n\n` } // Show retry
+                            : msg
+                    ));
+                    await new Promise(resolve => setTimeout(resolve, delay));
                 }
-            );
-            setMessages(prev => prev.map(msg => 
-                msg.id === botMsgId ? { ...msg, isStreaming: false } : msg
-            ));
-        } catch (error) {
-            console.error(error);
-            setMessages(prev => prev.map(msg => 
-                msg.id === botMsgId 
-                    ? { ...msg, text: msg.text + "\n\n*[Connection error. Please try again.]*", isStreaming: false } 
-                    : msg
-            ));
-        } finally {
-            setIsTyping(false);
+            }
         }
+        
+        setIsTyping(false);
     };
 
     if (!topic) return <div>Error: No topic selected</div>;
@@ -317,6 +469,15 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                     </p>
                 </div>
                 
+                <button 
+                    onClick={handleDownloadPdf}
+                    disabled={isExporting}
+                    className={`flex items-center justify-center p-2 rounded-lg ${isExporting ? 'bg-gray-200 dark:bg-gray-700 opacity-50' : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'} text-gray-700 dark:text-gray-300 transition shrink-0 mr-1`}
+                    title="Download Chat PDF"
+                >
+                    {isExporting ? <RotateCw size={16} className="animate-spin" /> : <Download size={16} />}
+                </button>
+
                 {/* Navigator Dropdown - shrink-0 ensures it's never hidden */}
                 <div className="relative shrink-0">
                     <button 
@@ -422,6 +583,31 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                 isReady={Boolean(fullNotes)}
                 themeColor={themeColor}
             />
+
+            {/* Hidden Export Container */}
+            <div className="absolute -left-[9999px] top-0 pointer-events-none">
+                <div ref={pdfExportRef} className="w-[800px] bg-white p-8 font-sans text-black" style={{ minHeight: '1000px' }}>
+                    <h1 className="text-3xl font-bold mb-6 text-gray-900 border-b-2 border-gray-200 pb-4">Topic: {topic.topicName}</h1>
+                    {validMessages.map((msg, i) => (
+                         <div key={msg.id || i} className="mb-6 bg-gray-50 p-6 rounded-xl border border-gray-100">
+                             <strong className="block text-gray-900 text-lg mb-2">{msg.role === 'user' ? 'You:' : 'AI Tutor:'}</strong>
+                             <div className="prose prose-base max-w-none text-gray-800">
+                                  <ReactMarkdown 
+                                      remarkPlugins={[remarkGfm, remarkMath]}
+                                      rehypePlugins={[rehypeKatex]}
+                                      components={{
+                                          table: ({node, ...props}: React.ComponentPropsWithoutRef<'table'> & {node?: unknown}) => { void node; return <div className="overflow-x-auto my-3"><table className="min-w-full divide-y divide-gray-300 bg-white border border-gray-300" {...props} /></div> },
+                                          th: ({node, ...props}: React.ComponentPropsWithoutRef<'th'> & {node?: unknown}) => { void node; return <th className="px-3 py-2 bg-gray-100 text-left font-bold text-gray-800 border-b border-gray-300" {...props} /> },
+                                          td: ({node, ...props}: React.ComponentPropsWithoutRef<'td'> & {node?: unknown}) => { void node; return <td className="px-3 py-2 border-b border-gray-200 text-gray-800" {...props} /> },
+                                      }}
+                                  >
+                                      {msg.text}
+                                  </ReactMarkdown>
+                             </div>
+                         </div>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 };

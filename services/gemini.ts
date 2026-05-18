@@ -261,6 +261,7 @@ export const chatWithNotes = async (history: { role: string, text: string }[], m
 
     const systemInstruction = `You are a helpful tutor for ${subject}. 
     Base your answers on the following notes context, but you can add external knowledge if needed.
+    If the user explicitly asks for a specific quantity of items (e.g., 500 idioms, 100 questions), do NOT refuse or say it's impossible due to message limits. You MUST attempt to fulfill the request completely and generate the exact requested amount.
     Notes: ${truncateContext(notes, 20000)}
     ${prefs.persona ? `Persona: ${prefs.persona}` : ''}`;
 
@@ -284,13 +285,15 @@ export const chatWithNotesStream = async (
     notes: string,
     subject: string,
     featureId: string,
-    onChunk: (text: string) => void
+    onChunk: (text: string) => void,
+    modelOverride?: string
 ) => {
     checkUsageLimit();
     const { client } = getAiClient();
     const prefs = getFeatureConfig(featureId);
     let model = 'gemini-3-flash-preview';
     if (prefs.model === 'pro') model = 'gemini-3.1-pro-preview';
+    if (modelOverride) model = modelOverride;
 
     const systemInstruction = `You are a helpful AI tutor for ${subject}.
     Base your answers on the following notes context, but you can add external knowledge if needed.
@@ -300,6 +303,7 @@ export const chatWithNotesStream = async (
     - Use **Markdown Tables** for structured data, comparisons, or lists.
     - Use **LaTeX** for math equations (wrap in $ for inline or $$ for block).
     - Be concise, clear, and engaging.
+    - If the user explicitly asks for a specific quantity of items (e.g., 500 idioms, 100 questions), do NOT refuse or say it's impossible due to message limits. You MUST attempt to fulfill the request completely and generate the exact requested amount.
     - If a diagram or plot is requested (including graphs of eigen functions, unit step, impulse, parabolic, exponential, etc.), output the data in a JSON block at the end of your response, like this:
       \`\`\`json
       {
