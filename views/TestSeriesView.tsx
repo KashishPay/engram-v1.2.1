@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Play, CheckCircle, XCircle, Clock, RefreshCw, BookOpen, Target, SkipForward, History, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Play, CheckCircle, XCircle, Clock, RefreshCw, BookOpen, Target, SkipForward, History, ChevronDown, ChevronUp, Download, RotateCw } from 'lucide-react';
 import { Card } from '../components/Card';
 import { fetchExamSubjects, generateExamQuiz, TestSeriesQuestion } from '../services/testSeriesService';
 import katex from 'katex';
 import DOMPurify from 'dompurify';
 import { AdManager } from '../services/admob';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 interface TestSeriesViewProps {
     userId: string;
@@ -53,6 +55,111 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
     const [selectedHistory, setSelectedHistory] = useState<TestHistoryEntry | null>(null);
     const [recentExams, setRecentExams] = useState<{exam: string; stream: string}[]>([]);
     const [expandedHistoryGroups, setExpandedHistoryGroups] = useState<Set<string>>(new Set());
+
+    const [exportingItemId, setExportingItemId] = useState<string | null>(null);
+    const pdfExportRef = React.useRef<HTMLDivElement>(null);
+
+    const handleDownloadPdf = async (item: TestHistoryEntry) => {
+        setExportingItemId(item.id);
+        
+        try {
+            // Provide a tiny delay to allow React to render the hidden container
+            await new Promise(res => setTimeout(res, 200));
+            
+            if (!pdfExportRef.current) return;
+            const element = pdfExportRef.current;
+            const canvas = await html2canvas(element, { 
+                scale: 2, 
+                useCORS: true, 
+                logging: false,
+                backgroundColor: '#ffffff' 
+            });
+            
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = 210;
+            const pdfHeight = 297;
+            const margin = 10;
+            const footerHeight = 15;
+            const usableWidth = pdfWidth - margin * 2;
+            const usableHeight = pdfHeight - margin - footerHeight - 5; // 5mm extra gap
+            
+            // Calculate HTML chunk height based on usable aspect ratio
+            const htmlWidth = canvas.width;
+            const htmlChunkHeight = Math.floor(htmlWidth * (usableHeight / usableWidth));
+            
+            let currentY = 0;
+            let pageNum = 1;
+            
+            // Load logo
+            const logoImg = new Image();
+            logoImg.src = '/brand/engram_logo/engram_logo_128.png';
+            await new Promise(res => {
+                logoImg.onload = res;
+                logoImg.onerror = res;
+            });
+
+            while (currentY < canvas.height) {
+                if (pageNum > 1) {
+                    pdf.addPage();
+                }
+                
+                // Create a temporary canvas for the slice
+                const sliceCanvas = document.createElement('canvas');
+                sliceCanvas.width = htmlWidth;
+                const remainingHeight = canvas.height - currentY;
+                const sliceHeight = Math.min(htmlChunkHeight, remainingHeight);
+                sliceCanvas.height = sliceHeight;
+                
+                const ctx = sliceCanvas.getContext('2d');
+                if (ctx) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+                    ctx.drawImage(
+                        canvas,
+                        0, currentY, htmlWidth, sliceHeight,
+                        0, 0, htmlWidth, sliceHeight
+                    );
+                }
+                
+                const sliceDataUrl = sliceCanvas.toDataURL('image/jpeg', 0.95);
+                const printHeight = usableHeight * (sliceHeight / htmlChunkHeight);
+                
+                pdf.addImage(sliceDataUrl, 'JPEG', margin, margin, usableWidth, printHeight);
+                
+                // Add Footer
+                pdf.setDrawColor(230, 230, 230);
+                pdf.line(margin, pdfHeight - footerHeight, pdfWidth - margin, pdfHeight - footerHeight);
+                
+                let logoOffset = 0;
+                if (logoImg.width > 0) {
+                    pdf.addImage(logoImg, 'PNG', margin, pdfHeight - footerHeight + 4, 6, 6);
+                    logoOffset = 8;
+                }
+                
+                pdf.setFontSize(9);
+                pdf.setTextColor(120, 120, 120);
+                const footerText = "Engram: A self-help AI company that organizes your workflow.";
+                pdf.text(footerText, margin + logoOffset, pdfHeight - footerHeight + 8.5);
+                
+                // Add hyperlink covering logo and text
+                const textWidthLink = (pdf.getStringUnitWidth(footerText) * 9) / pdf.internal.scaleFactor;
+                pdf.link(margin, pdfHeight - footerHeight + 2, logoOffset + textWidthLink, 12, { url: 'https://engram-space.vercel.app/' });
+                
+                const pageText = `Page ${pageNum}`;
+                const textWidth = pdf.getStringUnitWidth(pageText) * 9 / pdf.internal.scaleFactor;
+                pdf.text(pageText, pdfWidth - margin - textWidth, pdfHeight - footerHeight + 8.5);
+                
+                currentY += htmlChunkHeight;
+                pageNum++;
+            }
+            
+            pdf.save(`TestHistory_${item.exam.replace(/[^a-z0-9]/gi, '_')}_${item.subject.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+        } catch (e) {
+            console.error("PDF generation failed:", e);
+        } finally {
+            setExportingItemId(null);
+        }
+    };
 
     // Load History
     const loadHistory = () => {
@@ -469,8 +576,18 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                                                             <Clock size={12} className="mr-1" /> {formatTime(item.timeTaken)}
                                                         </div>
                                                     </div>
-                                                    <div className={`text-sm font-bold text-${themeColor}-600 bg-${themeColor}-50 dark:bg-${themeColor}-900/20 px-3 py-1 rounded-full`}>
-                                                        {item.score}/{item.totalQuestions}
+                                                    <div className="flex items-center space-x-3">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleDownloadPdf(item); }}
+                                                            disabled={exportingItemId === item.id}
+                                                            className={`flex items-center justify-center p-2 rounded-lg ${exportingItemId === item.id ? 'bg-gray-200 dark:bg-gray-700 opacity-50' : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'} text-gray-700 dark:text-gray-300 transition shrink-0`}
+                                                            title="Download Test PDF"
+                                                        >
+                                                            {exportingItemId === item.id ? <RotateCw size={16} className="animate-spin" /> : <Download size={16} />}
+                                                        </button>
+                                                        <div className={`text-sm font-bold text-${themeColor}-600 bg-${themeColor}-50 dark:bg-${themeColor}-900/20 px-3 py-1 rounded-full`}>
+                                                            {item.score}/{item.totalQuestions}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -480,6 +597,62 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                             );
                         })}
                     </div>
+                )}
+                
+                {/* Hidden Export Container */}
+                {exportingItemId && (
+                <div className="absolute -left-[9999px] top-0 pointer-events-none">
+                    <div ref={pdfExportRef} className="w-[800px] bg-white p-8 font-sans text-black" style={{ minHeight: '1000px' }}>
+                        {(() => {
+                            const exportItem = history.find(h => h.id === exportingItemId);
+                            if (!exportItem) return null;
+                            return (
+                                <>
+                                    <h1 className="text-3xl font-bold mb-2 text-gray-900 border-b-2 border-gray-200 pb-4">Test Review: {exportItem.exam} - {exportItem.subject}</h1>
+                                    <div className="flex justify-between mb-8 text-gray-600 font-bold">
+                                        <span>Score: {exportItem.score} / {exportItem.totalQuestions}</span>
+                                        <span>Time Taken: {formatTime(exportItem.timeTaken)}</span>
+                                        <span>Date: {new Date(exportItem.timestamp).toLocaleString()}</span>
+                                    </div>
+                                    
+                                    <div className="space-y-6">
+                                        {exportItem.quizData.map((q, i) => {
+                                            const ans = exportItem.answers.find(a => a.qIndex === i);
+                                            const isCorrect = ans?.selected === q.correctAnswer;
+                                            const isSkipped = ans?.selected === "SKIPPED";
+                                            return (
+                                                <div key={i} className={`p-6 rounded-xl border ${isCorrect ? 'border-green-300 bg-green-50' : isSkipped ? 'border-gray-300 bg-gray-50' : 'border-red-300 bg-red-50'}`}>
+                                                    <h3 className="font-bold text-gray-900 text-lg mb-4 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMathHtml(`${i + 1}. ${q.question}`) }} />
+                                                    
+                                                    <div className="space-y-3 mb-4">
+                                                        {q.options.map((opt, idx) => {
+                                                            const isThisSelected = opt === ans?.selected;
+                                                            const isThisCorrect = opt === q.correctAnswer;
+                                                            
+                                                            let optClass = "p-3 rounded-lg border border-gray-200 bg-white text-gray-800";
+                                                            if (isThisSelected && isThisCorrect) optClass = "p-3 rounded-lg border border-green-500 bg-green-100 text-green-900 font-bold";
+                                                            else if (isThisSelected && !isThisCorrect) optClass = "p-3 rounded-lg border border-red-500 bg-red-100 text-red-900 font-bold";
+                                                            else if (isThisCorrect) optClass = "p-3 rounded-lg border border-green-500 bg-green-50 text-green-800 font-bold";
+                                                            
+                                                            return (
+                                                                <div key={idx} className={optClass} dangerouslySetInnerHTML={{ __html: renderMathHtml(opt) }} />
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    
+                                                    <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+                                                        <strong className="block mb-2 text-gray-800">Explanation:</strong>
+                                                        <div className="text-gray-700" dangerouslySetInnerHTML={{ __html: renderMathHtml(q.explanation) }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            );
+                        })()}
+                    </div>
+                </div>
                 )}
             </div>
         );

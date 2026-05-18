@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, ArrowLeft, Sparkles, StopCircle, Copy, Check, RotateCw, ChevronDown, Hash, Download } from 'lucide-react';
+import { Send, ArrowLeft, Sparkles, StopCircle, Copy, Check, RotateCw, ChevronDown, Hash, Download, Camera, Image as ImageIcon, X } from 'lucide-react';
 import { Topic } from '../types';
 import { chatWithNotesStream } from '../services/gemini';
 import { ensureTopicContent, getChatFromIDB, saveChatToIDB } from '../services/storage';
@@ -25,6 +25,7 @@ interface Message {
     text: string;
     timestamp?: number;
     isStreaming?: boolean;
+    images?: { base64: string, mimeType: string }[];
     adContent?: {
         imageUrl?: string;
         title?: string;
@@ -117,43 +118,116 @@ const MarkdownContent = ({ text }: { text: string }) => {
 };
 
 const ChatInputArea: React.FC<{
-    onSend: (text: string) => void;
+    onSend: (text: string, images?: { base64: string, mimeType: string }[]) => void;
     isTyping: boolean;
     isReady: boolean;
     themeColor: string;
 }> = ({ onSend, isTyping, isReady, themeColor }) => {
     const [input, setInput] = useState('');
+    const [selectedImage, setSelectedImage] = useState<{ base64: string, mimeType: string } | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
 
     const handleSend = () => {
-        if (!input.trim() || isTyping || !isReady) return;
-        onSend(input);
+        if ((!input.trim() && !selectedImage) || isTyping || !isReady) return;
+        onSend(input, selectedImage ? [selectedImage] : undefined);
         setInput('');
+        setSelectedImage(null);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            if (event.target?.result && typeof event.target.result === 'string') {
+                const base64Content = event.target.result.split(',')[1];
+                setSelectedImage({ base64: base64Content, mimeType: file.type });
+            }
+        };
+        reader.readAsDataURL(file);
+        e.target.value = ''; // Reset
     };
 
     return (
         <div className="shrink-0 p-3 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 z-20 safe-area-bottom">
             <div className="max-w-3xl mx-auto relative">
+                {selectedImage && (
+                    <div className="mb-3 relative inline-block">
+                        <img 
+                            src={`data:${selectedImage.mimeType};base64,${selectedImage.base64}`} 
+                            alt="Selected" 
+                            className="h-20 w-auto rounded-lg border border-gray-200 shadow-sm" 
+                        />
+                        <button 
+                            onClick={() => setSelectedImage(null)}
+                            className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 hover:bg-gray-700 transition"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
+                
                 <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !isTyping && handleSend()}
-                    placeholder={!isReady ? "Loading notes..." : "Ask a question..."}
-                    className="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl py-3 pl-4 pr-12 outline-none focus:ring-2 focus:ring-blue-500/50 transition shadow-sm border border-transparent focus:border-blue-500/50 placeholder-gray-400 text-sm"
-                    disabled={isTyping || !isReady}
-                    autoFocus
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileChange}
                 />
-                <button 
-                    onClick={handleSend}
-                    disabled={!input.trim() || isTyping || !isReady}
-                    className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-lg transition ${
-                        !input.trim() || isTyping
-                            ? 'text-gray-400 dark:text-gray-600' 
-                            : `bg-${themeColor}-500 text-white shadow-md hover:bg-${themeColor}-600`
-                    }`}
-                >
-                    {isTyping ? <StopCircle size={16} className="animate-pulse" /> : <Send size={16} />}
-                </button>
+                
+                <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    ref={cameraInputRef}
+                    className="hidden"
+                    onChange={handleFileChange}
+                />
+
+                <div className="relative flex items-center">
+                    <div className="absolute left-1.5 flex gap-1">
+                        <button
+                            onClick={() => cameraInputRef.current?.click()}
+                            disabled={isTyping || !isReady}
+                            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+                            title="Take Photo"
+                        >
+                            <Camera size={18} />
+                        </button>
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isTyping || !isReady}
+                            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+                            title="Upload Image"
+                        >
+                            <ImageIcon size={18} />
+                        </button>
+                    </div>
+                    
+                    <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && !isTyping && handleSend()}
+                        placeholder={!isReady ? "Loading notes..." : "Ask a question..."}
+                        className="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl py-3 pl-[5.5rem] pr-12 outline-none focus:ring-2 focus:ring-blue-500/50 transition shadow-sm border border-transparent focus:border-blue-500/50 placeholder-gray-400 text-sm"
+                        disabled={isTyping || !isReady}
+                        autoFocus
+                    />
+                    
+                    <button 
+                        onClick={handleSend}
+                        disabled={(!input.trim() && !selectedImage) || isTyping || !isReady}
+                        className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-lg transition ${
+                            (!input.trim() && !selectedImage) || isTyping
+                                ? 'text-gray-400 dark:text-gray-600' 
+                                : `bg-${themeColor}-500 text-white shadow-md hover:bg-${themeColor}-600`
+                        }`}
+                    >
+                        {isTyping ? <StopCircle size={16} className="animate-pulse" /> : <Send size={16} />}
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -369,10 +443,10 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
         };
     }, []);
 
-    const handleSend = async (textToSend: string) => {
-        if (!textToSend.trim() || !topic || isTyping) return;
+    const handleSend = async (textToSend: string, images?: { base64: string, mimeType: string }[]) => {
+        if ((!textToSend.trim() && !images) || !topic || isTyping) return;
 
-        const userMsg: Message = { id: Date.now().toString(), role: 'user', text: textToSend.trim(), timestamp: Date.now() };
+        const userMsg: Message = { id: Date.now().toString(), role: 'user', text: textToSend.trim(), timestamp: Date.now(), images };
         
         const botMsgId = (Date.now() + 1).toString();
         const initialBotMsg: Message = { id: botMsgId, role: 'model', text: '', timestamp: Date.now(), isStreaming: true };
@@ -380,7 +454,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
         setMessages(prev => [...prev, userMsg, initialBotMsg]);
         setIsTyping(true);
 
-        const history = messages.filter(m => m.role !== 'ad').map(m => ({ role: m.role, text: m.text }));
+        const history = messages.filter(m => m.role !== 'ad').map(m => ({ role: m.role, text: m.text, images: m.images }));
 
         let attempts = 0;
         const maxAttempts = 3;
@@ -416,7 +490,8 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                             }
                         }
                     },
-                    fallbackModel
+                    fallbackModel,
+                    images
                 );
                 success = true;
                 setMessages(prev => prev.map(msg => 
@@ -563,6 +638,18 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
 
                                             {/* Full Width Content */}
                                             <div className="markdown-body text-gray-800 dark:text-gray-200 text-sm leading-relaxed break-words pl-0">
+                                                {msg.images && msg.images.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2 mb-3">
+                                                        {msg.images.map((img, i) => (
+                                                            <img 
+                                                                key={i}
+                                                                src={`data:${img.mimeType};base64,${img.base64}`} 
+                                                                alt="Attached" 
+                                                                className="max-h-48 w-auto rounded-lg border border-gray-200 shadow-sm"
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
                                                 <MarkdownContent text={msg.text} />
                                                 {msg.isStreaming && <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse align-middle opacity-50"/>}
                                             </div>
@@ -592,6 +679,18 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                          <div key={msg.id || i} className="mb-6 bg-gray-50 p-6 rounded-xl border border-gray-100">
                              <strong className="block text-gray-900 text-lg mb-2">{msg.role === 'user' ? 'You:' : 'AI Tutor:'}</strong>
                              <div className="prose prose-base max-w-none text-gray-800">
+                                  {msg.images && msg.images.length > 0 && (
+                                      <div className="flex flex-wrap gap-2 mb-4">
+                                          {msg.images.map((img, imgIdx) => (
+                                              <img 
+                                                  key={imgIdx}
+                                                  src={`data:${img.mimeType};base64,${img.base64}`} 
+                                                  alt="Attached" 
+                                                  className="max-h-64 w-auto rounded-lg border border-gray-200 shadow-sm"
+                                              />
+                                          ))}
+                                      </div>
+                                  )}
                                   <ReactMarkdown 
                                       remarkPlugins={[remarkGfm, remarkMath]}
                                       rehypePlugins={[rehypeKatex]}

@@ -280,13 +280,14 @@ export const chatWithNotes = async (history: { role: string, text: string }[], m
 };
 
 export const chatWithNotesStream = async (
-    history: { role: string, text: string }[],
+    history: { role: string, text: string, images?: { base64: string, mimeType: string }[] }[],
     message: string,
     notes: string,
     subject: string,
     featureId: string,
     onChunk: (text: string) => void,
-    modelOverride?: string
+    modelOverride?: string,
+    images?: { base64: string, mimeType: string }[]
 ) => {
     checkUsageLimit();
     const { client } = getAiClient();
@@ -322,13 +323,30 @@ export const chatWithNotesStream = async (
     const chat = client.chats.create({
         model,
         config: { systemInstruction },
-        history: history.map(h => ({
-            role: h.role,
-            parts: [{ text: h.text }]
-        }))
+        history: history.map(h => {
+            const parts: any[] = [];
+            if (h.text) parts.push({ text: h.text });
+            if (h.images) {
+                h.images.forEach(img => {
+                    parts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+                });
+            }
+            return {
+                role: h.role,
+                parts
+            };
+        })
     });
 
-    const result = await chat.sendMessageStream({ message });
+    const msgParts: any[] = [];
+    if (message) msgParts.push({ text: message });
+    if (images) {
+        images.forEach(img => {
+            msgParts.push({ inlineData: { mimeType: img.mimeType, data: img.base64 } });
+        });
+    }
+
+    const result = await chat.sendMessageStream({ message: msgParts });
     incrementUsage(featureId);
 
     for await (const chunk of result) {
