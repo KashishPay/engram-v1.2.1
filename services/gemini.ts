@@ -324,7 +324,7 @@ export const chatWithNotesStream = async (
         model,
         config: { systemInstruction },
         history: history.map(h => {
-            const parts: any[] = [];
+            const parts: unknown[] = [];
             if (h.text) parts.push({ text: h.text });
             if (h.images) {
                 h.images.forEach(img => {
@@ -338,7 +338,7 @@ export const chatWithNotesStream = async (
         })
     });
 
-    const msgParts: any[] = [];
+    const msgParts: unknown[] = [];
     if (message) msgParts.push({ text: message });
     if (images) {
         images.forEach(img => {

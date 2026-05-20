@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Play, CheckCircle, XCircle, Clock, RefreshCw, BookOpen, Target, SkipForward, History, ChevronDown, ChevronUp, Download, RotateCw } from 'lucide-react';
+import { ArrowLeft, Play, CheckCircle, XCircle, Clock, RefreshCw, BookOpen, Target, SkipForward, History, ChevronDown, ChevronUp, Download, RotateCw, Calculator, X, Minus } from 'lucide-react';
 import { Card } from '../components/Card';
 import { fetchExamSubjects, generateExamQuiz, TestSeriesQuestion } from '../services/testSeriesService';
 import katex from 'katex';
@@ -48,6 +48,8 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
     const [answers, setAnswers] = useState<{ qIndex: number; selected: string; correct: string }[]>([]);
     const [timeTaken, setTimeTaken] = useState(0);
     const [timerRunning, setTimerRunning] = useState(false);
+    const [showCalculator, setShowCalculator] = useState(false);
+    const [isCalcMinimized, setIsCalcMinimized] = useState(false);
 
     // History State
     const [history, setHistory] = useState<TestHistoryEntry[]>([]);
@@ -668,8 +670,20 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                             Q {currentQuestionIndex + 1} / {quizData.length}
                         </span>
                     </div>
-                    <div className="flex items-center text-gray-500 dark:text-gray-400 font-mono font-bold">
-                        <Clock size={16} className="mr-1" /> {formatTime(timeTaken)}
+                    <div className="flex items-center space-x-4">
+                        <button 
+                            onClick={() => {
+                                setShowCalculator(true);
+                                setIsCalcMinimized(false);
+                            }}
+                            className="p-2 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition"
+                            title="Open Calculator"
+                        >
+                            <Calculator size={20} />
+                        </button>
+                        <div className="flex items-center text-gray-500 dark:text-gray-400 font-mono font-bold">
+                            <Clock size={16} className="mr-1" /> {formatTime(timeTaken)}
+                        </div>
                     </div>
                 </div>
 
@@ -692,6 +706,57 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                     <button onClick={handleSkip} className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-200 dark:hover:bg-gray-800 rounded-xl transition flex items-center">
                         Skip Question <SkipForward size={18} className="ml-2" />
                     </button>
+                </div>
+                
+                <div className={showCalculator ? "fixed inset-0 z-[100] pointer-events-none flex items-center justify-center p-4" : "hidden"}>
+                    <div 
+                        className={`absolute inset-0 transition-opacity duration-300 ${isCalcMinimized ? 'opacity-0' : 'opacity-100 bg-black/60 pointer-events-auto'}`}
+                    />
+                    
+                    <div className={`relative transition-all duration-300 pointer-events-auto ${isCalcMinimized ? 'scale-0 opacity-0 pointer-events-none absolute' : 'scale-100 opacity-100'}`}>
+                        <style>{`
+                            .calc-wrapper { width: 463px; height: 380px; background: transparent !important; }
+                            @media (max-width: 500px) and (orientation: portrait) {
+                                .calc-wrapper { transform: rotate(90deg) scale(0.85); transform-origin: center center; }
+                            }
+                            .calc-wrapper iframe { height: 100%; border-radius: 8px; width: 100%; }
+                        `}</style>
+                        
+                        <div className="fixed top-20 right-4 md:top-4 md:right-4 flex flex-col space-y-4 z-[200]">
+                             <button 
+                                onClick={() => setIsCalcMinimized(true)}
+                                className="p-3 bg-blue-600 text-white hover:bg-blue-700 rounded-full shadow-lg transition transform active:scale-90"
+                                title="Minimize"
+                             >
+                                 <Minus size={20} />
+                             </button>
+                             <button 
+                                onClick={() => setShowCalculator(false)}
+                                className="p-3 bg-red-600 text-white hover:bg-red-700 rounded-full shadow-lg transition transform active:scale-90"
+                                title="Close"
+                             >
+                                 <X size={20} />
+                             </button>
+                        </div>
+                        
+                        <div className="calc-wrapper bg-[#2a2a2a] rounded-lg shadow-2xl flex flex-col justify-center items-center">
+                            <iframe 
+                                src="/calculator/Calculator.html"
+                                className="w-full h-full border-0 bg-white"
+                                title="Scientific Calculator"
+                            />
+                        </div>
+                    </div>
+
+                    <div className={`fixed top-4 right-4 pointer-events-auto transition-transform duration-300 ${isCalcMinimized ? 'scale-100 visible' : 'scale-0 invisible'}`}>
+                         <button 
+                            onClick={() => setIsCalcMinimized(false)}
+                            className="p-3 bg-blue-600 text-white hover:bg-blue-700 rounded-full shadow-2xl transition transform active:scale-90 animate-bounce flex items-center justify-center"
+                            title="Restore Calculator"
+                         >
+                             <Calculator size={24} />
+                         </button>
+                    </div>
                 </div>
             </div>
         );

@@ -31,14 +31,17 @@
     "jsonrepair": "^3.14.0",
     "jspdf": "^2.5.1",
     "katex": "^0.16.9",
+    "konva": "^10.3.0",
     "lucide-react": "^0.561.0",
     "pdfjs-dist": "3.11.174",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "react-konva": "^18.2.10",
     "react-markdown": "^9.0.1",
     "rehype-katex": "^7.0.0",
     "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0"
+    "remark-math": "^6.0.0",
+    "use-image": "^1.1.4"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

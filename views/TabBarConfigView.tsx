@@ -22,7 +22,7 @@ export const TabBarConfigView: React.FC<TabBarConfigViewProps> = ({ enabledTabId
     
     // Configurable items can be added/removed.
     const CONFIGURABLE_ITEMS = [
-        'profile', 'calendar', 'task', 'matrix', 'pomodoro', 'habit', 'observations', 'search'
+        'profile', 'calendar', 'task', 'matrix', 'pomodoro', 'habit', 'observations', 'search', 'diary', 'calculator'
     ];
     
     // Filter enabled tabs to only include valid ones

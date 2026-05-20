@@ -53,8 +53,10 @@ import { AiFeaturesView } from '../views/AiFeaturesView';
 import { StudyBreakdownView } from '../views/StudyBreakdownView';
 import { ObservationsView } from '../views/ObservationsView';
 import { PomoHistoryView } from '../views/PomoHistoryView';
+import { CalculatorView } from '../views/CalculatorView';
 import { FlashcardHubView } from '../views/FlashcardHubView';
 import { TestSeriesView } from '../views/TestSeriesView';
+import { DiaryView } from '../views/DiaryView';
 
 import { useFocus } from '../context/FocusContext';
 
@@ -889,6 +891,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             // 1. Get Study Log (Including Podcast Audio)
             const sanitizedLog = props.studyLog.map(item => {
                 const newItem = { ...item };
+                delete newItem.podcastScript;
+                delete newItem.podcastAudio;
+                delete newItem.hasSavedAudio;
                 return newItem;
             });
 
@@ -1097,6 +1102,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             {currentView === 'podcastSettings' && <PodcastSettingsView config={props.podcastConfig} onUpdate={props.setPodcastConfig} navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} studyLog={props.studyLog} onPlayTopic={(t) => { props.podcast.controls.playTopic(t); navigateTo('podcast'); }} onUpdateTopic={props.handleUpdateTopic} />}
             {currentView === 'flashcardHub' && <FlashcardHubView studyLog={props.studyLog} userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} goBack={goBack} />}
             {currentView === 'testSeries' && <TestSeriesView userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} />}
+            {currentView === 'diary' && <DiaryView userId={props.userId} themeColor={props.currentTheme} />}
             {currentView === 'about' && <AboutView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
             {currentView === 'terms' && <TermsView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
             {currentView === 'privacy' && <PrivacyView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
@@ -1109,6 +1115,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             {currentView === 'habit' && <HabitTrackerView themeColor={props.currentTheme} habits={props.habits} onUpdateHabits={props.setHabits} />}
             {currentView === 'observations' && <ObservationsView userId={props.userId} themeColor={props.currentTheme} navigateTo={navigateTo} />}
             {currentView === 'search' && <SearchView themeColor={props.currentTheme} studyLog={props.studyLog} navigateTo={navigateTo} />}
+            {currentView === 'calculator' && <CalculatorView themeColor={props.currentTheme} />}
         </AppShell>
     );
 };

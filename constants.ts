@@ -3,8 +3,8 @@ import { Type, Schema } from '@google/genai';
 import { Subject } from './types';
 import { 
     Calendar, CheckSquare, LayoutGrid, Target, MapPin, Search, Settings, 
-    Home, BookOpenText, PieChart, PenTool,
-    CloudRain, Waves, Flame, Coffee 
+    Home, BookOpenText, PieChart, PenTool, Book,
+    CloudRain, Waves, Flame, Coffee, Calculator as CalculatorIcon 
 } from 'lucide-react';
 
 // Spaced Repetition Intervals (in days)
@@ -85,6 +85,8 @@ export const TAB_ITEMS = [
     { id: 'habit', label: 'Habit Tracker', description: 'Develop a habit and keep track of it.', icon: MapPin, isCore: false },
     { id: 'observations', label: 'Observations', description: 'Daily log of what you lack, learn, and remember.', icon: PenTool, isCore: false },
     { id: 'search', label: 'Search', description: 'Do a quick search easily.', icon: Search, isCore: false },
+    { id: 'diary', label: 'Diary', description: 'Subject notebooks with drawing and notes.', icon: Book, isCore: false },
+    { id: 'calculator', label: 'Calculator', description: 'GATE Scientific Calculator.', icon: CalculatorIcon, isCore: false },
     { id: 'settings', label: 'Settings', description: 'Make changes to the current settings.', icon: Settings, isCore: true }, 
 ];
 
