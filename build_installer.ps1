@@ -84,7 +84,7 @@ npm install
 
 Write-Output "Ensuring critical dependencies are installed..."
 # Install Core App Features
-npm install react react-dom lucide-react @google/genai @supabase/supabase-js katex dompurify jspdf pdfjs-dist@3.11.174 react-markdown remark-gfm remark-math rehype-katex d3
+npm install react react-dom lucide-react @google/genai @supabase/supabase-js katex dompurify jspdf pdfjs-dist@3.11.174 react-markdown remark-gfm remark-math rehype-katex d3 html2canvas jsonrepair konva react-konva use-image
 
 # Install Capacitor Plugins (Core + Community)
 npm install @capacitor/core @capacitor/app @capacitor/filesystem @capacitor/share @capacitor/local-notifications @capacitor/haptics @capacitor/camera @capacitor/android @capacitor/ios @capacitor-community/admob @capacitor-community/keep-awake
