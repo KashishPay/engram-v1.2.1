@@ -146,7 +146,12 @@ const FlashCardDeck: React.FC<{
         setShowRevisitOptions(false);
         triggerHaptic.impact('Light');
 
-        await AdManager.showRewardVideo();
+        const isRewarded = await AdManager.showRewardVideo();
+        if (!isRewarded) {
+            setLoading(false);
+            alert("Revision canceled. Please watch the full ad to initiate cards generation.");
+            return;
+        }
         
         const shuffled = [...pool].sort(() => 0.5 - Math.random()).slice(0, desiredCount);
         

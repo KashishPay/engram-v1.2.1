@@ -77,20 +77,11 @@ npm pkg set "scripts.postinstall=node scripts/copy-pdf-worker.cjs"
 Write-Output "--- Step 5: Installing Dependencies ---"
 # Ensure we start fresh
 if (Test-Path "node_modules") { Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue }
-if (Test-Path "package-lock.json") { Remove-Item -Force package-lock.json -ErrorAction SilentlyContinue }
 
-Write-Output "Running base npm install..."
+Write-Output "Running base npm install from package.json..."
+# NOTE: Using package.json strictly preserves precise, tested, production versions (e.g., React 18.2.0, PDF.js, matching Lucide icons)
+# and prevents accidental breaking upgrades to React 19 which is incompatible with several assets/libraries.
 npm install
-
-Write-Output "Ensuring critical dependencies are installed..."
-# Install Core App Features
-npm install react react-dom lucide-react @google/genai @supabase/supabase-js katex dompurify jspdf pdfjs-dist@3.11.174 react-markdown remark-gfm remark-math rehype-katex d3 html2canvas jsonrepair konva react-konva use-image
-
-# Install Capacitor Plugins (Core + Community)
-npm install @capacitor/core @capacitor/app @capacitor/filesystem @capacitor/share @capacitor/local-notifications @capacitor/haptics @capacitor/camera @capacitor/android @capacitor/ios @capacitor-community/admob @capacitor-community/keep-awake
-
-# Install Dev Tools & Linters
-npm install -D vite @vitejs/plugin-react typescript @types/react @types/react-dom @types/d3 autoprefixer postcss tailwindcss @capacitor/cli @capacitor/assets eslint eslint-plugin-react-hooks eslint-plugin-react-refresh @typescript-eslint/eslint-plugin @typescript-eslint/parser
 
 # 6) Build Web App
 Write-Output "--- Step 6: Building Web Assets ---"
@@ -138,16 +129,16 @@ if (Test-Path $LogoSource) {
 # 9) Windows-Specific Build Fixes
 Write-Output "--- Step 9: Applying Windows Build Fixes ---"
 if (Test-Path "android") {
-    # 1. Fix "VANILLA_ICE_CREAM" and AdMob errors by bumping SDK versions
+    # 1. Fix "VANILLA_ICE_CREAM" and AdMob errors by bumping SDK versions to stable Android 15
     $varsFile = "android\variables.gradle"
     if (Test-Path $varsFile) {
         $varsContent = Get-Content $varsFile -Raw
-        $varsContent = $varsContent -replace 'compileSdkVersion = \d+', 'compileSdkVersion = 36'
-        $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 36'
+        $varsContent = $varsContent -replace 'compileSdkVersion = \d+', 'compileSdkVersion = 35'
+        $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 35'
         $varsContent = $varsContent -replace 'minSdkVersion = \d+', 'minSdkVersion = 24'
-        $varsContent = $varsContent -replace "androidxCoreVersion = '[^']+'", "androidxCoreVersion = '1.17.0'"
+        $varsContent = $varsContent -replace "androidxCoreVersion = '[^']+'", "androidxCoreVersion = '1.15.0'"
         Set-Content -Path $varsFile -Value $varsContent
-        Write-Output "Updated variables.gradle (compile/target=36, min=24, androidxCoreVersion=1.17.0)."
+        Write-Output "Updated variables.gradle (compile/target=35, min=24, androidxCoreVersion=1.15.0)."
     }
 
     # 1.1 Update gradle-wrapper.properties

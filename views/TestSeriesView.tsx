@@ -273,7 +273,12 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
         setError(null);
         try {
             // Show rewarded ad here before quiz generation
-            await AdManager.showRewardVideo();
+            const isRewarded = await AdManager.showRewardVideo();
+            if (!isRewarded) {
+                setError("Ad skipped. To start the test, please watch the full video.");
+                setIsGeneratingQuiz(false);
+                return;
+            }
 
             // Retrieve past questions context to avoid repetition
             const pastQuestions = JSON.parse(localStorage.getItem(`engram_test_series_past_questions_${userId}`) || '[]');
