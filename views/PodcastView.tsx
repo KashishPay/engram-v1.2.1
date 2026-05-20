@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { ArrowLeft, Headphones, Play, Pause, Rewind, FastForward, X, Minimize2, Loader, Mic2, ChevronDown, FileText, Download, FolderOpen, Bookmark, Trash2, RefreshCw, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, Headphones, Play, Pause, Rewind, FastForward, X, Loader, Mic2, ChevronDown, FileText, Download, FolderOpen, Bookmark, Trash2, RefreshCw, Plus, Minus } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic } from '../types';
 import { getAudioFromIDB, deleteAudioFromIDB, getAllAudioKeys } from '../services/storage';
@@ -773,16 +773,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                         className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 sticky top-0 z-[60] pointer-events-auto"
                         style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
                      >
-                        <button 
-                            type="button"
-                            onClick={(e) => { 
-                                e.stopPropagation(); 
-                                onMinimize(); 
-                            }}
-                            className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full pointer-events-auto cursor-pointer relative z-[60]"
-                        >
-                            <Minimize2 size={24} />
-                        </button>
+                        <div className="w-10"></div>
                         <span className="text-sm font-bold text-gray-500">Audio Library</span>
                         <button 
                             type="button"

@@ -467,7 +467,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                 // Fallback to lighter model on retries
                 let fallbackModel: string | undefined = undefined;
                 if (attempts > 1) {
-                    fallbackModel = 'gemini-3-flash-preview';
+                    fallbackModel = 'gemini-3.5-flash';
                 }
 
                 await chatWithNotesStream(

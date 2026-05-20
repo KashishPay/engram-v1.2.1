@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Timer, RotateCw, XCircle, ChevronLeft, AlertTriangle, SkipForward } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, QuizQuestion, Repetition } from '../types';
-import { callGeminiApiWithRetry } from '../services/gemini';
+import { callGeminiApiWithRetry, resolveModelName } from '../services/gemini';
 import { QUIZ_SYSTEM_INSTRUCTION, FALLBACK_QUIZ_INSTRUCTION, QUIZ_SCHEMA, SPACING_INTERVALS } from '../constants';
 import { ensureTopicContent } from '../services/storage';
 import { ErrorCard } from '../components/ErrorCard';
@@ -202,16 +202,12 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             }
 
             // 3. Resolve Model from Prefs
-            let model = 'gemini-3-flash-preview'; // Safe Default
+            let model = 'gemini-3.5-flash'; // Safe Default
             let persona = "";
             try {
                 const prefs = JSON.parse(localStorage.getItem(`engram_ai_preferences_${userId}`) || '{}');
                 const quizPrefs = prefs.quiz || {};
-                if (quizPrefs.model) {
-                    if (quizPrefs.model === 'flash') model = 'gemini-3-flash-preview';
-                    else if (quizPrefs.model === 'pro') model = 'gemini-3.1-pro-preview';
-                    else model = quizPrefs.model; // Explicit string
-                }
+                model = resolveModelName(quizPrefs.model);
                 if (quizPrefs.persona) persona = quizPrefs.persona;
             } catch {
                 // Ignore error
@@ -251,7 +247,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 if (isProOrPreview && isRecoverable && !controller.signal.aborted) {
                     console.debug("[QUIZ] Fallback to Flash");
                     setIsModelFallback(true);
-                    data = await makeCall('gemini-3-flash-preview');
+                    data = await makeCall('gemini-3.5-flash');
                 } else {
                     throw firstError;
                 }

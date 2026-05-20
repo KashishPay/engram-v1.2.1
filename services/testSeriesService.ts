@@ -44,7 +44,7 @@ Return ONLY a JSON array of strings representing the subjects. Keep the subject 
 
     try {
         const response = await client.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3.5-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -126,7 +126,7 @@ Return the output strictly as a JSON array of exactly ${numQuestions} objects. E
 
     try {
         const response = await client.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3.5-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",

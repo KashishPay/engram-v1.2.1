@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Book, Plus, Trash2, ChevronRight, ChevronLeft, X, Paintbrush, FileText, Download, Check, Eraser, Hand, ZoomIn, ZoomOut, Undo, Redo, GripVertical } from 'lucide-react';
+import { Book, Plus, Trash2, ChevronRight, ChevronLeft, ChevronDown, X, Paintbrush, FileText, Download, Check, Eraser, Hand, ZoomIn, ZoomOut, Undo, Redo, GripVertical, Edit2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { Stage, Layer, Line } from 'react-konva';
+import { Stage, Layer, Line, Circle } from 'react-konva';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -63,9 +63,54 @@ export const DiaryView: React.FC<{
     const [stageScale, setStageScale] = useState(1);
     const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
     const [isExporting, setIsExporting] = useState(false);
+    const [eraserPos, setEraserPos] = useState<{ x: number, y: number } | null>(null);
     
     const [isAddingSubject, setIsAddingSubject] = useState(false);
     const [newSubjectName, setNewSubjectName] = useState('');
+    const [confirmDelete, setConfirmDelete] = useState<{
+        type: 'subject' | 'page';
+        subjectId: string;
+        pageId?: string;
+        title: string;
+    } | null>(null);
+
+    // Edit states
+    const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+    const [editingSubjectName, setEditingSubjectName] = useState('');
+    const [editingPageId, setEditingPageId] = useState<string | null>(null);
+    const [editingPageTitle, setEditingPageTitle] = useState('');
+
+    const startEditingSubject = (id: string, name: string) => {
+        setEditingSubjectId(id);
+        setEditingSubjectName(name);
+        setEditingPageId(null);
+    };
+
+    const saveSubjectName = (id: string) => {
+        if (editingSubjectName.trim()) {
+            updateSubject(id, { name: editingSubjectName.trim() });
+        }
+        setEditingSubjectId(null);
+    };
+
+    const startEditingPage = (id: string, title: string) => {
+        setEditingPageId(id);
+        setEditingPageTitle(title);
+        setEditingSubjectId(null);
+    };
+
+    const savePageTitle = (subId: string, pageId: string) => {
+        if (editingPageTitle.trim()) {
+            setSubjects(prev => prev.map(s => {
+                if (s.id !== subId) return s;
+                return {
+                    ...s,
+                    pages: s.pages.map(p => p.id === pageId ? { ...p, title: editingPageTitle.trim() } : p)
+                };
+            }));
+        }
+        setEditingPageId(null);
+    };
     
     // Canvas dimensions relative
     const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight - 200 });
@@ -268,6 +313,24 @@ export const DiaryView: React.FC<{
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleMouseMove = (e: any) => {
+        // Track eraser position whenever eraser tool is active
+        if (viewMode === 'draw' && drawTool === 'eraser') {
+            const stage = e.target.getStage();
+            if (stage) {
+                const point = stage.getPointerPosition();
+                if (point) {
+                    const transform = stage.getAbsoluteTransform().copy();
+                    transform.invert();
+                    const relativePoint = transform.point(point);
+                    setEraserPos({ x: relativePoint.x, y: relativePoint.y });
+                } else {
+                    setEraserPos(null);
+                }
+            }
+        } else if (eraserPos !== null) {
+            setEraserPos(null);
+        }
+
         if (!isDrawing.current || viewMode !== 'draw' || drawTool === 'pan') return;
 
         const stage = e.target.getStage();
@@ -290,8 +353,13 @@ export const DiaryView: React.FC<{
         updateActivePage({ drawings: newDrawings });
     };
 
-    const handleMouseUp = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleMouseUp = (e?: any) => {
         isDrawing.current = false;
+        // On touch-ended, clear eraser position to avoid stale indicator
+        if (e && e.evt && (e.evt.touches || e.evt.changedTouches)) {
+            setEraserPos(null);
+        }
     };
 
     const handleDownloadPdf = async () => {
@@ -388,49 +456,143 @@ export const DiaryView: React.FC<{
                     )}
                     {subjects.map(sub => (
                         <div key={sub.id} className="mb-2">
-                            <div 
-                                className={`px-4 py-2 flex items-center justify-between cursor-pointer group ${activeSubjectId === sub.id ? `bg-${themeColor}-50 dark:bg-${themeColor}-900/20 border-l-2 border-${themeColor}-500` : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                                onClick={() => setActiveSubjectId(sub.id)}
-                            >
-                                <span className={`font-semibold text-sm ${activeSubjectId === sub.id ? `text-${themeColor}-700 dark:text-${themeColor}-400` : 'text-gray-700 dark:text-gray-300'}`}>{sub.name}</span>
-                                <div className="flex items-center opacity-0 group-hover:opacity-100 transition">
-                                    <button onClick={(e) => { e.stopPropagation(); addPage(sub.id); }} className="text-gray-400 hover:text-green-500 mx-1"><Plus size={14} /></button>
+                            {editingSubjectId === sub.id ? (
+                                <div 
+                                    className="mx-3 my-1 px-2 py-1 flex items-center bg-gray-50 dark:bg-gray-800/85 border border-gray-200 dark:border-gray-750 rounded-lg shadow-inner"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <input 
+                                        autoFocus
+                                        type="text"
+                                        value={editingSubjectName}
+                                        onChange={(e) => setEditingSubjectName(e.target.value)}
+                                        onBlur={() => saveSubjectName(sub.id)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') saveSubjectName(sub.id);
+                                            if (e.key === 'Escape') setEditingSubjectId(null);
+                                        }}
+                                        className="flex-1 bg-transparent text-sm font-semibold border-none outline-none text-gray-800 dark:text-gray-200 min-w-0"
+                                    />
                                     <button 
-                                        onClick={(e) => { 
-                                            e.stopPropagation(); 
-                                            if(confirm('Delete subject?')) setSubjects(prev => prev.filter(s => s.id !== sub.id));
-                                        }} 
-                                        className="text-gray-400 hover:text-red-500 mx-1"
-                                    ><Trash2 size={14} /></button>
+                                        onClick={(e) => { e.stopPropagation(); saveSubjectName(sub.id); }} 
+                                        className="text-green-500 hover:text-green-650 ml-1.5 focus:outline-none"
+                                    >
+                                        <Check size={16} />
+                                    </button>
                                 </div>
-                            </div>
+                            ) : (
+                                <div 
+                                    className={`px-4 py-2 flex items-center justify-between cursor-pointer group ${activeSubjectId === sub.id ? `bg-${themeColor}-50/60 dark:bg-${themeColor}-900/15 border-l-2 border-${themeColor}-500` : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                                    onClick={() => setActiveSubjectId(sub.id)}
+                                    onDoubleClick={() => startEditingSubject(sub.id, sub.name)}
+                                >
+                                    <span 
+                                        className={`font-semibold text-sm truncate pr-2 flex-1 ${activeSubjectId === sub.id ? `text-${themeColor}-700 dark:text-${themeColor}-400` : 'text-gray-700 dark:text-gray-300'}`}
+                                        title="Double click to rename"
+                                    >
+                                        {sub.name}
+                                    </span>
+                                    <div className="flex items-center space-x-1 shrink-0">
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); startEditingSubject(sub.id, sub.name); }} 
+                                            className="text-gray-400 hover:text-blue-500 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition md:opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                            title="Rename Subject"
+                                        >
+                                            <Edit2 size={13} />
+                                        </button>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); addPage(sub.id); }} 
+                                            className="text-gray-400 hover:text-green-500 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition md:opacity-75 md:hover:opacity-100"
+                                            title="Add Page"
+                                        >
+                                            <Plus size={16} />
+                                        </button>
+                                        <button 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                setConfirmDelete({
+                                                    type: 'subject',
+                                                    subjectId: sub.id,
+                                                    title: sub.name
+                                                });
+                                            }} 
+                                            className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition md:opacity-75 md:hover:opacity-100"
+                                            title="Delete Subject"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                             
                             {/* Pages */}
                             {activeSubjectId === sub.id && (
                                 <div className="pl-6 pr-2 py-1 space-y-1">
                                     {sub.pages.map(page => (
-                                        <div 
-                                            key={page.id}
-                                            onClick={() => setActivePageId(page.id)}
-                                            className={`px-3 py-1.5 text-sm rounded-md cursor-pointer flex justify-between items-center group ${activePageId === page.id ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-medium' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                                        >
-                                            <span className="truncate pr-2">{page.title || 'Untitled'}</span>
-                                            {activePageId === page.id && (
-                                                <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if(confirm('Delete page?')){
-                                                            const newPages = sub.pages.filter(p => p.id !== page.id);
-                                                            updateSubject(sub.id, { pages: newPages });
-                                                            if (activePageId === page.id) setActivePageId(newPages[0]?.id || null);
-                                                        }
+                                        editingPageId === page.id ? (
+                                            <div 
+                                                key={page.id}
+                                                className="px-2 py-1 flex items-center bg-gray-50 dark:bg-gray-800/60 rounded-md border border-gray-200 dark:border-gray-700 shadow-sm"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <input 
+                                                    autoFocus
+                                                    type="text"
+                                                    value={editingPageTitle}
+                                                    onChange={(e) => setEditingPageTitle(e.target.value)}
+                                                    onBlur={() => savePageTitle(sub.id, page.id)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') savePageTitle(sub.id, page.id);
+                                                        if (e.key === 'Escape') setEditingPageId(null);
                                                     }}
-                                                    className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                                                    className="flex-1 bg-transparent text-xs border-none outline-none text-gray-800 dark:text-gray-200 min-w-0"
+                                                />
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); savePageTitle(sub.id, page.id); }} 
+                                                    className="text-green-500 hover:text-green-650 ml-1 focus:outline-none"
                                                 >
-                                                    <X size={14} />
+                                                    <Check size={14} />
                                                 </button>
-                                            )}
-                                        </div>
+                                            </div>
+                                        ) : (
+                                            <div 
+                                                key={page.id}
+                                                onClick={() => setActivePageId(page.id)}
+                                                onDoubleClick={() => startEditingPage(page.id, page.title || 'Untitled')}
+                                                className={`px-3 py-1.5 text-sm rounded-md cursor-pointer flex justify-between items-center group ${activePageId === page.id ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-medium' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                                            >
+                                                <span 
+                                                    className="truncate pr-1 flex-1 text-xs"
+                                                    title="Double click to rename"
+                                                >
+                                                    {page.title || 'Untitled'}
+                                                </span>
+                                                <div className="flex items-center space-x-0.5 shrink-0 md:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition duration-150">
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); startEditingPage(page.id, page.title || 'Untitled'); }} 
+                                                        className="text-gray-400 hover:text-blue-500 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                                                        title="Rename Page"
+                                                    >
+                                                        <Edit2 size={12} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setConfirmDelete({
+                                                                type: 'page',
+                                                                subjectId: sub.id,
+                                                                pageId: page.id,
+                                                                title: page.title || 'Untitled'
+                                                            });
+                                                        }}
+                                                        className="text-gray-400 hover:text-red-500 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition ml-0.5"
+                                                        title="Delete Page"
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )
                                     ))}
                                 </div>
                             )}
@@ -451,71 +613,80 @@ export const DiaryView: React.FC<{
 
                 {activePage ? (
                     <>
-                        <div className="px-6 md:px-12 py-4 border-b border-gray-200 dark:border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="px-3.5 md:px-6 py-3 border-b border-gray-200 dark:border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
                             <div className="flex items-center w-full md:w-auto flex-1 min-w-0 space-x-2">
-                                <select 
-                                    value={activePageId || ''} 
-                                    onChange={(e) => setActivePageId(e.target.value)}
-                                    className="appearance-none bg-gray-100 dark:bg-gray-800 border-none rounded-lg py-2 pl-3 pr-8 text-sm font-semibold text-gray-800 dark:text-gray-100 max-w-[120px] shrink-0"
-                                >
-                                    {activeSubject?.pages.map((p, idx) => (
-                                        <option key={p.id} value={p.id}>{p.title || `Page ${idx + 1}`}</option>
-                                    ))}
-                                </select>
+                                <div className="relative shrink-0 select-none">
+                                    <div className="bg-gray-100 dark:bg-gray-800 border-none rounded-md py-1 px-2 text-xs font-semibold text-gray-700 dark:text-gray-200 flex items-center justify-center space-x-1 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                                        <span>P.{currentPageIndex + 1}</span>
+                                        <ChevronDown size={12} className="opacity-60 shrink-0" />
+                                    </div>
+                                    <select 
+                                        value={activePageId || ''} 
+                                        onChange={(e) => setActivePageId(e.target.value)}
+                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                        title="Jump to page"
+                                    >
+                                        {activeSubject?.pages.map((p, idx) => (
+                                            <option key={p.id} value={p.id}>{p.title || `Page ${idx + 1}`}</option>
+                                        ))}
+                                    </select>
+                                </div>
                                 <input 
                                     type="text"
                                     value={activePage.title}
                                     onChange={(e) => updateActivePage({ title: e.target.value })}
-                                    className="flex-1 min-w-0 text-xl md:text-2xl font-bold bg-transparent border-none outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400"
+                                    className="flex-1 min-w-0 text-base md:text-xl font-bold bg-transparent border-none outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 py-1"
                                     placeholder="Page Title"
                                 />
                                 <button
                                     onClick={() => activeSubject && addPage(activeSubject.id)}
-                                    className="px-3 py-2 ml-1 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition flex items-center shrink-0 font-medium text-sm whitespace-nowrap shadow-sm"
+                                    className="p-1 ml-1 rounded-md bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition flex items-center justify-center shrink-0 shadow-sm"
                                     title="Add New Page"
                                 >
-                                    <Plus size={16} className="mr-1" /> Add Page
+                                    <Plus size={16} />
                                 </button>
                             </div>
 
-                            <div className="flex items-center space-x-2">
-                                <div className="flex items-center space-x-2 shrink-0 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                            <div className="flex items-center justify-between md:justify-end space-x-2 w-full md:w-auto">
+                                <div className="flex items-center space-x-1 shrink-0 bg-gray-100 dark:bg-gray-800 p-0.5 md:p-1 rounded-lg">
                                     <button
                                         onClick={() => setViewMode('notes')}
-                                        className={`px-3 py-1.5 flex items-center rounded-md text-sm font-medium transition ${viewMode === 'notes' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                        className={`px-2 md:px-3 py-1 flex items-center rounded-md text-xs md:text-sm font-medium transition ${viewMode === 'notes' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                                     >
-                                        <FileText size={16} className="mr-1.5" /> Notes & Math
+                                        <FileText size={14} className="mr-1 md:mr-1.5 shrink-0" />
+                                        <span>Notes<span className="hidden md:inline"> & Math</span></span>
                                     </button>
                                     <button
                                         onClick={() => setViewMode('draw')}
-                                        className={`px-3 py-1.5 flex items-center rounded-md text-sm font-medium transition ${viewMode === 'draw' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                        className={`px-2 md:px-3 py-1 flex items-center rounded-md text-xs md:text-sm font-medium transition ${viewMode === 'draw' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                                     >
-                                        <Paintbrush size={16} className="mr-1.5" /> Draw
+                                        <Paintbrush size={14} className="mr-1 md:mr-1.5 shrink-0" />
+                                        <span>Draw</span>
                                     </button>
                                 </div>
-                                <div className="flex items-center space-x-1 ml-2">
+                                <div className="flex items-center space-x-1 shrink-0">
                                     <button
                                         onClick={handleDownloadPdf}
-                                        className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center shrink-0"
+                                        className="p-1.5 md:p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center shrink-0"
                                         title="Download PDF"
                                     >
-                                        <Download size={18} className="text-gray-700 dark:text-gray-300" />
+                                        <Download size={16} className="text-gray-700 dark:text-gray-300" />
                                     </button>
                                     <button
                                         onClick={handlePrevPage}
                                         disabled={isFirstPage}
-                                        className={`p-2 rounded-lg bg-gray-100 dark:bg-gray-800 transition flex items-center shrink-0 ${isFirstPage ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                        className={`p-1.5 md:p-2 rounded-lg bg-gray-100 dark:bg-gray-800 transition flex items-center shrink-0 ${isFirstPage ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                                         title="Previous Page"
                                     >
-                                        <ChevronLeft size={18} className="text-gray-700 dark:text-gray-300" />
+                                        <ChevronLeft size={16} className="text-gray-700 dark:text-gray-300" />
                                     </button>
                                     <button
                                         onClick={handleNextPage}
                                         disabled={isLastPage}
-                                        className={`p-2 rounded-lg bg-gray-100 dark:bg-gray-800 transition flex items-center shrink-0 ${isLastPage ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                                        className={`p-1.5 md:p-2 rounded-lg bg-gray-100 dark:bg-gray-800 transition flex items-center shrink-0 ${isLastPage ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                                         title="Next Page"
                                     >
-                                        <ChevronRight size={18} className="text-gray-700 dark:text-gray-300" />
+                                        <ChevronRight size={16} className="text-gray-700 dark:text-gray-300" />
                                     </button>
                                 </div>
                             </div>
@@ -527,24 +698,24 @@ export const DiaryView: React.FC<{
                             
                             {viewMode === 'notes' && (
                                 <div className="absolute inset-0 flex flex-col overflow-hidden bg-white/50 dark:bg-gray-900/50">
-                                    <div className="flex items-center p-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/80">
-                                        <div className="flex bg-gray-200 dark:bg-gray-700 p-0.5 rounded-lg space-x-1">
+                                    <div className="flex items-center p-1.5 md:p-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/80 overflow-x-auto scrollbar-none">
+                                        <div className="flex bg-gray-200 dark:bg-gray-700 p-0.5 rounded-lg space-x-0.5 md:space-x-1 shrink-0">
                                             <button 
                                                 onClick={() => setNoteMode('edit')} 
-                                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${noteMode === 'edit' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                                                className={`px-3 py-1 md:px-4 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition shrink-0 ${noteMode === 'edit' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
                                             >Write</button>
                                             <button 
                                                 onClick={() => setNoteMode('preview')} 
-                                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${noteMode === 'preview' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                                                className={`px-3 py-1 md:px-4 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition shrink-0 ${noteMode === 'preview' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
                                             >Preview</button>
                                         </div>
                                         {noteMode === 'edit' && (
-                                            <div className="flex items-center space-x-1 ml-4 pl-4 border-l border-gray-300 dark:border-gray-600">
-                                                <button onClick={() => insertMarkdown('# ', '')} className="p-1.5 px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-sm font-bold text-gray-700 dark:text-gray-300 transition" title="Heading 1">H1</button>
-                                                <button onClick={() => insertMarkdown('## ', '')} className="p-1.5 px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-sm font-bold text-gray-700 dark:text-gray-300 transition" title="Heading 2">H2</button>
-                                                <button onClick={() => insertMarkdown('### ', '')} className="p-1.5 px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-sm font-bold text-gray-700 dark:text-gray-300 transition" title="Heading 3">H3</button>
-                                                <button onClick={() => insertMarkdown('**', '**')} className="p-1.5 px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-sm font-bold text-gray-700 dark:text-gray-300 transition" title="Bold">B</button>
-                                                <button onClick={() => insertMarkdown('*', '*')} className="p-1.5 px-3 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-sm italic font-serif text-gray-700 dark:text-gray-300 transition" title="Italic">I</button>
+                                            <div className="flex items-center space-x-0.5 md:space-x-1 ml-2 md:ml-4 pl-2 md:pl-4 border-l border-gray-300 dark:border-gray-600 shrink-0">
+                                                <button onClick={() => insertMarkdown('# ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Heading 1">H1</button>
+                                                <button onClick={() => insertMarkdown('## ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Heading 2">H2</button>
+                                                <button onClick={() => insertMarkdown('### ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Heading 3">H3</button>
+                                                <button onClick={() => insertMarkdown('**', '**')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Bold">B</button>
+                                                <button onClick={() => insertMarkdown('*', '*')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm italic font-serif text-gray-700 dark:text-gray-300 transition shrink-0" title="Italic">I</button>
                                             </div>
                                         )}
                                     </div>
@@ -688,6 +859,7 @@ export const DiaryView: React.FC<{
                                             else e.evt.preventDefault(); // allow zooming/panning via browser native if possible, or implement custom pinch-to-zoom
                                         }}
                                         onTouchEnd={handleMouseUp}
+                                        onMouseLeave={() => setEraserPos(null)}
                                         className={drawTool === 'pan' ? 'cursor-grab active:cursor-grabbing' : (drawTool === 'eraser' ? 'cursor-crosshair' : 'cursor-default')}
                                     >
                                         <Layer>
@@ -705,6 +877,17 @@ export const DiaryView: React.FC<{
                                                     }
                                                 />
                                             ))}
+                                            {drawTool === 'eraser' && eraserPos && (
+                                                <Circle
+                                                    x={eraserPos.x}
+                                                    y={eraserPos.y}
+                                                    radius={drawWidth / 2}
+                                                    stroke={document.documentElement.classList.contains('dark') ? '#f3f4f6' : '#1f2937'}
+                                                    strokeWidth={1.5 / stageScale}
+                                                    fill="rgba(156, 163, 175, 0.35)"
+                                                    listening={false}
+                                                />
+                                            )}
                                         </Layer>
                                     </Stage>
                                 </>
@@ -719,6 +902,53 @@ export const DiaryView: React.FC<{
                     </div>
                 )}
             </div>
+
+            {/* Custom Safe Deletion Confirmation Overlay Modal */}
+            {confirmDelete && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-gray-100 dark:border-gray-800 transform scale-100 transition-all">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                            Delete {confirmDelete.type === 'subject' ? 'Subject' : 'Page'}?
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
+                            Are you sure you want to delete <span className="font-semibold text-gray-700 dark:text-gray-300">"{confirmDelete.title}"</span>? This action cannot be undone.
+                        </p>
+                        <div className="flex justify-end space-x-3">
+                            <button
+                                onClick={() => setConfirmDelete(null)}
+                                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (confirmDelete.type === 'subject') {
+                                        setSubjects(prev => prev.filter(s => s.id !== confirmDelete.subjectId));
+                                        if (activeSubjectId === confirmDelete.subjectId) {
+                                            const remaining = subjects.filter(s => s.id !== confirmDelete.subjectId);
+                                            setActiveSubjectId(remaining[0]?.id || null);
+                                            setActivePageId(remaining[0]?.pages[0]?.id || null);
+                                        }
+                                    } else {
+                                        const sub = subjects.find(s => s.id === confirmDelete.subjectId);
+                                        if (sub) {
+                                            const newPages = sub.pages.filter(p => p.id !== confirmDelete.pageId);
+                                            updateSubject(confirmDelete.subjectId, { pages: newPages });
+                                            if (activePageId === confirmDelete.pageId) {
+                                                setActivePageId(newPages[0]?.id || null);
+                                            }
+                                        }
+                                    }
+                                    setConfirmDelete(null);
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-white bg-red-650 hover:bg-red-750 bg-red-600 hover:bg-red-700 rounded-lg transition"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

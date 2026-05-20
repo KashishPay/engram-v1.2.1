@@ -68,7 +68,7 @@ export const validateApiKey = async (key: string): Promise<boolean> => {
     try {
         const ai = new GoogleGenAI({ apiKey: key });
         await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3.5-flash',
             contents: 'test',
         });
         return true;
@@ -89,6 +89,13 @@ export const getFeatureConfig = (featureId: string) => {
     }
 };
 
+export const resolveModelName = (prefsModel?: string): string => {
+    if (!prefsModel) return 'gemini-3.5-flash';
+    if (prefsModel === 'flash') return 'gemini-3.5-flash';
+    if (prefsModel === 'pro') return 'gemini-3.1-pro-preview';
+    return prefsModel;
+};
+
 export const truncateContext = (text: string, maxLength: number = 10000) => {
     if (!text) return "";
     if (text.length <= maxLength) return text;
@@ -103,7 +110,7 @@ export const callGeminiApiWithRetry = async (
     images: { base64: string, mimeType: string }[] | null = null,
     tools: unknown[] | null = null,
     retries: number = 3,
-    modelName: string = 'gemini-3-flash-preview',
+    modelName: string = 'gemini-3.5-flash',
     featureId: string = 'general'
 ): Promise<unknown> => {
     checkUsageLimit();
@@ -175,8 +182,7 @@ export const generatePodcastScript = async (
     featureId: string = 'podcast'
 ): Promise<string> => {
     const prefs = getFeatureConfig(featureId);
-    let model = 'gemini-3-flash-preview';
-    if (prefs.model === 'pro') model = 'gemini-3.1-pro-preview';
+    const model = resolveModelName(prefs.model);
 
     // Option A, B, D & 3: Hardened Technical Prompt
     const prompt = `You are an expert Engineering Professor and Podcast Producer. 
@@ -248,7 +254,7 @@ export const generateScoreAnalysis = async (name: string, score: number, level: 
     Topics count: ${studyLog.length}.
     Give a short, encouraging summary of their progress and one specific tip to improve.`;
     
-    const response = await callGeminiApiWithRetry(prompt, "You are a friendly study coach.", null, null, null, 2, 'gemini-3-flash-preview', 'profile');
+    const response = await callGeminiApiWithRetry(prompt, "You are a friendly study coach.", null, null, null, 2, 'gemini-3.5-flash', 'profile');
     return response.text;
 };
 
@@ -256,8 +262,7 @@ export const chatWithNotes = async (history: { role: string, text: string }[], m
     checkUsageLimit();
     const { client } = getAiClient();
     const prefs = getFeatureConfig(featureId);
-    let model = 'gemini-3-flash-preview';
-    if (prefs.model === 'pro') model = 'gemini-3.1-pro-preview';
+    const model = resolveModelName(prefs.model);
 
     const systemInstruction = `You are a helpful tutor for ${subject}. 
     Base your answers on the following notes context, but you can add external knowledge if needed.
@@ -292,9 +297,7 @@ export const chatWithNotesStream = async (
     checkUsageLimit();
     const { client } = getAiClient();
     const prefs = getFeatureConfig(featureId);
-    let model = 'gemini-3-flash-preview';
-    if (prefs.model === 'pro') model = 'gemini-3.1-pro-preview';
-    if (modelOverride) model = modelOverride;
+    const model = resolveModelName(modelOverride || prefs.model);
 
     const systemInstruction = `You are a helpful AI tutor for ${subject}.
     Base your answers on the following notes context, but you can add external knowledge if needed.

@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { callGeminiApiWithRetry, getFeatureConfig, detectMathStyle } from '../services/gemini';
+import { callGeminiApiWithRetry, getFeatureConfig, detectMathStyle, resolveModelName } from '../services/gemini';
 import { compressImage, getPdfDocument, renderPdfPage, getImageDimensions, loadImageFromBase64, cropImageFromSource, MIN_MARGIN_PX, MAX_MARGIN_PX, cropImageFromBase64 } from '../utils/media';
 import { saveImageToIDB, saveTopicBodyToIDB, getTopicBodyFromIDB, getNextSourceIndex, getSourceImageCount } from '../services/storage';
 import { getOCRPrompt, OCR_SYSTEM_INSTRUCTION } from '../services/llmPrompt';
@@ -236,7 +236,7 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
                 [attachment], 
                 null, 
                 3, 
-                'gemini-3-flash-preview',
+                resolveModelName(prefs.model),
                 'ocr'
             );
             

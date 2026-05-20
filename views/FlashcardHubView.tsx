@@ -5,9 +5,10 @@ import { Card } from '../components/Card';
 import { Topic, FlashCard } from '../types';
 import { FLASHCARD_SCHEMA } from '../constants';
 import { goBackOrFallback } from '../utils/navigation';
-import { callGeminiApiWithRetry } from '../services/gemini';
+import { callGeminiApiWithRetry, getFeatureConfig, resolveModelName } from '../services/gemini';
 import { triggerHaptic } from '../utils/haptics';
 import { compressImage } from '../utils/media';
+import { AdManager } from '../services/admob';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
 
@@ -178,6 +179,8 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
         setIsScanning(true);
         triggerHaptic.impact('Light');
 
+        await AdManager.showRewardVideo();
+
         try {
             // Compress all images in parallel
             const compressionPromises = pendingFiles.map(file => compressImage(file));
@@ -194,6 +197,9 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
             
             Return JSON with a 'flashcards' array. Ensure the response captures all items.`;
 
+            const prefs = getFeatureConfig('flashcards');
+            const modelToUse = resolveModelName(prefs.model);
+
             const response = await callGeminiApiWithRetry(
                 prompt,
                 "You are an expert tutor creating study materials from exam papers. You must be exhaustive.",
@@ -201,7 +207,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
                 images, // Send array of images
                 null,
                 2,
-                'gemini-3-flash-preview', 
+                modelToUse, 
                 'flashcards'
             );
 
@@ -272,6 +278,9 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
             Return exactly ${activeDeck.length} cards in the same order if possible.
             `;
 
+            const prefs = getFeatureConfig('flashcards');
+            const modelToUse = resolveModelName(prefs.model);
+
             const res = await callGeminiApiWithRetry(
                 prompt,
                 "You are a flashcard architect.",
@@ -279,7 +288,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
                 null,
                 null,
                 2,
-                'gemini-3-flash-preview',
+                modelToUse,
                 'flashcards'
             );
 

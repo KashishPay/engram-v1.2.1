@@ -5,7 +5,7 @@ import { Card } from '../components/Card';
 import { ProgressChart } from '../components/ProgressChart';
 import { Topic, Subject, UserProfile, FlashCard } from '../types';
 import { SPACING_INTERVALS, FLASHCARD_SCHEMA } from '../constants';
-import { callGeminiApiWithRetry } from '../services/gemini';
+import { callGeminiApiWithRetry, getFeatureConfig, resolveModelName } from '../services/gemini';
 import { getTopicBodyFromIDB } from '../services/storage';
 import { TopicSelectorModal } from '../components/TopicSelectorModal'; 
 import katex from 'katex';
@@ -139,14 +139,14 @@ const FlashCardDeck: React.FC<{
         
         console.debug("[FLASHCARDS] requested", { desiredCount, poolSize: pool.length });
         
-        await AdManager.showRewardVideo();
-
         setLoading(true);
         setCompleted(false);
         setIndex(0);
         setCards([]); 
         setShowRevisitOptions(false);
         triggerHaptic.impact('Light');
+
+        await AdManager.showRewardVideo();
         
         const shuffled = [...pool].sort(() => 0.5 - Math.random()).slice(0, desiredCount);
         
@@ -194,6 +194,9 @@ const FlashCardDeck: React.FC<{
             : "You are a flashcard generator.";
 
         try {
+            const prefs = getFeatureConfig('flashcards');
+            const modelToUse = resolveModelName(prefs.model);
+
             const data = await callGeminiApiWithRetry(
                 prompt, 
                 systemInstr, 
@@ -201,7 +204,7 @@ const FlashCardDeck: React.FC<{
                 null,
                 null,
                 3,
-                'gemini-3-flash-preview',
+                modelToUse,
                 'flashcards'
             );
 

@@ -484,7 +484,7 @@ const AutoTextArea: React.FC<{
         try {
             const { client } = getAiClient();
             const response = await client.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3.5-flash',
                 contents: `The following text contains malformed KaTeX/LaTeX, Markdown formatting, or raw HTML exports of KaTeX that need to be reverted. I am using it in a React app with a custom KaTeX renderer that expects RAW markdown and LaTeX.
 Your job is to fix any broken syntax, unclosed braces, AI hallucination artifacts, or raw HTML and convert it back to clean readable markdown.
 
