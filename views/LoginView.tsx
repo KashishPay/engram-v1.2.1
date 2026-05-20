@@ -20,7 +20,7 @@ interface LoginViewProps {
 const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <div className="h-full w-full overflow-y-auto bg-white dark:bg-gray-900 md:bg-gray-50 md:dark:bg-gray-950 animate-in fade-in duration-500">
         <div className="min-h-full w-full flex items-center justify-center p-0 md:p-4">
-            <div className="w-full md:h-auto md:max-w-md bg-white dark:bg-gray-900 md:rounded-3xl md:shadow-2xl md:border border-gray-100 dark:border-gray-800 p-6 md:p-8 flex flex-col items-center justify-center relative">
+            <div className="w-full md:h-auto md:max-w-[501px] bg-white dark:bg-gray-900 md:rounded-3xl md:shadow-2xl md:border border-gray-100 dark:border-gray-800 p-6 md:p-8 flex flex-col items-center justify-center relative">
                 {children}
             </div>
         </div>
@@ -229,7 +229,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onComplete, onSignInSucces
                 onClick={() => setLegalModalOpen(null)}
             >
                 <div 
-                    className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md max-h-[85vh] shadow-2xl flex flex-col relative overflow-hidden animate-in zoom-in-95 duration-300"
+                    className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-[501px] max-h-[85vh] shadow-2xl flex flex-col relative overflow-hidden animate-in zoom-in-95 duration-300"
                     onClick={(e) => e.stopPropagation()}
                 >
                     {/* Header */}

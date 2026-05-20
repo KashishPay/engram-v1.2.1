@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 
 export const CalculatorView: React.FC<{
     themeColor?: string;
-}> = () => {
+    themeIntensity?: string;
+}> = ({ themeColor = 'amber', themeIntensity = '100' }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [dims, setDims] = useState({ w: '100%', h: '100%', isPortrait: false });
 
@@ -10,7 +11,9 @@ export const CalculatorView: React.FC<{
         const updateDims = () => {
             if (containerRef.current) {
                 const { clientWidth, clientHeight } = containerRef.current;
-                const isPortrait = window.innerHeight > window.innerWidth && window.innerWidth < 768;
+                const isTablet = /ipad|playbook|silk|kindle|tablet|android(?!.*mobile)/i.test(navigator.userAgent) || 
+                                 (navigator.maxTouchPoints > 1 && window.innerWidth >= 500);
+                const isPortrait = window.innerHeight > window.innerWidth && window.innerWidth < 500 && !isTablet;
                 setDims({
                     w: isPortrait ? `${clientHeight}px` : '100%',
                     h: isPortrait ? `${clientWidth}px` : '100%',
@@ -25,7 +28,7 @@ export const CalculatorView: React.FC<{
     }, []);
 
     return (
-        <div className="flex h-[100dvh] bg-[#2d2d2d] overflow-hidden w-full font-sans pb-[70px] lg:pb-0">
+        <div className={`flex h-[100dvh] bg-${themeColor}-${themeIntensity} dark:bg-gray-950 overflow-hidden w-full font-sans pb-[70px] lg:pb-0`}>
             <div className="w-full h-full flex flex-col relative" ref={containerRef}>
                 <div className="flex-1 w-full h-full flex items-center justify-center">
                     <div 

@@ -1,5 +1,5 @@
 # ==============================================================================
-# ENGRAM ANDROID BUILD AUTOMATOR (Iterated v1.7)
+# ENGRAM ANDROID BUILD AUTOMATOR (Iterated v1.8)
 # ==============================================================================
 
 # 1) Define Paths & Auto-Detect Latest Zip
@@ -174,17 +174,32 @@ if (Test-Path "android") {
         Set-Content -Path $gradleProps -Value $fixes
     }
 
-    # 4. Inject AdMob App ID into AndroidManifest.xml to prevent startup crash
+    # 4. Inject AdMob App ID and File Opener Queries into AndroidManifest.xml
     $manifestFile = "android\app\src\main\AndroidManifest.xml"
     if (Test-Path $manifestFile) {
         $manifestContent = Get-Content $manifestFile -Raw
+        
+        # Inject AdMob if missing
         if ($manifestContent -notmatch "com.google.android.gms.ads.APPLICATION_ID") {
             # Using your real App ID: ca-app-pub-1930133918087114~6997595405
             $admobMeta = "`n        <meta-data android:name=`"com.google.android.gms.ads.APPLICATION_ID`" android:value=`"ca-app-pub-1930133918087114~6997595405`"/>"
             $manifestContent = $manifestContent -replace '<application([^>]*)>', "<application`$1>$admobMeta"
-            Set-Content -Path $manifestFile -Value $manifestContent
             Write-Output "Injected AdMob App ID into AndroidManifest.xml."
         }
+
+        # Inject <queries> for File Opener (Android 11+)
+        if ($manifestContent -notmatch "<queries>") {
+            $queriesMeta = "`n    <queries>`n        <intent>`n            <action android:name=`"android.intent.action.VIEW`" />`n            <category android:name=`"android.intent.category.DEFAULT`" />`n            <data android:mimeType=`"*/*`" />`n        </intent>`n    </queries>"
+            $manifestContent = $manifestContent -replace '<manifest([^>]*)>', "<manifest`$1>$queriesMeta"
+            Write-Output "Injected <queries> tag for File Opener plugin."
+        } elseif ($manifestContent -notmatch "android.intent.action.VIEW") {
+            # If queries tag exists but missing our intent
+            $intentMeta = "`n        <intent>`n            <action android:name=`"android.intent.action.VIEW`" />`n            <category android:name=`"android.intent.category.DEFAULT`" />`n            <data android:mimeType=`"*/*`" />`n        </intent>"
+            $manifestContent = $manifestContent -replace '</queries>', "$intentMeta`n    </queries>"
+            Write-Output "Appended VIEW intent to <queries> tag."
+        }
+
+        Set-Content -Path $manifestFile -Value $manifestContent
     }
 
     # 5. Auto-increment versionCode in app/build.gradle to allow app updates over previous installs

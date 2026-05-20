@@ -7,6 +7,7 @@ import DOMPurify from 'dompurify';
 import { AdManager } from '../services/admob';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { downloadPDF } from '../utils/download';
 
 interface TestSeriesViewProps {
     userId: string;
@@ -155,7 +156,16 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                 pageNum++;
             }
             
-            pdf.save(`TestHistory_${item.exam.replace(/[^a-z0-9]/gi, '_')}_${item.subject.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+            const timestamp = item.timestamp?.toDate ? item.timestamp.toDate() : new Date();
+            const dateStr = timestamp.toISOString().split('T')[0];
+            const timeStr = timestamp.toTimeString().split(' ')[0].replace(/:/g, '-');
+            
+            const safeSubject = item.subject.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'General';
+            const filename = `TestHistory_${item.exam.replace(/[^a-z0-9]/gi, '_')}_${dateStr}_${timeStr}.pdf`;
+
+            await downloadPDF(pdf, filename, {
+                folderPath: `Engram/${safeSubject}`
+            });
         } catch (e) {
             console.error("PDF generation failed:", e);
         } finally {

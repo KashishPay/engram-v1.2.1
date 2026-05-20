@@ -7,6 +7,7 @@ import rehypeKatex from 'rehype-katex';
 import { Stage, Layer, Line, Circle } from 'react-konva';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { downloadPDF } from '../utils/download';
 
 interface LineState {
     id: string;
@@ -398,7 +399,13 @@ export const DiaryView: React.FC<{
                 }
             }
             
-            pdf.save(`${activeSubject.name || 'diary_subject'}.pdf`);
+            const dateStr = new Date().toISOString().split('T')[0];
+            const safeSubjectName = (activeSubject.name || 'Diary').trim();
+            const filename = `Diary_${safeSubjectName.replace(/\s+/g, '_')}_${dateStr}.pdf`;
+            
+            await downloadPDF(pdf, filename, {
+                folderPath: `Engram/${safeSubjectName}`
+            });
         } catch (e) {
             console.error("PDF generation failed:", e);
         } finally {
@@ -423,7 +430,7 @@ export const DiaryView: React.FC<{
     };
 
     return (
-        <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden w-full font-sans pb-16 lg:pb-0">
+        <div className="flex h-full bg-white dark:bg-gray-950 overflow-hidden w-full font-sans lg:pb-0">
             {/* Sidebar */}
             <div className={`flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
                 <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center whitespace-nowrap">

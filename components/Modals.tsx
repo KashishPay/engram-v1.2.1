@@ -4,10 +4,9 @@ import { Shield, XCircle, MessageSquarePlus, X, Loader, Download, Maximize2 } fr
 import { getImageFromIDB } from '../services/storage';
 import { jsPDF } from 'jspdf';
 import { ImageViewer } from './ImageViewer';
-import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
 import { triggerHaptic } from '../utils/haptics';
 import { showLocalNotification, requestNotificationPermission } from '../utils/notifications';
+import { downloadPDF } from '../utils/download';
 
 interface PermissionModalProps {
     onAllow: () => void;
@@ -122,9 +121,8 @@ export const SourceViewerModal: React.FC<SourceViewerModalProps> = ({ topicId, t
         const notifId = Math.floor(Date.now() / 1000);
 
         try {
-            const safeSubject = subjectName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Uncategorized';
+            const safeSubject = subjectName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'General';
             const safeTopic = topicName.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Untitled';
-            const folderPath = `Engram/${safeSubject}/${safeTopic}`;
             const filename = `${safeTopic}.pdf`;
 
             // 1. Show "Ongoing" Notification
@@ -169,44 +167,10 @@ export const SourceViewerModal: React.FC<SourceViewerModalProps> = ({ topicId, t
                 }
             }
             
-            if (Capacitor.isNativePlatform()) {
-                // Native: Save to Documents/Engram/{Subject}/{Topic}/{Topic}.pdf
-                const fullPath = `${folderPath}/${filename}`;
-
-                // Create Directory Structure
-                try {
-                    await Filesystem.mkdir({
-                        path: folderPath,
-                        directory: Directory.Documents,
-                        recursive: true,
-                    });
-                } catch {
-                    // Directory might exist, proceed
-                }
-
-                // Write File
-                const pdfBase64 = doc.output('datauristring').split(',')[1];
-                
-                await Filesystem.writeFile({
-                    path: fullPath,
-                    data: pdfBase64,
-                    directory: Directory.Documents,
-                });
-
-                triggerHaptic.notification('Success');
-                
-                // 2. Update Notification to Success (Removes ongoing)
-                await showLocalNotification("PDF Downloaded", {
-                    body: `${filename} saved to Documents/${folderPath}`,
-                    tag: 'download',
-                    id: notifId,
-                    ongoing: false
-                });
-            } else {
-                // Web: Classic Download
-                doc.save(filename);
-                triggerHaptic.notification('Success');
-            }
+            await downloadPDF(doc, filename, {
+                folderPath: `Engram/${safeSubject}/${safeTopic}`,
+                notificationId: notifId
+            });
             
         } catch (e) {
             console.error("PDF Generation failed", e);

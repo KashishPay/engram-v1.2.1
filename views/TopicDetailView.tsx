@@ -326,7 +326,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                 <SourceViewerModal 
                     topicId={topic.id} 
                     topicName={topic.topicName}
-                    subjectName={topic.subject}
+                    subjectName={topic.subject || 'General'}
                     pageCount={topic.sourcePageCount || 0} 
                     onClose={() => setShowSourceModal(false)} 
                 />

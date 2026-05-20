@@ -1115,7 +1115,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             {currentView === 'habit' && <HabitTrackerView themeColor={props.currentTheme} habits={props.habits} onUpdateHabits={props.setHabits} />}
             {currentView === 'observations' && <ObservationsView userId={props.userId} themeColor={props.currentTheme} navigateTo={navigateTo} />}
             {currentView === 'search' && <SearchView themeColor={props.currentTheme} studyLog={props.studyLog} navigateTo={navigateTo} />}
-            {currentView === 'calculator' && <CalculatorView themeColor={props.currentTheme} />}
+            {currentView === 'calculator' && <CalculatorView themeColor={props.currentTheme} themeIntensity={props.themeIntensity} />}
         </AppShell>
     );
 };

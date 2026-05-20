@@ -28,11 +28,13 @@ import { AnalyticsService } from './services/analytics';
 import { ProfileService } from './services/profile';
 import { getFeatureConfig } from './services/gemini';
 import { SyncService, SyncPayload } from './services/sync';
+import { initNotificationListeners } from './utils/notifications';
 
 export const App: React.FC = () => {
     // [AUTH DIAGNOSIS] Boot Logs & Upload Diagnostics
     useEffect(() => {
         AdManager.initialize();
+        initNotificationListeners();
         const url = new URL(window.location.href);
         const searchParams = Object.fromEntries(url.searchParams.entries());
         console.debug("================ AUTH DIAGNOSIS START ================");

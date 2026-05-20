@@ -11,6 +11,7 @@ import rehypeKatex from 'rehype-katex';
 import { PlotComponent } from '../components/PlotComponent';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { downloadPDF } from '../utils/download';
 
 interface ChatViewProps {
     topic: Topic | null;
@@ -380,7 +381,13 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                 pageNum++;
             }
             
-            pdf.save(`Chat_${topic.topicName.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+            const dateStr = new Date().toISOString().split('T')[0];
+            const safeSubject = topic.subject.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'General';
+            const filename = `Chat_${topic.topicName.replace(/[^a-z0-9]/gi, '_')}_${dateStr}.pdf`;
+
+            await downloadPDF(pdf, filename, {
+                folderPath: `Engram/${safeSubject}`
+            });
         } catch (e) {
             console.error("PDF generation failed:", e);
         } finally {

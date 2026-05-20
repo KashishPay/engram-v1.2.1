@@ -39,6 +39,8 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
 export interface LocalNotificationOptions extends NotificationOptions {
     id?: number;
     ongoing?: boolean;
+    extra?: Record<string, string | number | boolean | null>;
+    actionTypeId?: string;
 }
 
 /**
@@ -61,8 +63,8 @@ export const showLocalNotification = async (title: string, options: LocalNotific
                     schedule: { at: new Date(Date.now() + 100) }, // Fire almost immediately
                     sound: 'beep.wav', // Default to system sound if file not found
                     smallIcon: 'ic_stat_icon_config_sample', // Default resource name
-                    actionTypeId: '',
-                    extra: null,
+                    actionTypeId: options.actionTypeId || '',
+                    extra: options.extra || null,
                     ongoing: options.ongoing || false // True = Sticky (cannot swipe away)
                 }]
             });
@@ -212,6 +214,31 @@ export const scheduleFinishNotification = async (secondsRemaining: number) => {
             // ignore
         }
     }
+};
+
+/**
+ * Initialize notification action listeners.
+ * Handles opening files when a download notification is clicked.
+ */
+export const initNotificationListeners = () => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    LocalNotifications.addListener('localNotificationActionPerformed', async (action) => {
+        const extra = action.notification.extra as Record<string, string | undefined>;
+        
+        if (extra && extra.filePath) {
+            try {
+                // Dynamically import FileOpener
+                const { FileOpener } = await import('@capawesome-team/capacitor-file-opener');
+                
+                await FileOpener.openFile({
+                    path: extra.filePath
+                });
+            } catch (error) {
+                console.error("[NOTIF] Failed to open file", error);
+            }
+        }
+    });
 };
 
 export const cancelFinishNotification = async () => {

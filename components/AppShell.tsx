@@ -87,7 +87,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         !(currentView === 'topicDetail' && selectedTopic?.id === focusState.topicId);
 
     // Dynamic classes for Main Container
-    const isEdgeToEdge = (!isLoggedIn) || currentView === 'onboarding' || currentView === 'chat' || currentView === 'topicDetail';
+    const isEdgeToEdge = (!isLoggedIn) || currentView === 'onboarding' || currentView === 'chat' || currentView === 'topicDetail' || currentView === 'diary';
     const mainClasses = `flex-1 flex flex-col min-h-0 no-scrollbar ${
         isEdgeToEdge 
             ? 'bg-white dark:bg-gray-900 p-0 overflow-hidden' 
@@ -267,7 +267,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 )}
             </div>
 
-            <div className={`w-full max-w-md md:rounded-3xl md:shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-[calc(100vh-2rem)] border-0 md:border dark:border-gray-800 ${mainBgClass} relative`}>
+            <div className={`w-full max-w-[501px] md:rounded-3xl md:shadow-2xl overflow-hidden flex flex-col h-[100dvh] md:h-[calc(100vh-2rem)] border-0 md:border dark:border-gray-800 ${mainBgClass} relative`}>
                 
                 {/* GLOBAL PODCAST OVERLAY */}
                 {isPodcastOpen && podcastOverlay && (
@@ -370,7 +370,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 {/* HIDDEN IN CHAT: To maximize screen space and fix layout */}
                 {isLoggedIn && currentView !== 'onboarding' && currentView !== 'chat' && (
                     <footer 
-                        className="fixed left-0 right-0 max-w-md mx-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-white/20 dark:border-gray-800 md:rounded-b-3xl shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex justify-around items-center px-2 h-[calc(4rem+env(safe-area-inset-bottom))] md:h-16 z-40 transition-all duration-300"
+                        className="fixed left-0 right-0 max-w-[501px] mx-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-white/20 dark:border-gray-800 md:rounded-b-3xl shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex justify-around items-center px-2 h-[calc(4rem+env(safe-area-inset-bottom))] md:h-16 z-40 transition-all duration-300"
                         style={{ 
                             bottom: '0', 
                             paddingBottom: 'env(safe-area-inset-bottom)'
