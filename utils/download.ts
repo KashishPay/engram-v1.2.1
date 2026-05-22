@@ -4,10 +4,11 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { jsPDF } from 'jspdf';
 import { triggerHaptic } from './haptics';
 import { showLocalNotification } from './notifications';
+import { FileOpener } from '@capawesome-team/capacitor-file-opener';
 
 /**
  * Unified utility to handle PDF downloads across Web and Capacitor.
- * On Native: Saves to Documents/Engram/... and shows a confirmation notification.
+ * On Native: Saves to Documents/Engram/... and attempts to open it automatically.
  * On Web: Triggers standard browser download.
  */
 export const downloadPDF = async (doc: jsPDF, filename: string, options: { 
@@ -47,8 +48,8 @@ export const downloadPDF = async (doc: jsPDF, filename: string, options: {
       });
 
       // 5. Show Success Notification
-      await showLocalNotification("PDF Downloaded", {
-        body: `${filename} saved to Documents/${fullPath}`,
+      await showLocalNotification("PDF Saved ✅", {
+        body: `${filename} saved successfully.`,
         id: notificationId,
         ongoing: false,
         extra: {
@@ -58,6 +59,17 @@ export const downloadPDF = async (doc: jsPDF, filename: string, options: {
       });
 
       triggerHaptic.notification('Success');
+
+      // 6. Attempt to open the file so the user can easily find it
+      try {
+        await FileOpener.openFile({
+          path: fileResult.uri,
+          mimeType: 'application/pdf'
+        });
+      } catch (openError) {
+        console.warn('Could not open file automatically', openError);
+        alert(`File saved to Documents folder as ${filename}.`);
+      }
 
     } catch (error) {
       console.error('[DOWNLOAD] Native PDF save failed', error);

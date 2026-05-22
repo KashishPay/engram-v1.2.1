@@ -737,17 +737,17 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                             .calc-wrapper iframe { height: 100%; border-radius: 8px; width: 100%; }
                         `}</style>
                         
-                        <div className="fixed top-20 right-4 md:top-4 md:right-4 flex flex-col space-y-4 z-[200]">
+                        <div className="absolute -top-16 left-0 right-0 flex justify-center space-x-6 z-[200]">
                              <button 
                                 onClick={() => setIsCalcMinimized(true)}
-                                className="p-3 bg-blue-600 text-white hover:bg-blue-700 rounded-full shadow-lg transition transform active:scale-90"
+                                className="p-3 bg-blue-600 text-white hover:bg-blue-700 rounded-full shadow-lg transition transform active:scale-90 flex items-center justify-center"
                                 title="Minimize"
                              >
                                  <Minus size={20} />
                              </button>
                              <button 
                                 onClick={() => setShowCalculator(false)}
-                                className="p-3 bg-red-600 text-white hover:bg-red-700 rounded-full shadow-lg transition transform active:scale-90"
+                                className="p-3 bg-red-600 text-white hover:bg-red-700 rounded-full shadow-lg transition transform active:scale-90 flex items-center justify-center"
                                 title="Close"
                              >
                                  <X size={20} />

@@ -187,6 +187,13 @@ if (Test-Path "android") {
             Write-Output "Injected AdMob App ID into AndroidManifest.xml."
         }
 
+        # Inject Alarms Permissions for Local Notifications
+        if ($manifestContent -notmatch "android.permission.SCHEDULE_EXACT_ALARM") {
+            $alarmPerms = "`n    <uses-permission android:name=`"android.permission.SCHEDULE_EXACT_ALARM`" />`n    <uses-permission android:name=`"android.permission.USE_EXACT_ALARM`" />`n    <uses-permission android:name=`"android.permission.POST_NOTIFICATIONS`" />"
+            $manifestContent = $manifestContent -replace '<manifest([^>]*)>', "<manifest`$1>$alarmPerms"
+            Write-Output "Injected EXACT_ALARM and POST_NOTIFICATIONS permissions."
+        }
+
         # Inject <queries> for File Opener (Android 11+)
         if ($manifestContent -notmatch "<queries>") {
             $queriesMeta = "`n    <queries>`n        <intent>`n            <action android:name=`"android.intent.action.VIEW`" />`n            <category android:name=`"android.intent.category.DEFAULT`" />`n            <data android:mimeType=`"*/*`" />`n        </intent>`n    </queries>"

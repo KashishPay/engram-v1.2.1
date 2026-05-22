@@ -666,6 +666,18 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                  <div className="absolute bottom-4 left-0 right-0 text-center text-white/80 text-[10px] font-bold uppercase tracking-widest">
                                      Engram AI Podcast
                                  </div>
+                                 
+                                 <div className="relative z-10 w-[80%] max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden pointer-events-auto border border-gray-100 dark:border-gray-700 flex flex-col items-center p-4">
+                                     <div className="mb-2 text-center text-gray-800 dark:text-gray-200 font-bold text-sm">
+                                         Support the Developer ❤️
+                                     </div>
+                                     <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 max-h-64 flex items-center justify-center">
+                                         <img src="/upi-qr.png" alt="UPI QR Code" className="max-w-full max-h-full object-contain rounded-lg" />
+                                     </div>
+                                     <div className="mt-4 text-center">
+                                         <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">UPI: 8699432417@ptsbi</p>
+                                     </div>
+                                 </div>
                              </div>
                          )}
                     </div>
