@@ -10,6 +10,7 @@ import { ErrorCard } from '../components/ErrorCard';
 import katex from 'katex';
 import DOMPurify from 'dompurify';
 import { AdManager } from '../services/admob';
+import { App as CapacitorApp } from '@capacitor/app';
 
 interface QuizViewProps {
     topic: Topic | null;
@@ -17,14 +18,16 @@ interface QuizViewProps {
     navigateTo: (view: string, data?: unknown, options?: { replace?: boolean }) => void;
     onUpdateTopic: (topic: Topic) => void;
     themeColor: string;
+    onLockTabs?: (locked: boolean) => void;
 }
 
 type QuizStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, onUpdateTopic, themeColor }) => {
+export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, onUpdateTopic, themeColor, onLockTabs }) => {
     // State Machine
     const [status, setStatus] = useState<QuizStatus>('idle');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [fontSizeMultiplier, setFontSizeMultiplier] = useState(1);
     
     // Quiz Data
     const [quizData, setQuizData] = useState<QuizQuestion[] | null>(null);
@@ -40,6 +43,34 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
     const abortControllerRef = useRef<AbortController | null>(null);
     const generationAttemptedRef = useRef(false);
     const isSubmitting = useRef(false);
+
+    // Lock tab bar and prevent back navigation when in active quiz
+    useEffect(() => {
+        if (onLockTabs) {
+            onLockTabs(status === 'ready');
+        }
+
+        let backButtonListener: { remove: () => Promise<void> } | null = null;
+        const setupListener = async () => {
+            if (status === 'ready') {
+                try {
+                    backButtonListener = await CapacitorApp.addListener('backButton', () => {
+                        console.log('Back button pressed during pop quiz, navigation prevented.');
+                        alert('Navigation is locked during an active quiz to prevent distractions. Submit or Cancel to exit.');
+                    });
+                } catch {
+                    // Ignore if not in Capacitor
+                }
+            }
+        };
+        setupListener();
+
+        return () => {
+            if (backButtonListener && backButtonListener.remove) {
+                backButtonListener.remove();
+            }
+        };
+    }, [status, onLockTabs]);
 
     // --- Cleanup on Unmount ---
     useEffect(() => {
@@ -472,6 +503,10 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                             <Timer size={14} className="mr-1" />
                             {timeTaken}s
                         </div>
+                        <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded overflow-hidden">
+                            <button onClick={() => setFontSizeMultiplier(prev => Math.max(0.7, prev - 0.1))} className="px-2 py-1 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 font-bold font-mono text-xs border-r border-gray-200 dark:border-gray-700">A-</button>
+                            <button onClick={() => setFontSizeMultiplier(prev => Math.min(2.0, prev + 0.1))} className="px-2 py-1 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 font-bold font-mono text-xs">A+</button>
+                        </div>
                         <div className="text-xs md:text-sm font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
                             {currentQuestionIndex + 1}<span className="opacity-50">/{quizData?.length}</span>
                         </div>
@@ -483,6 +518,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
 
                 <div 
                     className="text-base md:text-lg font-semibold mb-6 text-gray-800 dark:text-gray-100 leading-relaxed"
+                    style={{ fontSize: `${1.125 * fontSizeMultiplier}rem` }}
                     dangerouslySetInnerHTML={{ __html: renderMathHtml(currentQ.question) }}
                 />
                 <div className="space-y-3 pb-2">
@@ -495,6 +531,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                             <div className={`flex-shrink-0 w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 text-${themeColor}-600 dark:text-${themeColor}-400 font-bold flex items-center justify-center text-sm group-hover:bg-white dark:group-hover:bg-gray-600 transition-colors`}>{letter}</div>
                             <span 
                                 className="text-gray-700 dark:text-gray-200 flex-1 font-medium text-sm md:text-base pt-0.5"
+                                style={{ fontSize: `${1 * fontSizeMultiplier}rem` }}
                                 dangerouslySetInnerHTML={{ __html: renderMathHtml(text as string) }}
                             />
                         </button>

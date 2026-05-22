@@ -133,12 +133,12 @@ if (Test-Path "android") {
     $varsFile = "android\variables.gradle"
     if (Test-Path $varsFile) {
         $varsContent = Get-Content $varsFile -Raw
-        $varsContent = $varsContent -replace 'compileSdkVersion = \d+', 'compileSdkVersion = 35'
-        $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 35'
+        $varsContent = $varsContent -replace 'compileSdkVersion = \d+', 'compileSdkVersion = 36'
+        $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 36'
         $varsContent = $varsContent -replace 'minSdkVersion = \d+', 'minSdkVersion = 24'
         $varsContent = $varsContent -replace "androidxCoreVersion = '[^']+'", "androidxCoreVersion = '1.15.0'"
         Set-Content -Path $varsFile -Value $varsContent
-        Write-Output "Updated variables.gradle (compile/target=35, min=24, androidxCoreVersion=1.15.0)."
+        Write-Output "Updated variables.gradle (compile/target=36, min=24, androidxCoreVersion=1.15.0)."
     }
 
     # 1.1 Update gradle-wrapper.properties
@@ -156,8 +156,32 @@ if (Test-Path "android") {
         $rootGradleContent = Get-Content $rootGradleFile -Raw
         # Also handle standard AGP classpaths as well as variables if any
         $rootGradleContent = $rootGradleContent -replace "classpath 'com\.android\.tools\.build:gradle:[^']+'", "classpath 'com.android.tools.build:gradle:8.9.1'"
+        
+        # 1.3 Add subprojects block for Java/Kotlin 17 enforcement
+        if ($rootGradleContent -notmatch "subprojects\s*\{") {
+            $subprojectsBlock = @"
+
+subprojects {
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions.jvmTarget = "17"
+    }
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+    }
+}
+"@
+            $rootGradleContent = $rootGradleContent + $subprojectsBlock
+        }
+        
         Set-Content -Path $rootGradleFile -Value $rootGradleContent
-        Write-Output "Updated Android Gradle Plugin (AGP) version to 8.9.1 in build.gradle."
+        Write-Output "Updated Android Gradle Plugin (AGP) version to 8.9.1 and injected Java 17 / Kotlin 17 constraints in build.gradle."
     }
 
     # 2. Disable VFS watch to prevent file locking issues on Windows
@@ -179,19 +203,35 @@ if (Test-Path "android") {
     if (Test-Path $manifestFile) {
         $manifestContent = Get-Content $manifestFile -Raw
         
-        # Inject AdMob if missing
+        # Inject AdMob App ID if missing
         if ($manifestContent -notmatch "com.google.android.gms.ads.APPLICATION_ID") {
             # Using your real App ID: ca-app-pub-1930133918087114~6997595405
             $admobMeta = "`n        <meta-data android:name=`"com.google.android.gms.ads.APPLICATION_ID`" android:value=`"ca-app-pub-1930133918087114~6997595405`"/>"
+            # Optimization flags
+            $admobMeta += "`n        <meta-data android:name=`"com.google.android.gms.ads.flag.OPTIMIZE_INITIALIZATION`" android:value=`"true`"/>"
+            $admobMeta += "`n        <meta-data android:name=`"com.google.android.gms.ads.flag.OPTIMIZE_AD_LOADING`" android:value=`"true`"/>"
+            
             $manifestContent = $manifestContent -replace '<application([^>]*)>', "<application`$1>$admobMeta"
-            Write-Output "Injected AdMob App ID into AndroidManifest.xml."
+            Write-Output "Injected AdMob App ID and Optimization flags into AndroidManifest.xml."
         }
 
-        # Inject Alarms Permissions for Local Notifications
-        if ($manifestContent -notmatch "android.permission.SCHEDULE_EXACT_ALARM") {
-            $alarmPerms = "`n    <uses-permission android:name=`"android.permission.SCHEDULE_EXACT_ALARM`" />`n    <uses-permission android:name=`"android.permission.USE_EXACT_ALARM`" />`n    <uses-permission android:name=`"android.permission.POST_NOTIFICATIONS`" />"
-            $manifestContent = $manifestContent -replace '<manifest([^>]*)>', "<manifest`$1>$alarmPerms"
-            Write-Output "Injected EXACT_ALARM and POST_NOTIFICATIONS permissions."
+        # Inject Permissions for Plugins (Local Notifications, Filesystem, Keep Awake, Haptics)
+        $permsToInject = @(
+            "android.permission.SCHEDULE_EXACT_ALARM",
+            "android.permission.USE_EXACT_ALARM",
+            "android.permission.POST_NOTIFICATIONS",
+            "android.permission.RECEIVE_BOOT_COMPLETED",
+            "android.permission.WRITE_EXTERNAL_STORAGE",
+            "android.permission.READ_EXTERNAL_STORAGE",
+            "android.permission.WAKE_LOCK",
+            "android.permission.VIBRATE"
+        )
+
+        foreach ($perm in $permsToInject) {
+            if ($manifestContent -notmatch $perm) {
+                $manifestContent = $manifestContent -replace '<manifest([^>]*)>', "<manifest`$1>`n    <uses-permission android:name=`"$perm`" />"
+                Write-Output "Injected permission: $perm"
+            }
         }
 
         # Inject <queries> for File Opener (Android 11+)

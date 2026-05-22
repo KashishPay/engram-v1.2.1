@@ -36,6 +36,8 @@ interface AppShellProps {
     isPodcastOpen?: boolean;
     setIsPodcastOpen?: (open: boolean) => void;
     podcastOverlay?: React.ReactNode;
+    
+    hideTabBar?: boolean;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -58,7 +60,8 @@ export const AppShell: React.FC<AppShellProps> = ({
     selectedTopic,
     isPodcastOpen = false,
     setIsPodcastOpen,
-    podcastOverlay
+    podcastOverlay,
+    hideTabBar = false
 }) => {
     const [showGuestBanner, setShowGuestBanner] = useState(true);
     const visibleTabsIds = [...enabledTabs, 'settings'];
@@ -72,7 +75,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     const mainBgClass = `bg-${themeColor}-${themeIntensity} dark:bg-gray-900`;
     const isLoggedIn = !!(user || isGuest);
 
-    const showTabBar = isLoggedIn && currentView !== 'onboarding' && currentView !== 'chat';
+    const showTabBar = isLoggedIn && currentView !== 'onboarding' && currentView !== 'chat' && !hideTabBar;
 
     // Guest Status Check
     const guestStatus = isGuest ? checkGuestStatus() : null;

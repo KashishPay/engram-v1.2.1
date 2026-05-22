@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { ArrowLeft, Play, CheckCircle, XCircle, Clock, RefreshCw, BookOpen, Target, SkipForward, History, ChevronDown, ChevronUp, Download, RotateCw, Calculator, X, Minus } from 'lucide-react';
 import { Card } from '../components/Card';
 import { fetchExamSubjects, generateExamQuiz, TestSeriesQuestion } from '../services/testSeriesService';
@@ -13,6 +14,7 @@ interface TestSeriesViewProps {
     userId: string;
     navigateTo: (view: string) => void;
     themeColor: string;
+    onLockTabs?: (locked: boolean) => void;
 }
 
 export interface TestHistoryEntry {
@@ -28,7 +30,7 @@ export interface TestHistoryEntry {
     answers: { qIndex: number; selected: string; correct: string }[];
 }
 
-export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigateTo, themeColor }) => {
+export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigateTo, themeColor, onLockTabs }) => {
     // Setup State
     const [exam, setExam] = useState('');
     const [stream, setStream] = useState('');
@@ -51,6 +53,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
     const [timerRunning, setTimerRunning] = useState(false);
     const [showCalculator, setShowCalculator] = useState(false);
     const [isCalcMinimized, setIsCalcMinimized] = useState(false);
+    const [fontSizeMultiplier, setFontSizeMultiplier] = useState(1);
 
     // History State
     const [history, setHistory] = useState<TestHistoryEntry[]>([]);
@@ -61,6 +64,35 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
 
     const [exportingItemId, setExportingItemId] = useState<string | null>(null);
     const pdfExportRef = React.useRef<HTMLDivElement>(null);
+
+    // Lock tab bar and prevent back navigation when in active test
+    useEffect(() => {
+        if (onLockTabs) {
+            onLockTabs(viewMode === 'active');
+        }
+
+        let backButtonListener: { remove: () => Promise<void> } | null = null;
+        const setupListener = async () => {
+            if (viewMode === 'active') {
+                try {
+                    backButtonListener = await CapacitorApp.addListener('backButton', () => {
+                        console.log('Back button pressed during active test, navigation prevented.');
+                        alert('Navigation is locked during an active test to prevent distractions. Submit or Cancel to exit.');
+                        // Prevent default navigation
+                    });
+                } catch {
+                    // Ignore if not in Capacitor
+                }
+            }
+        };
+        setupListener();
+
+        return () => {
+            if (backButtonListener && backButtonListener.remove) {
+                backButtonListener.remove();
+            }
+        };
+    }, [viewMode, onLockTabs]);
 
     const handleDownloadPdf = async (item: TestHistoryEntry) => {
         setExportingItemId(item.id);
@@ -684,6 +716,10 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                         <span className={`px-3 py-1 bg-${themeColor}-100 dark:bg-${themeColor}-900/30 text-${themeColor}-700 dark:text-${themeColor}-300 rounded-full text-xs font-bold`}>
                             Q {currentQuestionIndex + 1} / {quizData.length}
                         </span>
+                        <div className="flex items-center bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                            <button onClick={() => setFontSizeMultiplier(prev => Math.max(0.7, prev - 0.1))} className="px-2 py-1 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 font-bold font-mono text-xs border-r border-gray-300 dark:border-gray-700">A-</button>
+                            <button onClick={() => setFontSizeMultiplier(prev => Math.min(2.0, prev + 0.1))} className="px-2 py-1 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 font-bold font-mono text-xs">A+</button>
+                        </div>
                     </div>
                     <div className="flex items-center space-x-4">
                         <button 
@@ -703,7 +739,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                 </div>
 
                 <Card className="p-6 mb-6">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-6 leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMathHtml(currentQ.question) }} />
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-6 leading-relaxed" style={{ fontSize: `${1.125 * fontSizeMultiplier}rem` }} dangerouslySetInnerHTML={{ __html: renderMathHtml(currentQ.question) }} />
                     <div className="space-y-3">
                         {currentQ.options.map((opt, idx) => (
                             <button
@@ -711,7 +747,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                                 onClick={() => handleAnswer(opt)}
                                 className={`w-full text-left p-4 rounded-xl border-2 border-gray-100 dark:border-gray-700 hover:border-${themeColor}-300 dark:hover:border-${themeColor}-600 hover:bg-${themeColor}-50 dark:hover:bg-${themeColor}-900/20 transition group active:scale-95`}
                             >
-                                <span className="text-gray-700 dark:text-gray-200 font-medium" dangerouslySetInnerHTML={{ __html: renderMathHtml(opt) }} />
+                                <span className="text-gray-700 dark:text-gray-200 font-medium" style={{ fontSize: `${1 * fontSizeMultiplier}rem` }} dangerouslySetInnerHTML={{ __html: renderMathHtml(opt) }} />
                             </button>
                         ))}
                     </div>

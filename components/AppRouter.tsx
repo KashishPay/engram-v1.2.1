@@ -233,6 +233,8 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
     const [showImportSuccessModal, setShowImportSuccessModal] = useState(false);
     const [breakdownFilter, setBreakdownFilter] = useState<string>('all');
     const [routerError, setRouterError] = useState<Error | null>(null);
+    const [isTestSeriesActive, setIsTestSeriesActive] = useState(false);
+    const [isQuizActive, setIsQuizActive] = useState(false);
 
     // Derived Auth State
     const isLoggedIn = !!(props.user || props.isGuest);
@@ -1057,11 +1059,12 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             isPodcastOpen={isPodcastOverlayOpen}
             setIsPodcastOpen={(open) => { if(open) navigateTo('podcast'); else goBack(); }}
             podcastOverlay={<PodcastFullView studyLog={props.studyLog} onUpdateTopic={props.handleUpdateTopic} themeColor={props.currentTheme} onMinimize={goBack} state={props.podcast.state} controls={props.podcast.controls} defaultLanguage={props.podcastConfig.language} />}
+            hideTabBar={isTestSeriesActive || isQuizActive}
         >
             {currentView === 'home' && <HomeView studyLog={props.studyLog} allSubjects={props.userSubjects} navigateTo={navigateTo} userId={props.userId} themeColor={props.currentTheme} userProfile={props.userProfile} loading={props.loadingData} />}
             {currentView === 'subjects' && <SubjectsView allSubjects={props.userSubjects} studyLog={props.studyLog} navigateTo={navigateTo} onAddSubject={props.handleAddSubject} onUpdateSubject={props.handleUpdateSubject} onDeleteSubject={props.handleDeleteSubject} onAddTopic={props.handleAddTopic} themeColor={props.currentTheme} />}
             {currentView === 'topicDetail' && <TopicDetailView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} onUpdateTopic={props.handleUpdateTopic} onDeleteTopic={props.handleDeleteTopic} themeColor={props.currentTheme} defaultLanguage={props.podcastConfig.language} />}
-            {currentView === 'quiz' && <QuizView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} onUpdateTopic={props.handleUpdateTopic} themeColor={props.currentTheme} />}
+            {currentView === 'quiz' && <QuizView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} onUpdateTopic={props.handleUpdateTopic} themeColor={props.currentTheme} onLockTabs={setIsQuizActive} />}
             {currentView === 'quizReview' && (
                 isHydratingQuizReview 
                 ? <div className="p-10 text-center text-gray-500 animate-pulse">Analyzing Results...</div>
@@ -1101,7 +1104,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             {currentView === 'widgets' && <WidgetsView studyLog={props.studyLog} habits={props.habits} navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
             {currentView === 'podcastSettings' && <PodcastSettingsView config={props.podcastConfig} onUpdate={props.setPodcastConfig} navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} studyLog={props.studyLog} onPlayTopic={(t) => { props.podcast.controls.playTopic(t); navigateTo('podcast'); }} onUpdateTopic={props.handleUpdateTopic} />}
             {currentView === 'flashcardHub' && <FlashcardHubView studyLog={props.studyLog} userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} goBack={goBack} />}
-            {currentView === 'testSeries' && <TestSeriesView userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} />}
+            {currentView === 'testSeries' && <TestSeriesView userId={props.userId} navigateTo={navigateTo} themeColor={props.currentTheme} onLockTabs={setIsTestSeriesActive} />}
             {currentView === 'diary' && <DiaryView userId={props.userId} themeColor={props.currentTheme} />}
             {currentView === 'about' && <AboutView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}
             {currentView === 'terms' && <TermsView navigateTo={navigateTo} goBack={goBack} themeColor={props.currentTheme} />}

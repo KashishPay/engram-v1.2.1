@@ -466,19 +466,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 </div>
 
                                 <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 mb-4">
-                                    <h4 className="font-bold text-gray-800 dark:text-white text-sm mb-3">Get a free Gemini API Key:</h4>
-                                    <ol className="text-xs text-gray-600 dark:text-gray-300 space-y-2 leading-relaxed">
+                                    <h4 className="font-bold text-gray-800 dark:text-white text-sm mb-3 flex items-center">
+                                        <Sparkles className="text-amber-500 mr-1.5 shrink-0" size={16} />
+                                        Get a free Gemini API Key:
+                                    </h4>
+                                    <ol className="text-xs text-gray-600 dark:text-gray-300 space-y-3 leading-relaxed">
                                         <li className="flex items-start">
-                                            <span className="font-bold mr-1.5">1.</span> 
-                                            <span>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 font-medium hover:underline inline-flex items-center">Google AI Studio <ExternalLink size={10} className="ml-0.5"/></a>.</span>
+                                            <span className="font-bold text-blue-600 dark:text-blue-400 mr-2 shrink-0">1. Sign In:</span> 
+                                            <span>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 font-semibold hover:underline inline-flex items-center">Google AI Studio <ExternalLink size={10} className="ml-0.5"/></a> and sign in with any consumer/personal Google Account.</span>
+                                        </li>
+                                        <div className="bg-blue-50 dark:bg-blue-950/40 p-2.5 rounded-lg border border-blue-100 dark:border-blue-900/30 text-[11px] text-blue-700 dark:text-blue-300 ml-5 -mt-1 leading-snug">
+                                            <strong>Note for G Suite/Workspace emails:</strong> Enterprise emails usually have developer access disabled. If you see a <em>"Service not available"</em> or permission error, switch to a personal <strong>@gmail.com</strong> account instead.
+                                        </div>
+                                        <li className="flex items-start">
+                                            <span className="font-bold text-blue-600 dark:text-blue-400 mr-2 shrink-0">2. Accept Terms:</span>
+                                            <span>Accept terms and location disclosures on first-time login (making sure you have normal connectivity).</span>
                                         </li>
                                         <li className="flex items-start">
-                                            <span className="font-bold mr-1.5">2.</span>
-                                            <span>Click <span className="font-bold text-gray-800 dark:text-gray-200">Create API key</span> (it's free).</span>
+                                            <span className="font-bold text-blue-600 dark:text-blue-400 mr-2 shrink-0">3. Create Key:</span>
+                                            <span>Click the blue <span className="font-bold text-gray-800 dark:text-gray-100">"Create API key"</span> button on the top sidebar.</span>
                                         </li>
                                         <li className="flex items-start">
-                                            <span className="font-bold mr-1.5">3.</span>
-                                            <span>Copy the key string and paste it below.</span>
+                                            <span className="font-bold text-blue-600 dark:text-blue-400 mr-2 shrink-0">4. Select Project:</span>
+                                            <span>When prompted with the Google Cloud options, select <span className="font-semibold text-gray-800 dark:text-gray-100">"Create API key in a new project"</span>. This is free, instant, and Google handles all system configurations automatically!</span>
+                                        </li>
+                                        <li className="flex items-start">
+                                            <span className="font-bold text-blue-600 dark:text-blue-400 mr-2 shrink-0">5. Paste:</span>
+                                            <span>Copy the generated key (starts with <span className="font-mono">AIzaSy</span>) and paste it inside the field below.</span>
                                         </li>
                                     </ol>
                                 </div>
