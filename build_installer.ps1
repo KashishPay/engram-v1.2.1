@@ -162,16 +162,22 @@ if (Test-Path "android") {
             $subprojectsBlock = @"
 
 subprojects {
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-        kotlinOptions.jvmTarget = "17"
-    }
     afterEvaluate { project ->
-        if (project.hasProperty('android')) {
+
+        // Fix Java for all modules
+        if (project.hasProperty("android")) {
             project.android {
                 compileOptions {
                     sourceCompatibility JavaVersion.VERSION_17
                     targetCompatibility JavaVersion.VERSION_17
                 }
+            }
+        }
+
+        // Fix Kotlin for all modules (SAFE method)
+        project.tasks.matching { it.name.contains("Kotlin") }.configureEach {
+            if (it.hasProperty("kotlinOptions")) {
+                it.kotlinOptions.jvmTarget = "17"
             }
         }
     }
@@ -250,16 +256,28 @@ subprojects {
     }
 
     # 5. Auto-increment versionCode in app/build.gradle to allow app updates over previous installs
+    # and enforce Java 17 compatibility rules
     $appGradleFile = "android\app\build.gradle"
     if (Test-Path $appGradleFile) {
         $appGradleContent = Get-Content $appGradleFile -Raw
+        
+        # Increment versionCode
         if ($appGradleContent -match 'versionCode\s+(\d+)') {
             $currentVersionCode = [int]$matches[1]
             $newVersionCode = $currentVersionCode + 1
             $appGradleContent = $appGradleContent -replace "versionCode\s+$currentVersionCode", "versionCode $newVersionCode"
-            Set-Content -Path $appGradleFile -Value $appGradleContent
             Write-Output "Auto-incremented versionCode to $newVersionCode in app/build.gradle to fix package update errors."
         }
+
+        # Enforce Java 17 compatibility in app/build.gradle compileOptions
+        if ($appGradleContent -match 'compileOptions\s*\{') {
+            # Replace existing compileOptions compatibility lines
+            $appGradleContent = $appGradleContent -replace "sourceCompatibility\s+JavaVersion\.[A-Za-z0-9_]+", "sourceCompatibility JavaVersion.VERSION_17"
+            $appGradleContent = $appGradleContent -replace "targetCompatibility\s+JavaVersion\.[A-Za-z0-9_]+", "targetCompatibility JavaVersion.VERSION_17"
+            Write-Output "Enforced Java 17 source/target compatibility in app/build.gradle."
+        }
+
+        Set-Content -Path $appGradleFile -Value $appGradleContent
     }
 }
 
