@@ -878,6 +878,22 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     localStorage.setItem(key, JSON.stringify(mergedQuestions));
                 }
                 
+                // 14. Restore Diary
+                if (data.diary && Array.isArray(data.diary)) {
+                    const key = `engram_diary_${props.userId}`;
+                    const localDiary = safeReadJSON(key, []);
+                    const mergedDiary = [...localDiary, ...data.diary].filter((v, i, a) => a.findIndex(D => D.id === v.id) === i);
+                    localStorage.setItem(key, JSON.stringify(mergedDiary));
+                }
+
+                // 15. Restore Recent Exams
+                if (data.recentExams && Array.isArray(data.recentExams)) {
+                    const key = `engram_recent_exams_${props.userId}`;
+                    const localExams = safeReadJSON(key, []);
+                    const mergedExams = [...localExams, ...data.recentExams].filter((v, i, a) => a.findIndex(e => e.id === v.id) === i);
+                    localStorage.setItem(key, JSON.stringify(mergedExams));
+                }
+                
                 setShowImportSuccessModal(true);
             } catch (err: unknown) {
                 console.error("Import failed:", err);
@@ -924,6 +940,8 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             const flashcardHistory = safeReadJSON(`engram-flashcard-history_${props.userId}`, []);
             const testSeriesHistory = safeReadJSON(`engram_test_series_history_${props.userId}`, safeReadJSON('engram_test_series_history', []));
             const testSeriesPastQuestions = safeReadJSON(`engram_test_series_past_questions_${props.userId}`, safeReadJSON('engram_test_series_past_questions', []));
+            const diary = safeReadJSON(`engram_diary_${props.userId}`, []);
+            const recentExams = safeReadJSON(`engram_recent_exams_${props.userId}`, []);
 
             let aiPrefs = {};
             try {
@@ -935,7 +953,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
 
             const backupBundle = {
                 schemaVersion: "1.0.0",
-                appVersion: "1.3", // Bump for new schema support
+                appVersion: "1.4", // Bump for new schema support
                 timestamp: new Date().toISOString(),
                 userId: props.userId,
                 userSubjects: props.userSubjects,
@@ -949,6 +967,8 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 flashcardHistory,   // Flashcards
                 testSeriesHistory,  // Test Series History
                 testSeriesPastQuestions, // Test Series Past Questions
+                diary,              // Diary
+                recentExams,        // Recent Exams
                 habits: props.habits,
                 tasks: safeReadJSON(`engramTasks_${props.userId}`, []),
                 matrix: safeReadJSON(`engramMatrix_${props.userId}`, []),

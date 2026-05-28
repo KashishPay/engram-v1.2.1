@@ -237,10 +237,39 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
 
                                     <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700/60">
                                         <p className={`text-xs font-bold text-${themeColor}-700 dark:text-${themeColor}-300 uppercase tracking-wide mb-1`}>Explanation:</p>
+                                        
+                                        {(
+                                            (q.explanation || '').toLowerCase().includes('sorry') || 
+                                            (q.explanation || '').toLowerCase().includes('apologies') ||
+                                            (q.explanation || '').toLowerCase().includes('incorrect') ||
+                                            (q.explanation || '').toLowerCase().includes('mistake') ||
+                                            (q.explanation || '').toLowerCase().includes('actually') ||
+                                            (q.explanation || '').toLowerCase().includes('my bad')
+                                        ) && (
+                                            <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium border border-red-200 dark:border-red-800/50">
+                                                <span className="font-bold block mb-1">⚠️ Analysis Warning</span>
+                                                The AI seems to have doubted or self-corrected its original answer below. The "correct" option highlighted above might be factually incorrect. Sorry for doubting!
+                                            </div>
+                                        )}
+
                                         <div 
                                             className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed"
                                             dangerouslySetInnerHTML={{ __html: renderMathHtml(q.explanation) }}
                                         />
+
+                                        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/30">
+                                            <a 
+                                                href={`https://www.google.com/search?q=${encodeURIComponent(q.question || q.questionText || '')}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className={`inline-flex items-center text-xs font-bold text-${themeColor}-600 dark:text-${themeColor}-400 hover:text-${themeColor}-700 dark:hover:text-${themeColor}-300 transition`}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                </svg>
+                                                Double Check on Google
+                                            </a>
+                                        </div>
                                     </div>
                                 </Card>
                             </React.Fragment>

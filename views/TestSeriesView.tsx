@@ -829,15 +829,15 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             </div>
 
             <Card className="p-6 space-y-6">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-2 mb-2">
                     <div className="flex items-center">
-                        <Target className={`text-${themeColor}-500 mr-2`} size={24} />
-                        <h3 className="text-lg font-bold text-gray-800 dark:text-white">Exam Configuration</h3>
+                        <Target className={`text-${themeColor}-500 mr-2 shrink-0`} size={24} />
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-white leading-tight">Exam Configuration</h3>
                     </div>
                     {recentExams.length > 0 && (
-                        <div className="relative">
+                        <div className="relative self-start sm:self-auto">
                             <select
-                                className={`appearance-none bg-${themeColor}-50 dark:bg-${themeColor}-900/20 border border-${themeColor}-100 dark:border-${themeColor}-800 text-${themeColor}-700 dark:text-${themeColor}-300 py-1.5 pl-3 pr-8 rounded-lg text-xs font-bold outline-none cursor-pointer max-w-[150px] sm:max-w-[180px] truncate`}
+                                className={`appearance-none bg-${themeColor}-50 dark:bg-${themeColor}-900/20 border border-${themeColor}-100 dark:border-${themeColor}-800 text-${themeColor}-700 dark:text-${themeColor}-300 py-1.5 pl-3 pr-8 rounded-lg text-xs font-bold outline-none cursor-pointer w-full sm:w-auto sm:max-w-[180px] truncate`}
                                 onChange={(e) => {
                                     if (!e.target.value) return;
                                     const selected = JSON.parse(e.target.value);

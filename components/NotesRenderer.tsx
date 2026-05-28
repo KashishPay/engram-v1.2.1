@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Image as ImageIcon, Loader, Layers, Plus, Trash2 } from 'lucide-react';
-import { getImageFromIDB } from '../services/storage';
+import { Image as ImageIcon, Loader, Layers, Plus, Trash2, RotateCw } from 'lucide-react';
+import { getImageFromIDB, saveImageToIDB } from '../services/storage';
 import { ImageViewer } from './ImageViewer';
 import katex from 'katex';
 import DOMPurify from 'dompurify';
@@ -33,6 +33,30 @@ const InlineImage: React.FC<{ imageId: string, description: string }> = ({ image
         return () => { active = false; };
     }, [imageId]);
 
+    const handleRotate = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!src) return;
+        
+        const img = new window.Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.height;
+            canvas.height = img.width;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(Math.PI / 2);
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+            
+            const newSrc = canvas.toDataURL('image/jpeg');
+            setSrc(newSrc);
+            
+            const base64 = newSrc.split(',')[1];
+            saveImageToIDB(imageId, base64);
+        };
+        img.src = src;
+    };
+
     if (loading) return <div className="h-48 w-full bg-gray-50 dark:bg-gray-800 rounded-xl animate-pulse flex items-center justify-center border border-gray-100 dark:border-gray-700 my-4"><Loader size={20} className="animate-spin text-gray-300"/></div>;
     
     if (!src) return (
@@ -53,10 +77,19 @@ const InlineImage: React.FC<{ imageId: string, description: string }> = ({ image
                 className="my-8 group relative rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 cursor-zoom-in hover:shadow-md transition-all duration-300"
                 onClick={(e) => { e.stopPropagation(); setIsViewerOpen(true); }}
             >
-                <div className="absolute top-3 left-3 z-10">
+                <div className="absolute top-3 left-3 z-10 flex space-x-2">
                     <span className="bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-white/10 flex items-center shadow-lg">
                         <Layers size={12} className="mr-1.5"/> AI Crop
                     </span>
+                </div>
+                <div className="absolute top-3 right-3 z-10 flex space-x-2">
+                    <button
+                        onClick={handleRotate}
+                        className="bg-black/70 hover:bg-black backdrop-blur-md text-white px-2.5 py-1.5 rounded-lg border border-white/10 flex items-center shadow-lg transition-colors cursor-pointer"
+                        title="Rotate Image"
+                    >
+                        <RotateCw size={14} className="mr-1"/> Rotate
+                    </button>
                 </div>
                 
                 <div className="relative bg-white dark:bg-black/20 p-2">
@@ -455,15 +488,124 @@ const AutoTextArea: React.FC<{
     onBlur: () => void,
     onDelete?: () => void
 }> = ({ value, onChange, onBlur, onDelete }) => {
-    const ref = useRef<HTMLTextAreaElement>(null);
+    const ref = useRef<HTMLDivElement>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
+    const isInitialized = useRef(false);
 
     useEffect(() => {
-        if (ref.current) {
-            ref.current.style.height = 'auto';
-            ref.current.style.height = ref.current.scrollHeight + 'px';
+        if (ref.current && !isInitialized.current) {
+            ref.current.innerText = value;
+            isInitialized.current = true;
+            
+            // Auto focus and set cursor at end
+            setTimeout(() => {
+                if (ref.current) {
+                    ref.current.focus();
+                    try {
+                        const selection = window.getSelection();
+                        const range = document.createRange();
+                        range.selectNodeContents(ref.current);
+                        range.collapse(false);
+                        selection?.removeAllRanges();
+                        selection?.addRange(range);
+                    } catch {
+                        // ignore
+                    }
+                }
+            }, 0);
+        } else if (ref.current) {
+            // Apply external changes (e.g. from handleJsonRepair)
+            const currentText = ref.current.innerText.replace(/\n$/, '');
+            const targetText = value.replace(/\n$/, '');
+            if (currentText !== targetText) {
+                 ref.current.innerText = value;
+            }
         }
     }, [value]);
+
+    const handleInput = () => {
+        if (ref.current) {
+            // innerText usually handles newlines well, but in some browsers it leaves a trailing newline
+            let text = ref.current.innerText || '';
+            // If the element is completely emptied, Chrome sometimes leaves a <br>
+            if (text === '\n') text = '';
+            onChange(text);
+        }
+    };
+
+    const handlePaste = async (e: React.ClipboardEvent) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const blob = items[i].getAsFile();
+                if (blob) {
+                    e.preventDefault();
+                    setFeedback('Uploading limit...');
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        const base64 = (event.target?.result as string).split(',')[1];
+                        const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+                        
+                        await saveImageToIDB(tempId, base64);
+                        
+                        // Insert tag into text
+                        const figCaptureTag = `\n[FIG_CAPTURE: ${tempId} | Pasted image]\n`;
+                        
+                        if (window.getSelection) {
+                            const sel = window.getSelection();
+                            if (sel && sel.getRangeAt && sel.rangeCount) {
+                                const range = sel.getRangeAt(0);
+                                range.deleteContents();
+                                const textNode = document.createTextNode(figCaptureTag);
+                                range.insertNode(textNode);
+                                
+                                range.setStartAfter(textNode);
+                                range.setEndAfter(textNode);
+                                sel.removeAllRanges();
+                                sel.addRange(range);
+                                
+                                handleInput();
+                                setFeedback(null);
+                                return;
+                            }
+                        }
+                        
+                        // Fallback
+                        onChange(value + figCaptureTag);
+                        setFeedback(null);
+                    };
+                    reader.readAsDataURL(blob);
+                    return; // exit loop after handling image
+                }
+            }
+        }
+        
+        // Let standard text paste proceed but force it to be plain text
+        e.preventDefault();
+        const text = e.clipboardData?.getData('text/plain');
+        if (text) {
+            if (window.getSelection) {
+                const sel = window.getSelection();
+                if (sel && sel.getRangeAt && sel.rangeCount) {
+                    const range = sel.getRangeAt(0);
+                    range.deleteContents();
+                    const textNode = document.createTextNode(text);
+                    range.insertNode(textNode);
+                    
+                    range.setStartAfter(textNode);
+                    range.setEndAfter(textNode);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                    
+                    handleInput();
+                }
+            } else {
+                onChange(value + text);
+            }
+        }
+    };
 
     const handleJsonRepair = async (e: React.MouseEvent) => {
         e.preventDefault();
@@ -473,12 +615,11 @@ const AutoTextArea: React.FC<{
         let fixed = value;
 
         try {
-            // If it's a JSON string that is broken, use jsonrepair
             if (fixed.trim().startsWith('{') || fixed.trim().startsWith('[')) {
                 fixed = jsonrepair(fixed);
             }
         } catch {
-            // Ignore if it's not JSON
+            // Error ignored
         }
 
         try {
@@ -506,7 +647,6 @@ ${fixed}`,
             fixed = reply;
         } catch (error) {
             console.error("AI Repair failed, using heuristics", error);
-            // KaTeX/LaTeX instant fixes heuristic fallback
             const openBraces = (fixed.match(/\{/g) || []).length;
             const closeBraces = (fixed.match(/\}/g) || []).length;
             if (openBraces > closeBraces) fixed += '}'.repeat(openBraces - closeBraces);
@@ -540,23 +680,23 @@ ${fixed}`,
 
     return (
         <div className="relative group">
-            <textarea
+            <div
                 ref={ref}
-                value={value}
-                onChange={e => onChange(e.target.value)}
+                contentEditable={true}
+                suppressContentEditableWarning
+                onInput={handleInput}
+                onPaste={handlePaste}
                 onBlur={onBlur}
-                autoFocus
-                className="w-full bg-transparent outline-none resize-none font-mono text-sm p-3 pb-8 rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/10 focus:ring-2 focus:ring-blue-500"
-                rows={1}
+                className="w-full bg-transparent outline-none font-mono text-sm p-3 pb-8 rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/10 focus:ring-2 focus:ring-blue-500 whitespace-pre-wrap break-words min-h-[40px] appearance-none"
             />
             <button 
                 onMouseDown={handleJsonRepair} 
-                disabled={feedback === 'Checking...'}
-                className={`absolute top-2 right-2 px-2 py-1 bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 text-[10px] font-bold rounded shadow-sm flex items-center transition-all active:scale-95 z-10 opacity-70 hover:opacity-100 backdrop-blur-sm ${feedback === 'Checking...' ? 'cursor-wait opacity-100' : ''}`}
+                disabled={feedback === 'Checking...' || feedback === 'Uploading limit...'}
+                className={`absolute top-2 right-2 px-2 py-1 bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 text-[10px] font-bold rounded shadow-sm flex items-center transition-all active:scale-95 z-10 opacity-70 hover:opacity-100 backdrop-blur-sm ${feedback === 'Checking...' || feedback === 'Uploading limit...' ? 'cursor-wait opacity-100' : ''}`}
                 title="Attempt to automatically repair formatting errors"
             >
-                {feedback === 'Checking...' ? (
-                    <><svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Checking...</>
+                {feedback === 'Checking...' || feedback === 'Uploading limit...' ? (
+                    <><svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> {feedback === 'Uploading limit...' ? 'Uploading...' : 'Checking...'}</>
                 ) : feedback ? feedback : <><span className="mr-1">✨</span> Refresh</>}
             </button>
             {onDelete && (
@@ -572,6 +712,44 @@ ${fixed}`,
                     <Trash2 size={14} />
                 </button>
             )}
+            <div className="absolute bottom-2 right-10 flex">
+                <button 
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.onchange = async (e: Event) => {
+                            const target = e.target as HTMLInputElement;
+                            const file = target.files?.[0];
+                            if (!file) return;
+
+                            setFeedback('Uploading limit...');
+                            const reader = new FileReader();
+                            reader.onload = async (event) => {
+                                const base64 = (event.target?.result as string).split(',')[1];
+                                const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+                                
+                                await saveImageToIDB(tempId, base64);
+                                
+                                const figCaptureTag = `\n[FIG_CAPTURE: ${tempId} | Inserted image]\n`;
+                                
+                                onChange(value + figCaptureTag);
+                                setFeedback(null);
+                            };
+                            reader.readAsDataURL(file);
+                        };
+                        input.click();
+                    }}
+                    className="p-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-900/30 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-400 rounded transition-colors inline-flex items-center justify-center"
+                    title="Select Photo"
+                >
+                    <ImageIcon size={14} />
+                </button>
+
+            </div>
         </div>
     );
 };

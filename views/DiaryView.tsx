@@ -7,6 +7,7 @@ import rehypeKatex from 'rehype-katex';
 import { Stage, Layer, Line, Circle } from 'react-konva';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { VisualMarkdownEditor, VisualMarkdownEditorRef } from '../components/VisualMarkdownEditor';
 import { downloadPDF } from '../utils/download';
 
 interface LineState {
@@ -117,25 +118,12 @@ export const DiaryView: React.FC<{
     const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight - 200 });
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const editorRef = useRef<VisualMarkdownEditorRef>(null);
 
     const insertMarkdown = (prefix: string, suffix: string) => {
-        if (!textareaRef.current || !activePage) return;
-        const textarea = textareaRef.current;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const text = activePage.content || "";
-        const before = text.substring(0, start);
-        const selection = text.substring(start, end);
-        const after = text.substring(end);
-        
-        const newText = before + prefix + selection + suffix + after;
-        updateActivePage({ content: newText });
-        
-        setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(start + prefix.length, end + prefix.length);
-        }, 10);
+        if (editorRef.current) {
+            editorRef.current.insertMarkdown(prefix, suffix);
+        }
     };
 
     useEffect(() => {
@@ -728,12 +716,11 @@ export const DiaryView: React.FC<{
                                     </div>
                                     <div className="flex-1 overflow-hidden relative">
                                         {noteMode === 'edit' ? (
-                                            <textarea
-                                                ref={textareaRef}
+                                            <VisualMarkdownEditor
+                                                ref={editorRef}
                                                 value={activePage.content}
-                                                onChange={(e) => updateActivePage({ content: e.target.value })}
+                                                onChange={(newContent) => updateActivePage({ content: newContent })}
                                                 placeholder="Start typing your notes here. Supports Markdown and $$ LaTeX $$ formulas..."
-                                                className="w-full h-full p-6 bg-transparent resize-none outline-none text-gray-700 dark:text-gray-300 font-mono text-sm leading-relaxed"
                                             />
                                         ) : (
                                             <div className="w-full h-full p-6 overflow-y-auto overflow-x-hidden">
@@ -741,6 +728,21 @@ export const DiaryView: React.FC<{
                                                     <ReactMarkdown
                                                         remarkPlugins={[remarkGfm, remarkMath]}
                                                         rehypePlugins={[rehypeKatex]}
+                                                        components={{
+                                                            img: ({ ...props }) => {
+                                                                const alt = props.alt || '';
+                                                                let width = '100%';
+                                                                if (alt.includes('px') || alt.includes('%') || alt.match(/^\d+x/)) {
+                                                                    width = alt.split('x')[0] || width;
+                                                                    if (width.match(/^\d+$/)) width += 'px';
+                                                                }
+                                                                return (
+                                                                    <div className="py-2 inline-block max-w-full">
+                                                                        <img {...props} style={{ width, maxWidth: '100%', height: 'auto', borderRadius: '4px' }} className="shadow-sm border border-gray-100 dark:border-gray-800" />
+                                                                    </div>
+                                                                );
+                                                            }
+                                                        }}
                                                     >
                                                         {activePage.content || '*Preview will appear here...*'}
                                                     </ReactMarkdown>

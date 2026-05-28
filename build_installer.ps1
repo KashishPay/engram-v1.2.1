@@ -230,7 +230,8 @@ subprojects {
             "android.permission.WRITE_EXTERNAL_STORAGE",
             "android.permission.READ_EXTERNAL_STORAGE",
             "android.permission.WAKE_LOCK",
-            "android.permission.VIBRATE"
+            "android.permission.VIBRATE",
+            "com.google.android.gms.permission.AD_ID"
         )
 
         foreach ($perm in $permsToInject) {
