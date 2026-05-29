@@ -179,7 +179,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
         setIsScanning(true);
         triggerHaptic.impact('Light');
 
-        await AdManager.showAlternatingAd();
+        const adPromise = AdManager.showAlternatingAd();
 
         try {
             // Compress all images in parallel
@@ -249,6 +249,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
             const msg = _e instanceof Error ? _e.message : String(_e);
             alert(`Failed to process images. Please try fewer images or check connection.\n\nDetails: ${msg}`);
         } finally {
+            await adPromise.catch(console.error);
             setIsScanning(false);
         }
     };

@@ -194,10 +194,10 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
         const files = event.target.files;
         if (!files || files.length === 0) return;
         
-        await AdManager.showAlternatingAd();
+        const adPromise = AdManager.showAlternatingAd();
         
         try {
-            await startProcessing(userId, topic.id, files);
+            await Promise.all([adPromise, startProcessing(userId, topic.id, files)]);
         } catch (err) {
             console.error("[VSHORT] processing trigger failed", err);
             alert("Failed to start processing. Please try again.");
@@ -478,8 +478,8 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
 
                         <div className="flex space-x-2 mt-auto">
                             <button
-                                onClick={async () => {
-                                    await AdManager.showAlternatingAd();
+                                onClick={() => {
+                                    AdManager.showAlternatingAd().catch(console.error);
                                     navigateTo('quiz', { topic });
                                 }} 
                                 disabled={!isQuizUnlocked || saveStatus === 'saving' || (!isReadyForReview && !topic.isJourneyPaused) || isLoadingBody || !!currentJob || topic.isJourneyPaused}

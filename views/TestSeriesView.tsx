@@ -327,13 +327,16 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
         setIsGeneratingQuiz(true);
         setError(null);
         try {
-            // Show rewarded ad here before quiz generation
-            await AdManager.showAlternatingAd();
+            // Run ad and quiz generation in parallel
+            const adPromise = AdManager.showAlternatingAd();
 
             // Retrieve past questions context to avoid repetition
             const pastQuestions = JSON.parse(localStorage.getItem(`engram_test_series_past_questions_${userId}`) || '[]');
             
-            const questions = await generateExamQuiz(exam, stream, selectedSubject, difficulty, numQuestions, pastQuestions, specificTopics, language);
+            const [_, questions] = await Promise.all([
+                adPromise,
+                generateExamQuiz(exam, stream, selectedSubject, difficulty, numQuestions, pastQuestions, specificTopics, language)
+            ]);
             
             if (questions.length === 0) throw new Error("No questions generated.");
             

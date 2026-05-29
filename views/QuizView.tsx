@@ -152,7 +152,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
         
         generationAttemptedRef.current = true;
         
-        await AdManager.showAlternatingAd();
+        const adPromise = AdManager.showAlternatingAd();
         
         // Setup AbortController for Timeout
         if (abortControllerRef.current) abortControllerRef.current.abort();
@@ -299,6 +299,8 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 }));
                 // SANITIZATION STEP END
 
+                await adPromise.catch(console.error);
+
                 console.debug("[POPQUIZ] success", { questionCount: cleanedQuiz.length });
                 setQuizData(cleanedQuiz);
                 setStatus('ready');
@@ -319,6 +321,8 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
             if (err.message === "Aborted") msg = "Generation timed out. Please try again.";
             else if (err.message?.includes("quota") || err.name === 'UsageLimitError') msg = err.message || "AI quota reached. Please check Settings.";
             else if (err.message) msg = String(err.message);
+
+            await adPromise.catch(console.error);
 
             setErrorMessage(msg);
             setStatus('error');

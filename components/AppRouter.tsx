@@ -1081,7 +1081,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             podcastOverlay={<PodcastFullView studyLog={props.studyLog} onUpdateTopic={props.handleUpdateTopic} themeColor={props.currentTheme} onMinimize={goBack} state={props.podcast.state} controls={props.podcast.controls} defaultLanguage={props.podcastConfig.language} />}
             hideTabBar={isTestSeriesActive || isQuizActive}
         >
-            {currentView === 'home' && <HomeView studyLog={props.studyLog} allSubjects={props.userSubjects} navigateTo={navigateTo} userId={props.userId} themeColor={props.currentTheme} userProfile={props.userProfile} loading={props.loadingData} />}
+            <div style={{ display: currentView === 'home' ? 'flex' : 'none' }} className="flex-col flex-1 w-full relative">
+                <HomeView studyLog={props.studyLog} allSubjects={props.userSubjects} navigateTo={navigateTo} userId={props.userId} themeColor={props.currentTheme} userProfile={props.userProfile} loading={props.loadingData} />
+            </div>
             {currentView === 'subjects' && <SubjectsView allSubjects={props.userSubjects} studyLog={props.studyLog} navigateTo={navigateTo} onAddSubject={props.handleAddSubject} onUpdateSubject={props.handleUpdateSubject} onDeleteSubject={props.handleDeleteSubject} onAddTopic={props.handleAddTopic} themeColor={props.currentTheme} />}
             {currentView === 'topicDetail' && <TopicDetailView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} onUpdateTopic={props.handleUpdateTopic} onDeleteTopic={props.handleDeleteTopic} themeColor={props.currentTheme} defaultLanguage={props.podcastConfig.language} />}
             {currentView === 'quiz' && <QuizView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} onUpdateTopic={props.handleUpdateTopic} themeColor={props.currentTheme} onLockTabs={setIsQuizActive} />}

@@ -146,7 +146,7 @@ const FlashCardDeck: React.FC<{
         setShowRevisitOptions(false);
         triggerHaptic.impact('Light');
 
-        await AdManager.showAlternatingAd();
+        const adPromise = AdManager.showAlternatingAd();
         
         const shuffled = [...pool].sort(() => 0.5 - Math.random()).slice(0, desiredCount);
         
@@ -245,6 +245,7 @@ const FlashCardDeck: React.FC<{
                  alert(`Failed to generate cards. Please check your connection.\n\nDetails: ${msg}`);
             }
         } finally {
+            await adPromise.catch(console.error);
             setLoading(false);
         }
     };
@@ -781,7 +782,7 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
 
             <Card className={`${dueTopics.length > 0 ? 'bg-gradient-to-br from-red-50 to-white dark:from-red-900/20 dark:to-gray-800' : 'bg-white dark:bg-gray-800'}`}>
                 <FlashCardDeck 
-                    topics={activeTopics.length > 0 ? activeTopics : studyLog} 
+                    topics={studyLog} 
                     allSubjects={allSubjects}
                     themeColor={themeColor} 
                     dueTopics={dueTopics}
