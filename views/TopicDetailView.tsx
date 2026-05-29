@@ -194,8 +194,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
         const files = event.target.files;
         if (!files || files.length === 0) return;
         
-        // Show ad but don't await it so processing continues in the background
-        AdManager.showRewardVideo().catch(console.error);
+        await AdManager.showAlternatingAd();
         
         try {
             await startProcessing(userId, topic.id, files);
@@ -480,12 +479,8 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                         <div className="flex space-x-2 mt-auto">
                             <button
                                 onClick={async () => {
-                                    const isRewarded = await AdManager.showRewardVideo();
-                                    if (isRewarded) {
-                                        navigateTo('quiz', { topic });
-                                    } else {
-                                        alert("Quiz canceled. Please watch the full ad to start the pop quiz.");
-                                    }
+                                    await AdManager.showAlternatingAd();
+                                    navigateTo('quiz', { topic });
                                 }} 
                                 disabled={!isQuizUnlocked || saveStatus === 'saving' || (!isReadyForReview && !topic.isJourneyPaused) || isLoadingBody || !!currentJob || topic.isJourneyPaused}
                                 className={`flex-1 py-2.5 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-lg font-bold shadow-sm text-xs flex items-center justify-center hover:opacity-90 transition disabled:opacity-50`}

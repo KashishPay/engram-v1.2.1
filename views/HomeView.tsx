@@ -146,12 +146,7 @@ const FlashCardDeck: React.FC<{
         setShowRevisitOptions(false);
         triggerHaptic.impact('Light');
 
-        const isRewarded = await AdManager.showRewardVideo();
-        if (!isRewarded) {
-            setLoading(false);
-            alert("Revision canceled. Please watch the full ad to initiate cards generation.");
-            return;
-        }
+        await AdManager.showAlternatingAd();
         
         const shuffled = [...pool].sort(() => 0.5 - Math.random()).slice(0, desiredCount);
         
@@ -256,7 +251,7 @@ const FlashCardDeck: React.FC<{
 
     const revisitCards = async (filter: 'all' | 'missed' | 'others' = 'all') => {
         if (filter === 'missed') {
-            await AdManager.showInterstitial();
+            await AdManager.showAlternatingAd();
         }
 
         let historyPool = cardHistory; 

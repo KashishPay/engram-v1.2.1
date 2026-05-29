@@ -179,12 +179,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
         setIsScanning(true);
         triggerHaptic.impact('Light');
 
-        const isRewarded = await AdManager.showRewardVideo();
-        if (!isRewarded) {
-            setIsScanning(false);
-            alert("Scan canceled. Please watch the ad entirely in order to scan files.");
-            return;
-        }
+        await AdManager.showAlternatingAd();
 
         try {
             // Compress all images in parallel

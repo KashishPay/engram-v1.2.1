@@ -158,11 +158,7 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
         
         // Show ad when starting a new podcast
         if (currentTopic?.id !== topic.id || (!audioSrc && !loading)) {
-            const isRewarded = await AdManager.showRewardVideo();
-            if (!isRewarded) {
-                setError("Playback canceled. Please watch the ad entirely to play this podcast.");
-                return;
-            }
+            await AdManager.showAlternatingAd();
         }
 
         // Mobile Autoplay Policy: Prime the context and element immediately
@@ -265,11 +261,7 @@ export const usePodcast = (defaultLanguage: 'English' | 'Hinglish' = 'English') 
     const downloadTopic = useCallback(async (topic: Topic, context: string, durationOverride: number, language: string, onSuccess?: (audioData: Blob | string, script: string) => void) => {
         if (downloadingIds.includes(topic.id)) return;
         
-        const isRewarded = await AdManager.showRewardVideo();
-        if (!isRewarded) {
-            setError("Generation canceled. Please watch the ad entirely to generate/download this podcast.");
-            return;
-        }
+        await AdManager.showAlternatingAd();
         
         const isRecap = topic.id.startsWith('subject-recap');
         const { targetDuration } = calculateDurations(topic, isRecap);

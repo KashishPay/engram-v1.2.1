@@ -152,7 +152,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
         
         generationAttemptedRef.current = true;
         
-        await AdManager.showInterstitial();
+        await AdManager.showAlternatingAd();
         
         // Setup AbortController for Timeout
         if (abortControllerRef.current) abortControllerRef.current.abort();

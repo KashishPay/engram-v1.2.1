@@ -11,6 +11,7 @@ export interface AdConfig {
 
 class AdManagerService {
     private isInitialized = false;
+    private nextAdType: 'interstitial' | 'reward' = 'interstitial';
     private config: AdConfig = {
         banner_ad_unit_id: Capacitor.getPlatform() === 'ios' 
             ? 'ca-app-pub-3940256099942544/2934735716' // iOS Test Banner
@@ -99,11 +100,18 @@ class AdManagerService {
                         resolve();
                     }));
 
+                    listeners.push(await AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => {
+                        AdMob.showInterstitial().catch((e) => {
+                            console.error('Failed to show loaded interstitial', e);
+                            clearListeners();
+                            resolve();
+                        });
+                    }));
+
                     await AdMob.prepareInterstitial({
                         adId,
                         isTesting: false 
                     });
-                    await AdMob.showInterstitial();
                 } catch (error) {
                     console.error('Error in interstitial ad sequence', error);
                     clearListeners();
@@ -113,6 +121,18 @@ class AdManagerService {
             
             setupInterstitial();
         });
+    }
+
+    async showAlternatingAd(): Promise<boolean> {
+        if (this.nextAdType === 'interstitial') {
+            this.nextAdType = 'reward';
+            await this.showInterstitial();
+            return true;
+        } else {
+            this.nextAdType = 'interstitial';
+            await this.showRewardVideo();
+            return true;
+        }
     }
 
     async showRewardVideo(): Promise<boolean> {
@@ -160,8 +180,15 @@ class AdManagerService {
                         resolve(true); // Fallback rewarding logic
                     }));
 
+                    listeners.push(await AdMob.addListener(RewardAdPluginEvents.Loaded, () => {
+                        AdMob.showRewardVideoAd().catch((e) => {
+                            console.error('Failed to show loaded reward ad', e);
+                            clearListeners();
+                            resolve(true);
+                        });
+                    }));
+
                     await AdMob.prepareRewardVideoAd({ adId, isTesting: false });
-                    await AdMob.showRewardVideoAd();
 
                 } catch (error) {
                     console.error('Failed to prepare/show reward video ad', error);

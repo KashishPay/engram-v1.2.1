@@ -61,6 +61,14 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
     const [selectedHistory, setSelectedHistory] = useState<TestHistoryEntry | null>(null);
     const [recentExams, setRecentExams] = useState<{exam: string; stream: string}[]>([]);
     const [expandedHistoryGroups, setExpandedHistoryGroups] = useState<Set<string>>(new Set());
+    const [language, setLanguage] = useState<string>("English");
+
+    const OFFICIAL_LANGUAGES = [
+        "English", "Assamese", "Bengali", "Bodo", "Dogri", "Gujarati", 
+        "Hindi", "Kannada", "Kashmiri", "Konkani", "Maithili", "Malayalam", 
+        "Manipuri", "Marathi", "Nepali", "Odia", "Punjabi", "Sanskrit", 
+        "Santali", "Sindhi", "Tamil", "Telugu", "Urdu"
+    ];
 
     const [exportingItemId, setExportingItemId] = useState<string | null>(null);
     const pdfExportRef = React.useRef<HTMLDivElement>(null);
@@ -212,6 +220,11 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             try { setHistory(JSON.parse(saved)); } catch (e) { console.warn("Failed to parse test series history", e); }
         }
         
+        const savedLang = localStorage.getItem(`engram_test_series_language_${userId}`);
+        if (savedLang) {
+            setLanguage(savedLang);
+        }
+        
         let recents: {exam: string; stream: string}[] = [];
         const savedRecents = localStorage.getItem(`engram_recent_exams_${userId}`);
         if (savedRecents) {
@@ -277,7 +290,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
         setIsFetchingSubjects(true);
         setError(null);
         try {
-            const fetchedSubjects = await fetchExamSubjects(exam, stream);
+            const fetchedSubjects = await fetchExamSubjects(exam, stream, language);
             setSubjects(fetchedSubjects);
             if (fetchedSubjects.length > 0) {
                 setSelectedSubject("All Subjects");
@@ -315,17 +328,12 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
         setError(null);
         try {
             // Show rewarded ad here before quiz generation
-            const isRewarded = await AdManager.showRewardVideo();
-            if (!isRewarded) {
-                setError("Ad skipped. To start the test, please watch the full video.");
-                setIsGeneratingQuiz(false);
-                return;
-            }
+            await AdManager.showAlternatingAd();
 
             // Retrieve past questions context to avoid repetition
             const pastQuestions = JSON.parse(localStorage.getItem(`engram_test_series_past_questions_${userId}`) || '[]');
             
-            const questions = await generateExamQuiz(exam, stream, selectedSubject, difficulty, numQuestions, pastQuestions, specificTopics);
+            const questions = await generateExamQuiz(exam, stream, selectedSubject, difficulty, numQuestions, pastQuestions, specificTopics, language);
             
             if (questions.length === 0) throw new Error("No questions generated.");
             
@@ -451,6 +459,12 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
         const m = Math.floor(seconds / 60);
         const s = seconds % 60;
         return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newLang = e.target.value;
+        setLanguage(newLang);
+        localStorage.setItem(`engram_test_series_language_${userId}`, newLang);
     };
 
     // --- RENDERERS ---
@@ -753,9 +767,9 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                     </div>
                 </Card>
 
-                <div className="mt-auto flex justify-center">
-                    <button onClick={handleSkip} className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-200 dark:hover:bg-gray-800 rounded-xl transition flex items-center">
-                        Skip Question <SkipForward size={18} className="ml-2" />
+                <div className="flex justify-end shrink-0 -mt-2 mb-4 pr-1">
+                    <button onClick={handleSkip} className={`px-5 py-2.5 text-${themeColor}-500 font-bold hover:bg-${themeColor}-100 dark:hover:bg-${themeColor}-900/30 rounded-xl transition flex items-center text-sm active:scale-95`}>
+                        Skip <SkipForward size={16} className="ml-2" />
                     </button>
                 </div>
                 
@@ -816,16 +830,28 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
     // Setup View
     return (
         <div className={`flex flex-col h-full bg-gray-50 dark:bg-gray-900 p-4 overflow-y-auto`} style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}>
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center space-x-3">
+            <div className="flex justify-between items-start sm:items-center mb-6">
+                <div className="flex items-center space-x-3 mt-1 sm:mt-0">
                     <button onClick={() => navigateTo('settings')} className={`p-2 rounded-full hover:bg-${themeColor}-100 text-${themeColor}-600 dark:text-${themeColor}-400 dark:hover:bg-gray-800 transition`}>
                         <ArrowLeft size={24} />
                     </button>
                     <h2 className={`text-2xl font-bold text-${themeColor}-800 dark:text-${themeColor}-200`}>Test Series</h2>
                 </div>
-                <button onClick={() => setViewMode('history_list')} className={`p-2 bg-${themeColor}-100 dark:bg-${themeColor}-900/30 text-${themeColor}-600 dark:text-${themeColor}-400 rounded-xl font-bold text-sm flex items-center hover:bg-${themeColor}-200 dark:hover:bg-${themeColor}-900/50 transition`}>
-                    <History size={18} className="mr-2" /> History
-                </button>
+                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                    <select
+                        value={language}
+                        onChange={handleLanguageChange}
+                        className={`bg-${themeColor}-50 dark:bg-${themeColor}-900/20 border border-${themeColor}-100 dark:border-${themeColor}-800 text-${themeColor}-700 dark:text-${themeColor}-300 py-1.5 px-3 rounded-xl text-sm font-bold outline-none cursor-pointer w-[120px] sm:w-auto order-last sm:order-first truncate`}
+                        title="Select Language"
+                    >
+                        {OFFICIAL_LANGUAGES.map(lang => (
+                            <option key={lang} value={lang}>{lang}</option>
+                        ))}
+                    </select>
+                    <button onClick={() => setViewMode('history_list')} className={`w-[120px] sm:w-auto p-2 bg-${themeColor}-100 dark:bg-${themeColor}-900/30 text-${themeColor}-600 dark:text-${themeColor}-400 rounded-xl font-bold text-sm flex items-center justify-center hover:bg-${themeColor}-200 dark:hover:bg-${themeColor}-900/50 transition order-first sm:order-last`}>
+                        <History size={18} className="mr-2" /> History
+                    </button>
+                </div>
             </div>
 
             <Card className="p-6 space-y-6">

@@ -26,14 +26,16 @@ const safeParseJSON = (text: string) => {
     }
 };
 
-export const fetchExamSubjects = async (exam: string, stream: string): Promise<string[]> => {
+export const fetchExamSubjects = async (exam: string, stream: string, language: string = "English"): Promise<string[]> => {
     checkUsageLimit();
     const { client } = getAiClient();
+
+    const languageStr = language !== 'English' ? `\nReturn the names of the subjects translated to the requested language: ${language}.` : '';
 
     const prompt = `You are an expert tutor and curriculum designer. 
 List the core subjects/topics for the following competitive exam and stream.
 Exam: ${exam}
-Stream/Branch: ${stream}
+Stream/Branch: ${stream}${languageStr}
 
 Return ONLY a JSON array of strings representing the subjects. Keep the subject names concise and standard.`;
 
@@ -72,7 +74,8 @@ export const generateExamQuiz = async (
     difficulty: string, 
     numQuestions: number, 
     pastQuestionsContext: string[],
-    specificTopics?: string
+    specificTopics?: string,
+    language: string = "English"
 ): Promise<TestSeriesQuestion[]> => {
     checkUsageLimit();
     const { client } = getAiClient();
@@ -85,13 +88,23 @@ export const generateExamQuiz = async (
         ? `\nIMPORTANT: The user has requested to ONLY test the following specific topics: "${specificTopics}". Ensure ALL questions strictly focus on these topics.`
         : '';
 
+    let languageStr = '';
+    const languageKeywords = ["language", "english", "hindi", "punjabi", "bengali", "tamil", "telugu", "marathi", "gujarati", "urdu", "kannada", "odia", "malayalam", "sanskrit"];
+    const isLanguageSubject = subject !== "All Subjects" && languageKeywords.some(keyword => subject.toLowerCase().includes(keyword));
+
+    if (isLanguageSubject) {
+        languageStr = `\nIMPORTANT: Since this is a test of "${subject}", the questions, options, and explanations MUST be in the original script and language of "${subject}" itself, overriding any user preferred language. For example, if it's a Punjabi language test, use Gurmukhi script.`;
+    } else if (language !== 'English') {
+        languageStr = `\nIMPORTANT: The entire test (questions, options, and explanations) MUST be generated in ${language}. Use the appropriate script and vocabulary for ${language}.`;
+    }
+
     // If requesting many questions, chunking or increasing limit logic might be needed, but 8192 usually covers up to ~30 questions.
     const subjectPrompt = subject === "All Subjects" 
         ? "the entire syllabus encompassing all relevant subjects for this exam"
         : `the subject: "${subject}"`;
 
     const prompt = `You are an expert examiner for the ${exam} exam (${stream} stream).
-Generate a practice test for ${subjectPrompt}.${specificTopicsStr}
+Generate a practice test for ${subjectPrompt}.${specificTopicsStr}${languageStr}
 Difficulty level: ${difficulty}.
 Number of questions: EXACTLY ${numQuestions}. You MUST generate exactly ${numQuestions} questions, no more, no less.
 
