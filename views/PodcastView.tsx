@@ -145,37 +145,48 @@ export const PodcastMiniPlayer: React.FC<{
 
             <div className="flex items-center space-x-3 overflow-hidden flex-1 pl-1 pb-2 pt-1 pointer-events-none">
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-${themeColor}-400 to-${themeColor}-600 flex items-center justify-center text-white shadow-sm shrink-0`}>
-                    {state.loading ? <Loader size={16} className="animate-spin"/> : <Headphones size={18} />}
+                    {state.loading ? <Loader size={18} className="animate-spin"/> : <Headphones size={18} />}
                 </div>
                 <div className="min-w-0">
                     <p className="font-bold text-gray-800 dark:text-white text-sm truncate pr-2">
-                        {state.loading ? state.status : state.currentTopic.topicName}
+                        {state.loading ? 'Generating Podcast...' : state.currentTopic.topicName}
                     </p>
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                        Deep Dive • Kittu & Kashish
+                        {state.loading ? state.status : 'Deep Dive • Kittu & Kashish'}
                     </p>
                 </div>
             </div>
 
             <div className="flex items-center space-x-2 shrink-0 pb-1 pr-1 pointer-events-auto">
-                <button 
-                    onClick={(e) => { e.stopPropagation(); controls.skip(-10); }}
-                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                >
-                    <Rewind size={18} />
-                </button>
-                <button 
-                    onClick={(e) => { e.stopPropagation(); controls.togglePlay(); }}
-                    className={`w-10 h-10 rounded-full bg-${themeColor}-600 text-white flex items-center justify-center shadow-md hover:scale-105 transition`}
-                >
-                    {state.isPlaying ? <Pause size={18} fill="currentColor"/> : <Play size={18} fill="currentColor" className="ml-1"/>}
-                </button>
-                <button
-                     onClick={(e) => { e.stopPropagation(); controls.reset(); }}
-                     className="p-2 text-gray-400 hover:text-red-500"
-                >
-                    <X size={18} />
-                </button>
+                {state.loading ? (
+                    <button
+                         onClick={(e) => { e.stopPropagation(); controls.reset(); }}
+                         className="p-2 text-gray-400 hover:text-red-500"
+                    >
+                        <X size={18} />
+                    </button>
+                ) : (
+                    <>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); controls.skip(-10); }}
+                            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                        >
+                            <Rewind size={18} />
+                        </button>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); controls.togglePlay(); }}
+                            className={`w-10 h-10 rounded-full bg-${themeColor}-600 text-white flex items-center justify-center shadow-md hover:scale-105 transition`}
+                        >
+                            {state.isPlaying ? <Pause size={18} fill="currentColor"/> : <Play size={18} fill="currentColor" className="ml-1"/>}
+                        </button>
+                        <button
+                             onClick={(e) => { e.stopPropagation(); controls.reset(); }}
+                             className="p-2 text-gray-400 hover:text-red-500"
+                        >
+                            <X size={18} />
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     );

@@ -354,6 +354,7 @@ export const NotesRenderer: React.FC<NotesRendererProps> = React.memo(({ content
 
         processedText = processedText
             .replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-white font-bold">$1</strong>')
+            .replace(/\*([^\*]+)\*/g, '<em class="text-gray-800 dark:text-gray-200 italic">$1</em>')
             .replace(/_(.*?)_/g, '<em class="text-blue-600 dark:text-blue-400 not-italic">$1</em>')
             .replace(/`([^`]+)`/g, (match, inner) => {
                 if (

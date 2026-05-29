@@ -331,9 +331,14 @@ export const AppShell: React.FC<AppShellProps> = ({
                     className={mainClasses}
                 >
                     {children}
-                    {/* Physical spacer to ensure scroll content clears the fixed bottom tab bar */}
+                    {/* Physical spacer to ensure scroll content clears the fixed bottom tab bar and the floating podcast mini player */}
                     {showTabBar && (
-                        <div style={{ height: `calc(${bottomPaddingBase}px + env(safe-area-inset-bottom, 20px))` }} className="shrink-0 w-full pointer-events-none" />
+                        <div 
+                            style={{ 
+                                height: `calc(${(isLoggedIn && podcast?.state?.currentTopic && !isPodcastOpen) ? bottomPaddingBase + 80 : bottomPaddingBase}px + env(safe-area-inset-bottom, 20px))` 
+                            }} 
+                            className="shrink-0 w-full pointer-events-none transition-all duration-300" 
+                        />
                     )}
                 </main>
                 

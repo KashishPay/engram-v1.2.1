@@ -216,8 +216,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             setApiKey(key); 
             setStoredKey(key);
             
+            const isFormatValid = (k: string) => (k.startsWith('AIza') && k.length === 39) || (k.startsWith('AQ.') && k.length >= 100);
+            
             // STRICT CHECK ON LOAD
-            if (!key.startsWith('AIza') || key.length < 39) {
+            if (!isFormatValid(key)) {
                 setKeyStatus('invalid');
             } else {
                 setKeyStatus('valid'); 
@@ -252,8 +254,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 return;
             }
 
+            const isFormatValid = (k: string) => (k.startsWith('AIza') && k.length === 39) || (k.startsWith('AQ.') && k.length >= 100);
+
             // 1. Client-side Check
-            if (!trimmed.startsWith('AIza') || trimmed.length < 39) {
+            if (!isFormatValid(trimmed)) {
                 setKeyStatus('invalid');
                 return;
             }
@@ -280,9 +284,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const handleSaveKey = async () => {
         const trimmed = apiKey.trim();
         if (!trimmed) return;
+        
+        const isFormatValid = (k: string) => (k.startsWith('AIza') && k.length === 39) || (k.startsWith('AQ.') && k.length >= 100);
 
         // Final strict check
-        if (keyStatus === 'valid' && trimmed.length >= 39 && trimmed.startsWith('AIza')) {
+        if (keyStatus === 'valid' && isFormatValid(trimmed)) {
             localStorage.setItem(`engram_custom_api_key_${userId}`, trimmed);
             setHasKey(true);
             setStoredKey(trimmed);
@@ -351,7 +357,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     // Determine Action Button & Status Display
     let actionButton;
     const isStoredMatch = hasKey && apiKey === storedKey;
-    const showFormatWarning = apiKey.trim().length > 0 && (!apiKey.trim().startsWith('AIza') || apiKey.trim().length < 39);
+    
+    const isFormatValidStr = (k: string) => (k.startsWith('AIza') && k.length === 39) || (k.startsWith('AQ.') && k.length >= 100);
+    const showFormatWarning = apiKey.trim().length > 0 && !isFormatValidStr(apiKey.trim());
 
     if (isValidating || keyStatus === 'checking') {
         actionButton = (
@@ -492,7 +500,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                         </li>
                                         <li className="flex items-start">
                                             <span className="font-bold text-blue-600 dark:text-blue-400 mr-2 shrink-0">5. Paste:</span>
-                                            <span>Copy the generated key (starts with <span className="font-mono">AIzaSy</span>) and paste it inside the field below.</span>
+                                            <span>Copy the generated key (starts with <span className="font-mono">AIza</span> or <span className="font-mono">AQ.</span>) and paste it inside the field below.</span>
                                         </li>
                                     </ol>
                                 </div>
@@ -509,7 +517,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                 </div>
                                 {showFormatWarning && (
                                      <p className="text-[10px] text-orange-500 mt-1 pl-1 font-medium animate-in fade-in">
-                                        Warning: Google API Keys usually start with "AIza".
+                                        Warning: Google API Keys usually start with "AIza" or "AQ.".
                                      </p>
                                 )}
                                 {keyStatus === 'invalid' && (

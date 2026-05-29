@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Book, Plus, Trash2, ChevronRight, ChevronLeft, ChevronDown, X, Paintbrush, FileText, Download, Check, Eraser, Hand, ZoomIn, ZoomOut, Undo, Redo, GripVertical, Edit2 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import { Stage, Layer, Line, Circle } from 'react-konva';
+import { Book, Plus, Trash2, ChevronRight, ChevronLeft, ChevronDown, X, Paintbrush, FileText, Download, Check, Eraser, Hand, ZoomIn, ZoomOut, Undo, Redo, GripVertical, Edit2, List, ImageIcon, Lock, Unlock } from 'lucide-react';
+import { Stage, Layer, Line, Circle, Image as KonvaImage, Transformer } from 'react-konva';
+import { Html } from 'react-konva-utils';
+import useImage from 'use-image';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { VisualMarkdownEditor, VisualMarkdownEditorRef } from '../components/VisualMarkdownEditor';
+import { NotesRenderer } from '../components/NotesRenderer';
 import { downloadPDF } from '../utils/download';
+import { saveImageToIDB, getImageFromIDB } from '../services/storage';
 
 interface LineState {
     id: string;
@@ -18,12 +18,24 @@ interface LineState {
     tool: 'pen' | 'eraser';
 }
 
+interface CanvasImageState {
+    id: string;
+    imageId: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation?: number;
+    isLocked?: boolean;
+}
+
 interface DiaryPage {
     id: string;
     title: string;
     createdAt: number;
     content: string;
     drawings: LineState[];
+    canvasImages?: CanvasImageState[];
 }
 
 interface DiarySubject {
@@ -32,6 +44,142 @@ interface DiarySubject {
     color: string;
     pages: DiaryPage[];
 }
+
+const CanvasImageRenderer: React.FC<{ 
+    imageState: CanvasImageState; 
+    isSelected: boolean;
+    onSelect: () => void;
+    onChange: (newAttrs: Partial<CanvasImageState>) => void;
+    onDelete: () => void;
+}> = ({ imageState, isSelected, onSelect, onChange, onDelete }) => {
+    const [imageSrc, setImageSrc] = useState<string | null>(null);
+    const shapeRef = useRef<any>(null);
+    const trRef = useRef<any>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        getImageFromIDB(imageState.imageId).then(base64 => {
+            if (isMounted && base64) {
+                setImageSrc(`data:image/jpeg;base64,${base64}`);
+            }
+        });
+        return () => { isMounted = false; };
+    }, [imageState.imageId]);
+
+    useEffect(() => {
+        if (isSelected && trRef.current && shapeRef.current && !imageState.isLocked) {
+            trRef.current.nodes([shapeRef.current]);
+            trRef.current.getLayer().batchDraw();
+        }
+    }, [isSelected, imageState.isLocked]);
+
+    const [image] = useImage(imageSrc || '');
+
+    const [isHovered, setIsHovered] = useState(false);
+
+    return (
+        <React.Fragment>
+            <KonvaImage
+                onClick={onSelect}
+                onTap={onSelect}
+                ref={shapeRef}
+                image={image}
+                x={imageState.x}
+                y={imageState.y}
+                width={imageState.width}
+                height={imageState.height}
+                rotation={imageState.rotation || 0}
+                draggable={isSelected && !imageState.isLocked}
+                onDragStart={(e) => {
+                    e.cancelBubble = true;
+                }}
+                onDragEnd={(e) => {
+                    e.cancelBubble = true;
+                    onChange({
+                        x: e.target.x(),
+                        y: e.target.y()
+                    });
+                }}
+                onTransformEnd={() => {
+                    const node = shapeRef.current;
+                    const scaleX = node.scaleX();
+                    const scaleY = node.scaleY();
+
+                    node.scaleX(1);
+                    node.scaleY(1);
+
+                    onChange({
+                        x: node.x(),
+                        y: node.y(),
+                        rotation: node.rotation(),
+                        width: Math.max(5, node.width() * scaleX),
+                        height: Math.max(5, node.height() * scaleY),
+                    });
+                }}
+                onMouseEnter={() => {
+                    document.body.style.cursor = imageState.isLocked ? 'default' : 'pointer';
+                    setIsHovered(true);
+                }}
+                onMouseLeave={() => {
+                    document.body.style.cursor = 'default';
+                    setIsHovered(false);
+                }}
+            />
+            {!imageState.isLocked && isSelected && (
+                <Transformer
+                    ref={trRef}
+                    boundBoxFunc={(oldBox, newBox) => {
+                        if (newBox.width < 10 || newBox.height < 10) {
+                            return oldBox;
+                        }
+                        return newBox;
+                    }}
+                />
+            )}
+            {(isHovered || isSelected) && (
+                <Html
+                    groupProps={{
+                        x: imageState.x + imageState.width,
+                        y: imageState.y,
+                    }}
+                    divProps={{
+                        style: {
+                            pointerEvents: 'auto',
+                        },
+                    }}
+                >
+                    <div 
+                        style={{ transform: 'translate(-100%, -100%)' }}
+                        className="flex bg-white dark:bg-gray-800 shadow-md rounded-md p-1 border border-gray-200 dark:border-gray-700"
+                    >
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange({ isLocked: !imageState.isLocked });
+                            }}
+                            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 transition-colors"
+                            title={imageState.isLocked ? "Unlock" : "Lock"}
+                        >
+                            {imageState.isLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                        </button>
+                        {isSelected && !imageState.isLocked && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete();
+                                }}
+                                className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded text-red-600 dark:text-red-400 transition-colors"
+                                title="Delete Image"
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        )}
+                    </div>
+                </Html>
+            )}
+        </React.Fragment>
+    );
+};
 
 export const DiaryView: React.FC<{
     userId: string;
@@ -66,6 +214,7 @@ export const DiaryView: React.FC<{
     const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
     const [isExporting, setIsExporting] = useState(false);
     const [eraserPos, setEraserPos] = useState<{ x: number, y: number } | null>(null);
+    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     
     const [isAddingSubject, setIsAddingSubject] = useState(false);
     const [newSubjectName, setNewSubjectName] = useState('');
@@ -220,6 +369,14 @@ export const DiaryView: React.FC<{
         }));
     };
 
+    const updateCanvasImage = (id: string, newProps: Partial<CanvasImageState>) => {
+        const activePage = subjects.find(s => s.id === activeSubjectId)?.pages.find(p => p.id === activePageId);
+        if (!activePage) return;
+        const currentImages = activePage.canvasImages || [];
+        const updatedImages = currentImages.map(img => img.id === id ? { ...img, ...newProps } : img);
+        updateActivePage({ canvasImages: updatedImages });
+    };
+
     const isDrawing = useRef(false);
 
     // Removed window pointer listeners for toolbar drag; handled directly on the drag handle
@@ -254,7 +411,14 @@ export const DiaryView: React.FC<{
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleMouseDown = (e: any) => {
-        if (viewMode !== 'draw' || drawTool === 'pan') return;
+        const clickedOnEmpty = e.target === e.target.getStage();
+        if (clickedOnEmpty) {
+            setSelectedNodeId(null);
+        }
+
+        const isImage = e.target.className === 'Image' || e.target.findAncestor?.('Transformer');
+        if (viewMode !== 'draw' || drawTool === 'pan' || isImage) return;
+
         isDrawing.current = true;
         const stage = e.target.getStage();
         const point = stage.getPointerPosition();
@@ -348,6 +512,86 @@ export const DiaryView: React.FC<{
         // On touch-ended, clear eraser position to avoid stale indicator
         if (e && e.evt && (e.evt.touches || e.evt.changedTouches)) {
             setEraserPos(null);
+        }
+    };
+
+    const lastCenter = useRef<{x: number, y: number} | null>(null);
+    const lastDist = useRef<number | null>(null);
+
+    const getDistance = (p1: any, p2: any) => {
+        return Math.sqrt(Math.pow(p2.clientX - p1.clientX, 2) + Math.pow(p2.clientY - p1.clientY, 2));
+    };
+
+    const getCenter = (p1: any, p2: any) => {
+        return {
+            x: (p1.clientX + p2.clientX) / 2,
+            y: (p1.clientY + p2.clientY) / 2,
+        };
+    };
+
+    const handleTouchStart = (e: any) => {
+        if (e.evt.touches.length === 1) {
+            handleMouseDown(e);
+        } else if (e.evt.touches.length === 2) {
+            e.evt.preventDefault();
+            const touch1 = e.evt.touches[0];
+            const touch2 = e.evt.touches[1];
+            lastDist.current = getDistance(touch1, touch2);
+            lastCenter.current = getCenter(touch1, touch2);
+        }
+    };
+
+    const handleTouchMove = (e: any) => {
+        if (e.evt.touches.length === 1) {
+            handleMouseMove(e);
+        } else if (e.evt.touches.length === 2) {
+            e.evt.preventDefault();
+            const touch1 = e.evt.touches[0];
+            const touch2 = e.evt.touches[1];
+            const dist = getDistance(touch1, touch2);
+
+            if (!lastDist.current) {
+                lastDist.current = dist;
+            }
+
+            const stage = e.target.getStage();
+            const oldScale = stage.scaleX();
+
+            const scaleBy = dist / (lastDist.current || dist);
+            const newScale = Math.max(0.1, Math.min(oldScale * scaleBy, 5.0));
+
+            const center = getCenter(touch1, touch2);
+
+            if (lastCenter.current) {
+                const pointerPosition = {
+                  x: center.x,
+                  y: center.y
+                };
+
+                const mousePointTo = {
+                  x: (pointerPosition.x - stage.x()) / oldScale,
+                  y: (pointerPosition.y - stage.y()) / oldScale,
+                };
+
+                const newPos = {
+                  x: pointerPosition.x - mousePointTo.x * newScale,
+                  y: pointerPosition.y - mousePointTo.y * newScale,
+                };
+
+                setStageScale(newScale);
+                setStagePos(newPos);
+            }
+
+            lastDist.current = dist;
+            lastCenter.current = center;
+        }
+    };
+
+    const handleTouchEnd = (e: any) => {
+        lastDist.current = null;
+        lastCenter.current = null;
+        if (e.evt.touches.length === 0 || e.evt.changedTouches.length > 0) {
+            handleMouseUp(e);
         }
     };
 
@@ -608,23 +852,33 @@ export const DiaryView: React.FC<{
 
                 {activePage ? (
                     <>
-                        <div className="px-3.5 md:px-6 py-3 border-b border-gray-200 dark:border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-                            <div className="flex items-center w-full md:w-auto flex-1 min-w-0 space-x-2">
-                                <div className="relative shrink-0 select-none">
-                                    <div className="bg-gray-100 dark:bg-gray-800 border-none rounded-md py-1 px-2 text-xs font-semibold text-gray-700 dark:text-gray-200 flex items-center justify-center space-x-1 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
-                                        <span>P.{currentPageIndex + 1}</span>
-                                        <ChevronDown size={12} className="opacity-60 shrink-0" />
+                        <div className="px-3.5 md:px-6 py-3 border-b border-gray-200 dark:border-gray-800 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+                            <div className="flex items-center w-full lg:w-auto flex-1 min-w-0 space-x-3">
+                                <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 border border-gray-200/50 dark:border-gray-700/50 shrink-0">
+                                    <div className="relative select-none">
+                                        <div className="py-1 px-2 md:px-2.5 text-xs font-semibold text-gray-700 dark:text-gray-200 flex items-center space-x-1 hover:bg-white dark:hover:bg-gray-700 rounded-md transition cursor-pointer">
+                                            <span>P.{currentPageIndex + 1}</span>
+                                            <ChevronDown size={12} className="opacity-60 shrink-0" />
+                                        </div>
+                                        <select 
+                                            value={activePageId || ''} 
+                                            onChange={(e) => setActivePageId(e.target.value)}
+                                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                            title="Jump to page"
+                                        >
+                                            {activeSubject?.pages.map((p, idx) => (
+                                                <option key={p.id} value={p.id}>{p.title || `Page ${idx + 1}`}</option>
+                                            ))}
+                                        </select>
                                     </div>
-                                    <select 
-                                        value={activePageId || ''} 
-                                        onChange={(e) => setActivePageId(e.target.value)}
-                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                        title="Jump to page"
+                                    <div className="h-4 w-[1px] bg-gray-300 dark:bg-gray-600/60 mx-1"></div>
+                                    <button
+                                        onClick={() => activeSubject && addPage(activeSubject.id)}
+                                        className="p-1 hover:bg-white dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 transition flex items-center justify-center shrink-0"
+                                        title="Add New Page"
                                     >
-                                        {activeSubject?.pages.map((p, idx) => (
-                                            <option key={p.id} value={p.id}>{p.title || `Page ${idx + 1}`}</option>
-                                        ))}
-                                    </select>
+                                        <Plus size={14} className={`text-${themeColor}-600 dark:text-${themeColor}-400`} />
+                                    </button>
                                 </div>
                                 <input 
                                     type="text"
@@ -633,33 +887,83 @@ export const DiaryView: React.FC<{
                                     className="flex-1 min-w-0 text-base md:text-xl font-bold bg-transparent border-none outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 py-1"
                                     placeholder="Page Title"
                                 />
-                                <button
-                                    onClick={() => activeSubject && addPage(activeSubject.id)}
-                                    className="p-1 ml-1 rounded-md bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition flex items-center justify-center shrink-0 shadow-sm"
-                                    title="Add New Page"
-                                >
-                                    <Plus size={16} />
-                                </button>
                             </div>
 
-                            <div className="flex items-center justify-between md:justify-end space-x-2 w-full md:w-auto">
-                                <div className="flex items-center space-x-1 shrink-0 bg-gray-100 dark:bg-gray-800 p-0.5 md:p-1 rounded-lg">
+                            <div className="flex items-center justify-between lg:justify-end space-x-2 w-full lg:w-auto">
+                                <div className="flex items-center space-x-1 shrink-0 bg-gray-100 dark:bg-gray-800 p-0.5 lg:p-1 rounded-lg">
                                     <button
                                         onClick={() => setViewMode('notes')}
-                                        className={`px-2 md:px-3 py-1 flex items-center rounded-md text-xs md:text-sm font-medium transition ${viewMode === 'notes' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                        className={`px-2 lg:px-3 py-1 flex items-center rounded-md text-xs lg:text-sm font-medium transition ${viewMode === 'notes' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                                     >
-                                        <FileText size={14} className="mr-1 md:mr-1.5 shrink-0" />
-                                        <span>Notes<span className="hidden md:inline"> & Math</span></span>
+                                        <FileText size={14} className="mr-1 lg:mr-1.5 shrink-0" />
+                                        <span>Notes<span className="hidden lg:inline"> & Math</span></span>
                                     </button>
                                     <button
                                         onClick={() => setViewMode('draw')}
-                                        className={`px-2 md:px-3 py-1 flex items-center rounded-md text-xs md:text-sm font-medium transition ${viewMode === 'draw' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                                        className={`px-2 lg:px-3 py-1 flex items-center rounded-md text-xs lg:text-sm font-medium transition ${viewMode === 'draw' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                                     >
-                                        <Paintbrush size={14} className="mr-1 md:mr-1.5 shrink-0" />
+                                        <Paintbrush size={14} className="mr-1 lg:mr-1.5 shrink-0" />
                                         <span>Draw</span>
                                     </button>
                                 </div>
                                 <div className="flex items-center space-x-1 shrink-0">
+                                    <button
+                                        onClick={() => {
+                                            const input = document.createElement('input');
+                                            input.type = 'file';
+                                            input.accept = 'image/*';
+                                            input.onchange = async (e: Event) => {
+                                                const target = e.target as HTMLInputElement;
+                                                const file = target.files?.[0];
+                                                if (!file) return;
+                                                const reader = new FileReader();
+                                                reader.onload = async (event) => {
+                                                    const base64 = (event.target?.result as string).split(',')[1];
+                                                    const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+                                                    await saveImageToIDB(tempId, base64);
+                                                    
+                                                    if (viewMode === 'notes') {
+                                                        const imgTag = `\n[FIG_CAPTURE: ${tempId} | Inserted image]\n`;
+                                                        if (activePage) {
+                                                            const newContent = (activePage.content || '') + imgTag;
+                                                            updateActivePage({ content: newContent });
+                                                        }
+                                                    } else if (viewMode === 'draw') {
+                                                        if (activePage) {
+                                                            // We try to get image dimensions
+                                                            const img = new Image();
+                                                            img.onload = () => {
+                                                                const MAX_WIDTH = 300;
+                                                                let w = img.width;
+                                                                let h = img.height;
+                                                                if (w > MAX_WIDTH) {
+                                                                    h = (h * MAX_WIDTH) / w;
+                                                                    w = MAX_WIDTH;
+                                                                }
+                                                                const newImage: CanvasImageState = {
+                                                                    id: `canvas_img_${Date.now()}`,
+                                                                    imageId: tempId,
+                                                                    x: 50,
+                                                                    y: 50,
+                                                                    width: w,
+                                                                    height: h
+                                                                };
+                                                                const currentImages = activePage.canvasImages || [];
+                                                                updateActivePage({ canvasImages: [...currentImages, newImage] });
+                                                            };
+                                                            img.src = `data:image/jpeg;base64,${base64}`;
+                                                        }
+                                                    }
+                                                };
+                                                reader.readAsDataURL(file);
+                                            };
+                                            input.click();
+                                        }}
+                                        className="p-1.5 md:p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center shrink-0"
+                                        title="Attach Image"
+                                    >
+                                        <ImageIcon size={16} className="text-gray-700 dark:text-gray-300" />
+                                    </button>
                                     <button
                                         onClick={handleDownloadPdf}
                                         className="p-1.5 md:p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center shrink-0"
@@ -711,6 +1015,26 @@ export const DiaryView: React.FC<{
                                                 <button onClick={() => insertMarkdown('### ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Heading 3">H3</button>
                                                 <button onClick={() => insertMarkdown('**', '**')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Bold">B</button>
                                                 <button onClick={() => insertMarkdown('*', '*')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm italic font-serif text-gray-700 dark:text-gray-300 transition shrink-0" title="Italic">I</button>
+                                                <button onClick={() => insertMarkdown('- ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0 flex items-center justify-center" title="Bullet List"><List size={16} /></button>
+                                                <button onClick={() => {
+                                                    const input = document.createElement('input');
+                                                    input.type = 'file';
+                                                    input.accept = 'image/*';
+                                                    input.onchange = async (e: Event) => {
+                                                        const target = e.target as HTMLInputElement;
+                                                        const file = target.files?.[0];
+                                                        if (!file) return;
+                                                        const reader = new FileReader();
+                                                        reader.onload = async (event) => {
+                                                            const base64 = (event.target?.result as string).split(',')[1];
+                                                            const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+                                                            await saveImageToIDB(tempId, base64);
+                                                            insertMarkdown(`\n[FIG_CAPTURE: ${tempId} | Inserted image]\n`, '');
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    };
+                                                    input.click();
+                                                }} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0 flex items-center justify-center" title="Attach Image"><ImageIcon size={16} /></button>
                                             </div>
                                         )}
                                     </div>
@@ -723,30 +1047,8 @@ export const DiaryView: React.FC<{
                                                 placeholder="Start typing your notes here. Supports Markdown and $$ LaTeX $$ formulas..."
                                             />
                                         ) : (
-                                            <div className="w-full h-full p-6 overflow-y-auto overflow-x-hidden">
-                                                <div className="prose prose-sm max-w-none dark:prose-invert break-words break-all">
-                                                    <ReactMarkdown
-                                                        remarkPlugins={[remarkGfm, remarkMath]}
-                                                        rehypePlugins={[rehypeKatex]}
-                                                        components={{
-                                                            img: ({ ...props }) => {
-                                                                const alt = props.alt || '';
-                                                                let width = '100%';
-                                                                if (alt.includes('px') || alt.includes('%') || alt.match(/^\d+x/)) {
-                                                                    width = alt.split('x')[0] || width;
-                                                                    if (width.match(/^\d+$/)) width += 'px';
-                                                                }
-                                                                return (
-                                                                    <div className="py-2 inline-block max-w-full">
-                                                                        <img {...props} style={{ width, maxWidth: '100%', height: 'auto', borderRadius: '4px' }} className="shadow-sm border border-gray-100 dark:border-gray-800" />
-                                                                    </div>
-                                                                );
-                                                            }
-                                                        }}
-                                                    >
-                                                        {activePage.content || '*Preview will appear here...*'}
-                                                    </ReactMarkdown>
-                                                </div>
+                                            <div className="w-full h-full p-6 overflow-y-auto overflow-x-hidden pt-8">
+                                                <NotesRenderer content={activePage.content || '*Preview will appear here...*'} />
                                             </div>
                                         )}
                                     </div>
@@ -860,18 +1162,27 @@ export const DiaryView: React.FC<{
                                         onMouseDown={handleMouseDown}
                                         onMouseMove={handleMouseMove}
                                         onMouseUp={handleMouseUp}
-                                        onTouchStart={(e) => {
-                                            if (e.evt.touches.length === 1) handleMouseDown(e);
-                                        }}
-                                        onTouchMove={(e) => {
-                                            if (e.evt.touches.length === 1) handleMouseMove(e);
-                                            else e.evt.preventDefault(); // allow zooming/panning via browser native if possible, or implement custom pinch-to-zoom
-                                        }}
-                                        onTouchEnd={handleMouseUp}
+                                        onTouchStart={handleTouchStart}
+                                        onTouchMove={handleTouchMove}
+                                        onTouchEnd={handleTouchEnd}
                                         onMouseLeave={() => setEraserPos(null)}
                                         className={drawTool === 'pan' ? 'cursor-grab active:cursor-grabbing' : (drawTool === 'eraser' ? 'cursor-crosshair' : 'cursor-default')}
                                     >
                                         <Layer>
+                                            {(activePage.canvasImages || []).map(img => (
+                                                <CanvasImageRenderer 
+                                                    key={img.id}
+                                                    imageState={img}
+                                                    isSelected={img.id === selectedNodeId}
+                                                    onSelect={() => setSelectedNodeId(img.id)}
+                                                    onChange={(newAttrs) => updateCanvasImage(img.id, newAttrs)}
+                                                    onDelete={() => {
+                                                        const newImages = activePage.canvasImages?.filter(i => i.id !== img.id) || [];
+                                                        updateActivePage({ canvasImages: newImages });
+                                                        setSelectedNodeId(null);
+                                                    }}
+                                                />
+                                            ))}
                                             {activePage.drawings.map((line) => (
                                                 <Line
                                                     key={line.id}
