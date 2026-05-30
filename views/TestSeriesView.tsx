@@ -921,6 +921,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
                         {isFetchingSubjects ? <RefreshCw size={18} className="animate-spin mr-2" /> : <BookOpen size={18} className="mr-2" />}
                         {isFetchingSubjects ? 'Fetching Subjects...' : 'Fetch Subjects'}
                     </button>
+                    {error && subjects.length === 0 && <p className="text-red-500 text-sm font-medium mt-3 text-center">{error}</p>}
                 </div>
 
                 {subjects.length > 0 && (

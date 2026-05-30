@@ -691,7 +691,7 @@ if(inBox.val().indexOf("Infinity")>-1 || inBox.val().indexOf(strMathError)>-1) r
                 retVal = 2 / (Math.pow(Math.E, x) + Math.pow(Math.E, -x)); break;
             // Cosecant hyperbolic                                 
             case 'keyPad_btnCosecH':
-                retVal = 2 / (Math.pow(Math.E, x) - Math.pow(Math.E, -x)); ; break;
+                retVal = 2 / (Math.pow(Math.E, x) - Math.pow(Math.E, -x));  break;
             // 1+x                                
             case 'keyPad_btnOnePlusX': retVal = 1 + x; break;
             // 1-x                                
@@ -916,7 +916,7 @@ if(inBox.val().indexOf("Infinity")>-1 || inBox.val().indexOf(strMathError)>-1) r
 			opCode = opCodeArray[opCodeArray.length - 1];
 			stackArray.pop();
 			opCodeArray.pop();
-			}; opCode = 0; inBox.focus(); displayString = ""; trigDisplay = "";stackVal = strEmpty;openArray = [];
+			} opCode = 0; inBox.focus(); displayString = ""; trigDisplay = "";stackVal = strEmpty;openArray = [];
 				if(stackVal1 != 2) { 
 				if(stackVal1 == 3 ||stackVal2 == 1) {
 				if(stackVal2!=3 )strInput = ""; 

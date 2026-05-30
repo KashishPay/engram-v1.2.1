@@ -11,9 +11,11 @@ export interface TestSeriesQuestion {
 
 const safeParseJSON = (text: string) => {
     try {
+        // Strip out thinking process from reasoning models
+        const textWithoutThink = text.replace(/<think>[\s\S]*?<\/think>/g, '');
         // Find the first '[' and last ']' to extract array if it's wrapped in markdown
-        const match = text.match(/\[[\s\S]*\]/);
-        const jsonString = match ? match[0] : text;
+        const match = textWithoutThink.match(/\[[\s\S]*\]/);
+        const jsonString = match ? match[0] : textWithoutThink;
         try {
             return JSON.parse(jsonString);
         } catch {
@@ -28,7 +30,9 @@ const safeParseJSON = (text: string) => {
 
 export const fetchExamSubjects = async (exam: string, stream: string, language: string = "English"): Promise<string[]> => {
     checkUsageLimit();
-    const { client } = getAiClient();
+    const { client, isCustom } = getAiClient();
+    
+    // ...
 
     const languageStr = language !== 'English' ? `\nReturn the names of the subjects translated to the requested language: ${language}.` : '';
 
@@ -78,7 +82,7 @@ export const generateExamQuiz = async (
     language: string = "English"
 ): Promise<TestSeriesQuestion[]> => {
     checkUsageLimit();
-    const { client } = getAiClient();
+        const { client, isCustom } = getAiClient();
 
     const pastContextStr = pastQuestionsContext.length > 0 
         ? `\nIMPORTANT: Do NOT generate questions that are identical or highly similar to these past questions:\n${pastQuestionsContext.slice(-20).map((q, i) => `${i+1}. ${q}`).join('\n')}`

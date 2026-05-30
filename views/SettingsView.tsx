@@ -216,7 +216,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             setApiKey(key); 
             setStoredKey(key);
             
-            const isFormatValid = (k: string) => (k.startsWith('AIza') && k.length >= 35) || (k.startsWith('AQ') && k.length >= 80);
+            const isFormatValid = (k: string) => (k.startsWith('AIza') && k.length >= 35) || (k.startsWith('AQ') && k.length >= 35);
             
             // STRICT CHECK ON LOAD
             if (!isFormatValid(key)) {
@@ -254,7 +254,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 return;
             }
 
-            const isFormatValid = (k: string) => (k.startsWith('AIza') && k.length >= 35) || (k.startsWith('AQ') && k.length >= 80);
+            const isFormatValid = (k: string) => (k.startsWith('AIza') && k.length >= 35) || (k.startsWith('AQ') && k.length >= 35);
 
             // 1. Client-side Check
             if (!isFormatValid(trimmed)) {
@@ -285,7 +285,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         const trimmed = apiKey.trim();
         if (!trimmed) return;
         
-        const isFormatValid = (k: string) => (k.startsWith('AIza') && k.length >= 35) || (k.startsWith('AQ') && k.length >= 80);
+        const isFormatValid = (k: string) => (k.startsWith('AIza') && k.length >= 35) || (k.startsWith('AQ') && k.length >= 35);
 
         // Final strict check
         if (keyStatus === 'valid' && isFormatValid(trimmed)) {
@@ -358,7 +358,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     let actionButton;
     const isStoredMatch = hasKey && apiKey === storedKey;
     
-    const isFormatValidStr = (k: string) => (k.startsWith('AIza') && k.length >= 35) || (k.startsWith('AQ') && k.length >= 80);
+    const isFormatValidStr = (k: string) => (k.startsWith('AIza') && k.length >= 35) || (k.startsWith('AQ') && k.length >= 35);
     const showFormatWarning = apiKey.trim().length > 0 && !isFormatValidStr(apiKey.trim());
 
     if (isValidating || keyStatus === 'checking') {

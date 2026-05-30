@@ -601,29 +601,95 @@ export const DiaryView: React.FC<{
         
         setIsExporting(true);
         const originalPageId = activePageId;
+        const originalNoteMode = noteMode;
         
         try {
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeightMax = pdf.internal.pageSize.getHeight();
             
             for (let i = 0; i < activeSubject.pages.length; i++) {
                 const page = activeSubject.pages[i];
                 setActivePageId(page.id);
+                setNoteMode('preview');
                 
-                // Wait for React to render the new page
-                await new Promise(resolve => setTimeout(resolve, 300));
+                // Wait longer for React to render the new page, handle images, and switch modes
+                await new Promise(resolve => setTimeout(resolve, 800));
                 
                 if (containerRef.current) {
-                    const canvas = await html2canvas(containerRef.current, { 
-                        backgroundColor: '#ffffff', 
-                        scale: 2
+                    const container = containerRef.current;
+                    const originalContainerOverflow = container.style.overflow;
+                    const originalContainerHeight = container.style.height;
+                    
+                    const parentElement = container.parentElement;
+                    let origParentOverflow = '';
+                    let origParentHeight = '';
+                    
+                    if (parentElement) {
+                        origParentOverflow = parentElement.style.overflow;
+                        origParentHeight = parentElement.style.height;
+                        parentElement.style.overflow = 'visible';
+                        parentElement.style.height = 'max-content';
+                    }
+                    
+                    container.style.overflow = 'visible';
+                    container.style.height = 'max-content';
+                    
+                    const intermediates = Array.from(container.querySelectorAll('.pdf-intermediate, .pdf-content-scrollable')) as HTMLElement[];
+                    const origIntermediates: {el: HTMLElement, overflow: string, height: string, position: string}[] = [];
+                    intermediates.forEach(el => {
+                        origIntermediates.push({ el, overflow: el.style.overflow, height: el.style.height, position: el.style.position });
+                        el.style.overflow = 'visible';
+                        el.style.height = 'max-content';
+                        if (el.classList.contains('absolute')) {
+                            el.style.position = 'relative'; // Need to be relative so it pushes container height
+                        }
                     });
-                    const imgData = canvas.toDataURL('image/png');
-                    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+                    const targetHeight = container.scrollHeight;
+                    
+                    const canvas = await html2canvas(container, { 
+                        backgroundColor: document.documentElement.classList.contains('dark') ? '#111827' : '#ffffff', 
+                        scale: 2,
+                        useCORS: true,
+                        windowHeight: targetHeight + 100,
+                        height: targetHeight,
+                        y: 0,
+                    });
+                    
+                    // Restore styles
+                    if (parentElement) {
+                        parentElement.style.overflow = origParentOverflow;
+                        parentElement.style.height = origParentHeight;
+                    }
+                    container.style.overflow = originalContainerOverflow;
+                    container.style.height = originalContainerHeight;
+                    
+                    origIntermediates.forEach(({ el, overflow, height, position }) => {
+                        el.style.overflow = overflow;
+                        el.style.height = height;
+                        el.style.position = position;
+                    });
+
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
                     
                     pdf.setFontSize(16);
                     pdf.text(page.title || `Page ${i + 1}`, 10, 10);
-                    pdf.addImage(imgData, 'PNG', 0, 20, pdfWidth, pdfHeight);
+                    
+                    let heightLeft = imgHeight;
+                    let position = 20;
+
+                    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+                    heightLeft -= (pdfHeightMax - 20);
+
+                    // Add new pages if content overflows the first page
+                    while (heightLeft > 0) {
+                        position = position - pdfHeightMax; // shift image up
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight); 
+                        heightLeft -= pdfHeightMax;
+                    }
                     
                     if (i < activeSubject.pages.length - 1) {
                         pdf.addPage();
@@ -642,6 +708,7 @@ export const DiaryView: React.FC<{
             console.error("PDF generation failed:", e);
         } finally {
             setActivePageId(originalPageId);
+            setNoteMode(originalNoteMode);
             setIsExporting(false);
         }
     };
@@ -996,7 +1063,7 @@ export const DiaryView: React.FC<{
                             <div className="absolute inset-0 pointer-events-none opacity-20 dark:opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
                             
                             {viewMode === 'notes' && (
-                                <div className="absolute inset-0 flex flex-col overflow-hidden bg-white/50 dark:bg-gray-900/50">
+                                <div className="pdf-intermediate absolute inset-0 flex flex-col overflow-hidden bg-white/50 dark:bg-gray-900/50">
                                     <div className="flex items-center p-1.5 md:p-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/80 overflow-x-auto scrollbar-none">
                                         <div className="flex bg-gray-200 dark:bg-gray-700 p-0.5 rounded-lg space-x-0.5 md:space-x-1 shrink-0">
                                             <button 
@@ -1038,7 +1105,7 @@ export const DiaryView: React.FC<{
                                             </div>
                                         )}
                                     </div>
-                                    <div className="flex-1 overflow-hidden relative">
+                                    <div className="pdf-intermediate flex-1 overflow-hidden relative">
                                         {noteMode === 'edit' ? (
                                             <VisualMarkdownEditor
                                                 ref={editorRef}
@@ -1047,7 +1114,7 @@ export const DiaryView: React.FC<{
                                                 placeholder="Start typing your notes here. Supports Markdown and $$ LaTeX $$ formulas..."
                                             />
                                         ) : (
-                                            <div className="w-full h-full p-6 overflow-y-auto overflow-x-hidden pt-8">
+                                            <div className="pdf-content-scrollable w-full h-full p-6 overflow-y-auto overflow-x-hidden pt-8">
                                                 <NotesRenderer content={activePage.content || '*Preview will appear here...*'} />
                                             </div>
                                         )}

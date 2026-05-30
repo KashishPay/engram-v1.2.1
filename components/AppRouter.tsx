@@ -1079,7 +1079,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             isPodcastOpen={isPodcastOverlayOpen}
             setIsPodcastOpen={(open) => { if(open) navigateTo('podcast'); else goBack(); }}
             podcastOverlay={<PodcastFullView studyLog={props.studyLog} onUpdateTopic={props.handleUpdateTopic} themeColor={props.currentTheme} onMinimize={goBack} state={props.podcast.state} controls={props.podcast.controls} defaultLanguage={props.podcastConfig.language} />}
-            hideTabBar={isTestSeriesActive || isQuizActive}
+            hideTabBar={false}
         >
             <div style={{ display: currentView === 'home' ? 'flex' : 'none' }} className="flex-col flex-1 w-full relative">
                 <HomeView studyLog={props.studyLog} allSubjects={props.userSubjects} navigateTo={navigateTo} userId={props.userId} themeColor={props.currentTheme} userProfile={props.userProfile} loading={props.loadingData} />

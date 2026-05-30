@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { GraduationCap, ListRestart, PieChart, Filter, Layers, RotateCw, Check, X, Calendar, TrendingUp, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, History, RefreshCcw, Settings2, Trash2, Undo2, XCircle } from 'lucide-react';
+import { ListRestart, PieChart, Filter, Layers, RotateCw, Check, X, Calendar, TrendingUp, AlertTriangle, ChevronRight, ChevronDown, ChevronUp, History, RefreshCcw, Settings2, Trash2, Undo2, XCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ProgressChart } from '../components/ProgressChart';
 import { Topic, Subject, UserProfile, FlashCard } from '../types';
@@ -598,7 +598,7 @@ const FlashCardDeck: React.FC<{
             {/* Controls */}
             <div className="flex items-center justify-center w-full mt-6 z-20 gap-4">
                 <button 
-                    onClick={() => { triggerHaptic.selection(); setCompleted(true); }}
+                    onClick={() => { triggerHaptic.selection(); setCards([]); setCompleted(false); setIndex(0); }}
                     className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full shadow-sm text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center active:scale-95"
                     title="Exit Review"
                 >
@@ -738,8 +738,15 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
                     <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Ready to learn?</p>
                 </div>
                 <div className="flex items-center space-x-3">
-                    <div className={`p-2 bg-${themeColor}-100 dark:bg-${themeColor}-900 rounded-full`}>
-                        <GraduationCap size={24} className={`text-${themeColor}-600 dark:text-${themeColor}-300`} />
+                    <div 
+                        className={`w-10 h-10 rounded-full overflow-hidden border-2 border-${themeColor}-200 dark:border-${themeColor}-800 shadow-sm transition hover:shadow-md active:scale-95`}
+                        onClick={() => navigateTo('profile')}
+                    >
+                        {userProfile?.avatar ? (
+                            <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${userId}&backgroundColor=b6e3f4`; }} />
+                        ) : (
+                            <img src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${userId}&backgroundColor=b6e3f4`} alt="Avatar" className="w-full h-full object-cover" />
+                        )}
                     </div>
                 </div>
             </div>
