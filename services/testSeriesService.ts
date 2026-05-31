@@ -32,14 +32,32 @@ export const fetchExamSubjects = async (exam: string, stream: string, language: 
     checkUsageLimit();
     const { client, isCustom } = getAiClient();
     
-    // ...
+    // Fetch preferences
+    let modelName = 'gemini-3-flash-preview';
+    let personaStr = '';
+    try {
+        const userId = localStorage.getItem('engramCurrentUserId') || 'default';
+        const stored = localStorage.getItem(`engram_ai_preferences_${userId}`);
+        if (stored) {
+            const allPrefs = JSON.parse(stored);
+            const tsPrefs = allPrefs['testSeries'] || {};
+            if (tsPrefs.model) {
+                if (tsPrefs.model === 'pro') modelName = 'gemini-3.1-pro-preview';
+                else if (tsPrefs.model === 'flash') modelName = 'gemini-3.5-flash';
+                else modelName = tsPrefs.model;
+            }
+            if (tsPrefs.persona) {
+                personaStr = `\n\nAdhere to the following persona/instructions:\n${tsPrefs.persona}`;
+            }
+        }
+    } catch(e) {}
 
     const languageStr = language !== 'English' ? `\nReturn the names of the subjects translated to the requested language: ${language}.` : '';
 
     const prompt = `You are an expert tutor and curriculum designer. 
 List the core subjects/topics for the following competitive exam and stream.
 Exam: ${exam}
-Stream/Branch: ${stream}${languageStr}
+Stream/Branch: ${stream}${languageStr}${personaStr}
 
 Return ONLY a JSON array of strings representing the subjects. Keep the subject names concise and standard.`;
 
@@ -50,7 +68,7 @@ Return ONLY a JSON array of strings representing the subjects. Keep the subject 
 
     try {
         const response = await client.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+            model: modelName,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -82,7 +100,32 @@ export const generateExamQuiz = async (
     language: string = "English"
 ): Promise<TestSeriesQuestion[]> => {
     checkUsageLimit();
-        const { client, isCustom } = getAiClient();
+    const { client, isCustom } = getAiClient();
+
+    // Fetch preferences
+    let modelName = 'gemini-3-flash-preview';
+    let personaStr = '';
+    let diff = difficulty;
+    
+    try {
+        const userId = localStorage.getItem('engramCurrentUserId') || 'default';
+        const stored = localStorage.getItem(`engram_ai_preferences_${userId}`);
+        if (stored) {
+            const allPrefs = JSON.parse(stored);
+            const tsPrefs = allPrefs['testSeries'] || {};
+            if (tsPrefs.model) {
+                if (tsPrefs.model === 'pro') modelName = 'gemini-3.1-pro-preview';
+                else if (tsPrefs.model === 'flash') modelName = 'gemini-3.5-flash';
+                else modelName = tsPrefs.model;
+            }
+            if (tsPrefs.persona) {
+                personaStr = `\n\nAdhere to the following persona/instructions:\n${tsPrefs.persona}`;
+            }
+            if (tsPrefs.difficulty) {
+                diff = tsPrefs.difficulty; // user's pref overrides the component's default if wanted, or we just keep it
+            }
+        }
+    } catch(e) {}
 
     const pastContextStr = pastQuestionsContext.length > 0 
         ? `\nIMPORTANT: Do NOT generate questions that are identical or highly similar to these past questions:\n${pastQuestionsContext.slice(-20).map((q, i) => `${i+1}. ${q}`).join('\n')}`
@@ -108,8 +151,8 @@ export const generateExamQuiz = async (
         : `the subject: "${subject}"`;
 
     const prompt = `You are an expert examiner for the ${exam} exam (${stream} stream).
-Generate a practice test for ${subjectPrompt}.${specificTopicsStr}${languageStr}
-Difficulty level: ${difficulty}.
+Generate a practice test for ${subjectPrompt}.${specificTopicsStr}${languageStr}${personaStr}
+Difficulty level: ${diff}.
 Number of questions: EXACTLY ${numQuestions}. You MUST generate exactly ${numQuestions} questions, no more, no less.
 
 The questions should closely match the pattern, style, and syllabus of the actual ${exam} exam.
@@ -143,7 +186,7 @@ Return the output strictly as a JSON array of exactly ${numQuestions} objects. E
 
     try {
         const response = await client.models.generateContent({
-            model: 'gemini-3.5-flash',
+            model: modelName,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",

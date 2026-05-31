@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Sparkles, Settings2, Zap, Headphones, MessageCircle, Layers, ChevronRight, Key, FileText } from 'lucide-react';
+import { ArrowLeft, Sparkles, Settings2, Zap, Headphones, MessageCircle, Layers, ChevronRight, Key, FileText, ClipboardList } from 'lucide-react';
 import { Card } from '../components/Card';
 import { getUsageStats } from '../services/gemini';
 import { FeatureConfigModal } from '../components/FeatureConfigModal';
@@ -14,7 +14,7 @@ interface AiFeaturesViewProps {
 
 export const AiFeaturesView: React.FC<AiFeaturesViewProps> = ({ navigateTo, themeColor }) => {
     const [stats, setStats] = useState<Record<string, unknown> | null>(null);
-    const [configModal, setConfigModal] = useState<{ isOpen: boolean, featureId: 'quiz' | 'chat' | 'podcast' | 'flashcards' | 'ocr' | null }>({ isOpen: false, featureId: null });
+    const [configModal, setConfigModal] = useState<{ isOpen: boolean, featureId: 'quiz' | 'chat' | 'podcast' | 'flashcards' | 'ocr' | 'testSeries' | null }>({ isOpen: false, featureId: null });
 
     useEffect(() => {
         setStats(getUsageStats());
@@ -100,12 +100,13 @@ export const AiFeaturesView: React.FC<AiFeaturesViewProps> = ({ navigateTo, them
                     { id: 'chat', label: 'Chat Tutor', icon: MessageCircle, color: 'text-blue-500', desc: 'Persona & Style' },
                     { id: 'podcast', label: 'Audio Podcast', icon: Headphones, color: 'text-purple-500', desc: 'Auto-gen & Voices' },
                     { id: 'flashcards', label: 'Flashcards', icon: Layers, color: 'text-green-500', desc: 'Deck Size & Depth' },
-                    { id: 'ocr', label: 'OCR Scanner', icon: FileText, color: 'text-orange-500', desc: 'Extraction Style' }
+                    { id: 'ocr', label: 'OCR Scanner', icon: FileText, color: 'text-orange-500', desc: 'Extraction Style' },
+                    { id: 'testSeries', label: 'Test Series', icon: ClipboardList, color: 'text-indigo-500', desc: 'Models & Setup' }
                 ].map(feature => (
                     <Card 
                         key={feature.id} 
                         className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/80 transition cursor-pointer group"
-                        onClick={() => handleConfigure(feature.id as 'quiz' | 'chat' | 'podcast' | 'flashcards' | 'ocr')}
+                        onClick={() => handleConfigure(feature.id as 'quiz' | 'chat' | 'podcast' | 'flashcards' | 'ocr' | 'testSeries')}
                     >
                         <div className="flex items-center space-x-4">
                             <div className={`w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center ${feature.color}`}>

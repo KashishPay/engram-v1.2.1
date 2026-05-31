@@ -1064,47 +1064,49 @@ export const DiaryView: React.FC<{
                             
                             {viewMode === 'notes' && (
                                 <div className="pdf-intermediate absolute inset-0 flex flex-col overflow-hidden bg-white/50 dark:bg-gray-900/50">
-                                    <div className="flex items-center p-1.5 md:p-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/80 overflow-x-auto scrollbar-none">
-                                        <div className="flex bg-gray-200 dark:bg-gray-700 p-0.5 rounded-lg space-x-0.5 md:space-x-1 shrink-0">
-                                            <button 
-                                                onClick={() => setNoteMode('edit')} 
-                                                className={`px-3 py-1 md:px-4 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition shrink-0 ${noteMode === 'edit' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
-                                            >Write</button>
-                                            <button 
-                                                onClick={() => setNoteMode('preview')} 
-                                                className={`px-3 py-1 md:px-4 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition shrink-0 ${noteMode === 'preview' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
-                                            >Preview</button>
-                                        </div>
-                                        {noteMode === 'edit' && (
-                                            <div className="flex items-center space-x-0.5 md:space-x-1 ml-2 md:ml-4 pl-2 md:pl-4 border-l border-gray-300 dark:border-gray-600 shrink-0">
-                                                <button onClick={() => insertMarkdown('# ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Heading 1">H1</button>
-                                                <button onClick={() => insertMarkdown('## ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Heading 2">H2</button>
-                                                <button onClick={() => insertMarkdown('### ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Heading 3">H3</button>
-                                                <button onClick={() => insertMarkdown('**', '**')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Bold">B</button>
-                                                <button onClick={() => insertMarkdown('*', '*')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm italic font-serif text-gray-700 dark:text-gray-300 transition shrink-0" title="Italic">I</button>
-                                                <button onClick={() => insertMarkdown('- ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0 flex items-center justify-center" title="Bullet List"><List size={16} /></button>
-                                                <button onClick={() => {
-                                                    const input = document.createElement('input');
-                                                    input.type = 'file';
-                                                    input.accept = 'image/*';
-                                                    input.onchange = async (e: Event) => {
-                                                        const target = e.target as HTMLInputElement;
-                                                        const file = target.files?.[0];
-                                                        if (!file) return;
-                                                        const reader = new FileReader();
-                                                        reader.onload = async (event) => {
-                                                            const base64 = (event.target?.result as string).split(',')[1];
-                                                            const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-                                                            await saveImageToIDB(tempId, base64);
-                                                            insertMarkdown(`\n[FIG_CAPTURE: ${tempId} | Inserted image]\n`, '');
-                                                        };
-                                                        reader.readAsDataURL(file);
-                                                    };
-                                                    input.click();
-                                                }} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0 flex items-center justify-center" title="Attach Image"><ImageIcon size={16} /></button>
+                                    {!isExporting && (
+                                        <div className="flex items-center p-1.5 md:p-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/80 overflow-x-auto scrollbar-none">
+                                            <div className="flex bg-gray-200 dark:bg-gray-700 p-0.5 rounded-lg space-x-0.5 md:space-x-1 shrink-0">
+                                                <button 
+                                                    onClick={() => setNoteMode('edit')} 
+                                                    className={`px-3 py-1 md:px-4 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition shrink-0 ${noteMode === 'edit' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                                                >Write</button>
+                                                <button 
+                                                    onClick={() => setNoteMode('preview')} 
+                                                    className={`px-3 py-1 md:px-4 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition shrink-0 ${noteMode === 'preview' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+                                                >Preview</button>
                                             </div>
-                                        )}
-                                    </div>
+                                            {noteMode === 'edit' && (
+                                                <div className="flex items-center space-x-0.5 md:space-x-1 ml-2 md:ml-4 pl-2 md:pl-4 border-l border-gray-300 dark:border-gray-600 shrink-0">
+                                                    <button onClick={() => insertMarkdown('# ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Heading 1">H1</button>
+                                                    <button onClick={() => insertMarkdown('## ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Heading 2">H2</button>
+                                                    <button onClick={() => insertMarkdown('### ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Heading 3">H3</button>
+                                                    <button onClick={() => insertMarkdown('**', '**')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0" title="Bold">B</button>
+                                                    <button onClick={() => insertMarkdown('*', '*')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm italic font-serif text-gray-700 dark:text-gray-300 transition shrink-0" title="Italic">I</button>
+                                                    <button onClick={() => insertMarkdown('- ', '')} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0 flex items-center justify-center" title="Bullet List"><List size={16} /></button>
+                                                    <button onClick={() => {
+                                                        const input = document.createElement('input');
+                                                        input.type = 'file';
+                                                        input.accept = 'image/*';
+                                                        input.onchange = async (e: Event) => {
+                                                            const target = e.target as HTMLInputElement;
+                                                            const file = target.files?.[0];
+                                                            if (!file) return;
+                                                            const reader = new FileReader();
+                                                            reader.onload = async (event) => {
+                                                                const base64 = (event.target?.result as string).split(',')[1];
+                                                                const tempId = `img_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+                                                                await saveImageToIDB(tempId, base64);
+                                                                insertMarkdown(`\n[FIG_CAPTURE: ${tempId} | Inserted image]\n`, '');
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                        };
+                                                        input.click();
+                                                    }} className="p-1 px-1.5 md:p-1.5 md:px-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 transition shrink-0 flex items-center justify-center" title="Attach Image"><ImageIcon size={16} /></button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="pdf-intermediate flex-1 overflow-hidden relative">
                                         {noteMode === 'edit' ? (
                                             <VisualMarkdownEditor

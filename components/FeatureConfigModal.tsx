@@ -4,7 +4,7 @@ import { X, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface FeatureConfigModalProps {
     isOpen: boolean;
-    featureId: 'quiz' | 'chat' | 'podcast' | 'flashcards' | 'ocr';
+    featureId: 'quiz' | 'chat' | 'podcast' | 'flashcards' | 'ocr' | 'testSeries';
     onClose: () => void;
 }
 
@@ -13,7 +13,8 @@ const FEATURE_TITLES: Record<string, string> = {
     chat: 'Chat Persona',
     podcast: 'Podcast Settings',
     flashcards: 'Flashcard Settings',
-    ocr: 'OCR Scanner Settings'
+    ocr: 'OCR Scanner Settings',
+    testSeries: 'Test Series Settings'
 };
 
 const ADVANCED_MODELS = [
@@ -110,13 +111,13 @@ export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, 
                                         key={opt.id}
                                         onClick={() => updatePref('model', opt.id)}
                                         className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition flex justify-between items-center ${
-                                            prefs.model === opt.id 
+                                            (prefs.model || (featureId === 'ocr' ? 'gemini-3.1-flash-lite' : featureId === 'testSeries' ? 'gemini-3-flash-preview' : 'gemini-3.5-flash')) === opt.id 
                                                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
                                                 : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                                         }`}
                                     >
                                         {opt.label}
-                                        {prefs.model === opt.id && <Check size={12} />}
+                                        {(prefs.model || (featureId === 'ocr' ? 'gemini-3.1-flash-lite' : featureId === 'testSeries' ? 'gemini-3-flash-preview' : 'gemini-3.5-flash')) === opt.id && <Check size={12} />}
                                     </button>
                                 ))}
                             </div>
@@ -140,7 +141,7 @@ export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, 
                         />
                     </div>
 
-                    {featureId === 'quiz' && (
+                    {(featureId === 'quiz' || featureId === 'testSeries') && (
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Difficulty</label>
                             <select 

@@ -146,6 +146,69 @@ const TextBlock: React.FC<{
         }
     }, [text]);
 
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter') {
+            const textarea = e.currentTarget;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            
+            const currentLineStart = textarea.value.lastIndexOf('\n', start - 1) + 1;
+            const currentLine = textarea.value.substring(currentLineStart, start);
+            
+            // Match unordered lists
+            const bulletMatchEmpty = currentLine.match(/^(\s*)([-*+])\s*$/);
+            const bulletMatchContent = currentLine.match(/^(\s*)([-*+]\s+)/);
+            
+            // If the line is JUST a bullet point and user pressed enter, remove the bullet
+            if (bulletMatchEmpty && currentLine.trim() === bulletMatchEmpty[2]) {
+                e.preventDefault();
+                const beforeLine = textarea.value.substring(0, currentLineStart);
+                const afterCursor = textarea.value.substring(end);
+                onChange(beforeLine + afterCursor);
+                setTimeout(() => {
+                    if (textareaRef.current) textareaRef.current.setSelectionRange(currentLineStart, currentLineStart);
+                }, 10);
+                return;
+            } else if (bulletMatchContent) {
+                e.preventDefault();
+                const prefix = '\n' + bulletMatchContent[1] + bulletMatchContent[2];
+                const beforeCursor = textarea.value.substring(0, start);
+                const afterCursor = textarea.value.substring(end);
+                onChange(beforeCursor + prefix + afterCursor);
+                setTimeout(() => {
+                    if (textareaRef.current) textareaRef.current.setSelectionRange(start + prefix.length, start + prefix.length);
+                }, 10);
+                return;
+            }
+
+            // Match ordered lists
+            const numberMatchEmpty = currentLine.match(/^(\s*)(\d+)\.\s*$/);
+            const numberMatchContent = currentLine.match(/^(\s*)(\d+)(\.\s+)/);
+
+            if (numberMatchEmpty && currentLine.trim() === numberMatchEmpty[2] + '.') {
+                e.preventDefault();
+                const beforeLine = textarea.value.substring(0, currentLineStart);
+                const afterCursor = textarea.value.substring(end);
+                onChange(beforeLine + afterCursor);
+                setTimeout(() => {
+                    if (textareaRef.current) textareaRef.current.setSelectionRange(currentLineStart, currentLineStart);
+                }, 10);
+                return;
+            } else if (numberMatchContent) {
+                e.preventDefault();
+                const nextNumber = parseInt(numberMatchContent[2], 10) + 1;
+                const prefix = '\n' + numberMatchContent[1] + nextNumber + numberMatchContent[3];
+                const beforeCursor = textarea.value.substring(0, start);
+                const afterCursor = textarea.value.substring(end);
+                onChange(beforeCursor + prefix + afterCursor);
+                setTimeout(() => {
+                    if (textareaRef.current) textareaRef.current.setSelectionRange(start + prefix.length, start + prefix.length);
+                }, 10);
+                return;
+            }
+        }
+    };
+
     return (
         <textarea
             ref={(el) => {
@@ -153,9 +216,63 @@ const TextBlock: React.FC<{
                 innerRef(el);
             }}
             value={text}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+                const val = e.target.value;
+                const nativeEvent = e.nativeEvent as InputEvent;
+                
+                if (nativeEvent.inputType === 'insertLineBreak' || nativeEvent.inputType === 'insertParagraph' || (nativeEvent.inputType === 'insertText' && nativeEvent.data === '\n')) {
+                    const start = e.target.selectionStart;
+                    const previousLineStart = val.lastIndexOf('\n', start - 2) + 1;
+                    const previousLine = val.substring(previousLineStart, start - 1);
+                    
+                    const bulletMatchEmpty = previousLine.match(/^(\s*)([-*+])\s*$/);
+                    const bulletMatchContent = previousLine.match(/^(\s*)([-*+]\s+)/);
+                    const numberMatchEmpty = previousLine.match(/^(\s*)(\d+)\.\s*$/);
+                    const numberMatchContent = previousLine.match(/^(\s*)(\d+)(\.\s+)/);
+                    
+                    if (bulletMatchEmpty && previousLine.trim() === bulletMatchEmpty[2]) {
+                        const newBefore = val.substring(0, previousLineStart);
+                        const newAfter = val.substring(start);
+                        onChange(newBefore + newAfter);
+                        setTimeout(() => {
+                            if (textareaRef.current) textareaRef.current.setSelectionRange(previousLineStart, previousLineStart);
+                        }, 10);
+                        return;
+                    } else if (bulletMatchContent) {
+                        const prefix = bulletMatchContent[1] + bulletMatchContent[2];
+                        const newBefore = val.substring(0, start);
+                        const newAfter = val.substring(start);
+                        onChange(newBefore + prefix + newAfter);
+                        setTimeout(() => {
+                            if (textareaRef.current) textareaRef.current.setSelectionRange(start + prefix.length, start + prefix.length);
+                        }, 10);
+                        return;
+                    } else if (numberMatchEmpty && previousLine.trim() === numberMatchEmpty[2] + '.') {
+                        const newBefore = val.substring(0, previousLineStart);
+                        const newAfter = val.substring(start);
+                        onChange(newBefore + newAfter);
+                        setTimeout(() => {
+                            if (textareaRef.current) textareaRef.current.setSelectionRange(previousLineStart, previousLineStart);
+                        }, 10);
+                        return;
+                    } else if (numberMatchContent) {
+                        const nextNumber = parseInt(numberMatchContent[2], 10) + 1;
+                        const prefix = numberMatchContent[1] + nextNumber + numberMatchContent[3];
+                        const newBefore = val.substring(0, start);
+                        const newAfter = val.substring(start);
+                        onChange(newBefore + prefix + newAfter);
+                        setTimeout(() => {
+                            if (textareaRef.current) textareaRef.current.setSelectionRange(start + prefix.length, start + prefix.length);
+                        }, 10);
+                        return;
+                    }
+                }
+                
+                onChange(val);
+            }}
             onPaste={onPaste}
             onFocus={onFocus}
+            onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className="w-full bg-transparent resize-none outline-none text-gray-700 dark:text-gray-300 font-mono text-sm leading-relaxed overflow-hidden min-h-[1.5em]"
         />

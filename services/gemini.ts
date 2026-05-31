@@ -89,8 +89,12 @@ export const getFeatureConfig = (featureId: string) => {
     }
 };
 
-export const resolveModelName = (prefsModel?: string): string => {
-    if (!prefsModel) return 'gemini-3.5-flash';
+export const resolveModelName = (prefsModel?: string, featureId?: string): string => {
+    if (!prefsModel) {
+        if (featureId === 'ocr') return 'gemini-3.1-flash-lite';
+        if (featureId === 'testSeries') return 'gemini-3-flash-preview';
+        return 'gemini-3.5-flash';
+    }
     if (prefsModel === 'flash') return 'gemini-3.5-flash';
     if (prefsModel === 'pro') return 'gemini-3.1-pro-preview';
     return prefsModel;
@@ -182,7 +186,7 @@ export const generatePodcastScript = async (
     featureId: string = 'podcast'
 ): Promise<string> => {
     const prefs = getFeatureConfig(featureId);
-    const model = resolveModelName(prefs.model);
+    const model = resolveModelName(prefs.model, featureId);
 
     // Option A, B, D & 3: Hardened Technical Prompt
     const prompt = `You are an expert Engineering Professor and Podcast Producer. 
@@ -262,7 +266,7 @@ export const chatWithNotes = async (history: { role: string, text: string }[], m
     checkUsageLimit();
     const { client } = getAiClient();
     const prefs = getFeatureConfig(featureId);
-    const model = resolveModelName(prefs.model);
+    const model = resolveModelName(prefs.model, featureId);
 
     const systemInstruction = `You are a helpful tutor for ${subject}. 
     Base your answers on the following notes context, but you can add external knowledge if needed.
@@ -297,7 +301,7 @@ export const chatWithNotesStream = async (
     checkUsageLimit();
     const { client } = getAiClient();
     const prefs = getFeatureConfig(featureId);
-    const model = resolveModelName(modelOverride || prefs.model);
+    const model = resolveModelName(modelOverride || prefs.model, featureId);
 
     const systemInstruction = `You are a helpful AI tutor for ${subject}.
     Base your answers on the following notes context, but you can add external knowledge if needed.

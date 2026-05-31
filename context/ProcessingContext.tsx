@@ -236,7 +236,7 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
                 [attachment], 
                 null, 
                 3, 
-                resolveModelName(prefs.model),
+                resolveModelName(prefs.model, 'ocr'),
                 'ocr'
             );
             
