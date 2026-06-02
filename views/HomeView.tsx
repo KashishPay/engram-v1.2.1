@@ -6,7 +6,7 @@ import { ProgressChart } from '../components/ProgressChart';
 import { Topic, Subject, UserProfile, FlashCard } from '../types';
 import { SPACING_INTERVALS, FLASHCARD_SCHEMA } from '../constants';
 import { callGeminiApiWithRetry, getFeatureConfig, resolveModelName } from '../services/gemini';
-import { getTopicBodyFromIDB, getLargeJSONFromIDB, saveLargeJSONToIDB } from '../services/storage';
+import { getTopicBodyFromIDB } from '../services/storage';
 import { TopicSelectorModal } from '../components/TopicSelectorModal'; 
 import katex from 'katex';
 import DOMPurify from 'dompurify';
@@ -53,21 +53,14 @@ const FlashCardDeck: React.FC<{
     const [swipe, setSwipe] = useState<'left' | 'right' | null>(null);
     const [adDelay, setAdDelay] = useState(0);
     const [completed, setCompleted] = useState(false);
-    const [cardHistory, setCardHistory] = useState<FlashCard[]>([]);
-
-    useEffect(() => {
-        let mounted = true;
-        const scopedKey = `engram-flashcard-history_${userId}`;
-        const saved = localStorage.getItem(scopedKey);
-        if (saved) {
-            try { setCardHistory(JSON.parse(saved)); } catch { /* ignore */ }
-        } else {
-            getLargeJSONFromIDB(scopedKey, []).then(res => {
-                if(mounted) setCardHistory(res as unknown);
-            });
-        }
-        return () => { mounted = false; };
-    }, [userId]);
+    const [cardHistory, setCardHistory] = useState<FlashCard[]>(() => {
+        try {
+            const scopedKey = `engram-flashcard-history_${userId}`;
+            const saved = localStorage.getItem(scopedKey);
+            if (saved) return JSON.parse(saved);
+            return [];
+        } catch { return []; }
+    });
     
     // Config State
     const [showSelector, setShowSelector] = useState(false);
@@ -90,15 +83,13 @@ const FlashCardDeck: React.FC<{
         return selectedTopicIds;
     }, [selectedTopicIds]);
 
-    const loadHistory = useCallback(async () => {
-        const scopedKey = `engram-flashcard-history_${userId}`;
-        const saved = localStorage.getItem(scopedKey);
-        if (saved) {
-            try { setCardHistory(JSON.parse(saved)); } catch { setCardHistory([]); }
-        } else {
-            const res = await getLargeJSONFromIDB(scopedKey, []);
-            setCardHistory(res as unknown);
-        }
+    const loadHistory = useCallback(() => {
+        try {
+            const scopedKey = `engram-flashcard-history_${userId}`;
+            const saved = localStorage.getItem(scopedKey);
+            if (saved) setCardHistory(JSON.parse(saved));
+            else setCardHistory([]);
+        } catch { setCardHistory([]); }
     }, [userId]);
 
     useEffect(() => {
@@ -109,9 +100,8 @@ const FlashCardDeck: React.FC<{
 
     const saveHistory = (newHistory: FlashCard[]) => {
         setCardHistory(newHistory);
-        saveLargeJSONToIDB(`engram-flashcard-history_${userId}`, newHistory).then(() => {
-            window.dispatchEvent(new CustomEvent('engram-data-changed'));
-        });
+        localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(newHistory));
+        window.dispatchEvent(new CustomEvent('engram-data-changed'));
     };
 
     const handleFontChange = (delta: number, e: React.MouseEvent) => {

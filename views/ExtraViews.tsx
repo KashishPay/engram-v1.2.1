@@ -9,7 +9,6 @@ import { getPomodoroLogs, logPomodoroSession, getLocalISODate, updatePomodoroLog
 import { chipClassesFor, ringDotClassesFor, polarStyle, ringConfig, bottomRowContainer, smallDotClassesFor } from '../utils/habitUtils';
 import { getThemeDetails } from '../constants';
 import { getIndianDateInfo, IndianDateInfo } from '../utils/indianHolidays';
-import { saveLargeJSONToIDB, getLargeJSONFromIDB } from '../services/storage';
 
 interface ExtraViewProps {
     themeColor: string;
@@ -409,24 +408,19 @@ export const TaskView: React.FC<ExtraViewProps> = ({ themeColor, settings, userI
 
     // Persist tasks
     useEffect(() => {
-        let mounted = true;
         const stored = localStorage.getItem(`engramTasks_${userId}`);
         if (stored) {
             setTasks(JSON.parse(stored));
         } else {
-            getLargeJSONFromIDB(`engramTasks_${userId}`, []).then(res => {
-                if(mounted) setTasks(res as unknown);
-            });
+            setTasks([]);
         }
-        setLoadedUserId(userId || "");
-        return () => { mounted = false; };
+        setLoadedUserId(userId);
     }, [userId]);
 
     useEffect(() => {
-        if (loadedUserId === userId && tasks.length > 0) {
-            saveLargeJSONToIDB(`engramTasks_${userId}`, tasks).then(() => {
-                window.dispatchEvent(new CustomEvent('engram-data-changed'));
-            });
+        if (loadedUserId === userId) {
+            localStorage.setItem(`engramTasks_${userId}`, JSON.stringify(tasks));
+            window.dispatchEvent(new CustomEvent('engram-data-changed'));
         }
     }, [tasks, userId, loadedUserId]);
 
@@ -671,7 +665,6 @@ export const EisenhowerMatrixView: React.FC<ExtraViewProps> = ({ themeColor, use
     const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
     useEffect(() => {
-        let mounted = true;
         const stored = localStorage.getItem(`engramMatrix_${userId}`);
         if (stored) {
             try {
@@ -681,19 +674,15 @@ export const EisenhowerMatrixView: React.FC<ExtraViewProps> = ({ themeColor, use
                 setTasks([]);
             }
         } else {
-            getLargeJSONFromIDB(`engramMatrix_${userId}`, []).then(res => {
-                if(mounted) setTasks(res as unknown);
-            });
+            setTasks([]);
         }
-        setLoadedUserId(userId || "");
-        return () => { mounted = false; };
+        setLoadedUserId(userId);
     }, [userId]);
 
     useEffect(() => {
-        if (loadedUserId === userId && tasks.length > 0) {
-            saveLargeJSONToIDB(`engramMatrix_${userId}`, tasks).then(() => {
-                window.dispatchEvent(new CustomEvent('engram-data-changed'));
-            });
+        if (loadedUserId === userId) {
+            localStorage.setItem(`engramMatrix_${userId}`, JSON.stringify(tasks));
+            window.dispatchEvent(new CustomEvent('engram-data-changed'));
         }
     }, [tasks, userId, loadedUserId]);
 

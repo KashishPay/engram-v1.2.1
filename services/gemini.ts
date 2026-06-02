@@ -1,6 +1,5 @@
 
 import { GoogleGenAI, Schema } from "@google/genai";
-import { Capacitor } from '@capacitor/core';
 
 // -- USAGE LIMITS --
 const FREE_LIMIT = 50; // Monthly
@@ -51,10 +50,9 @@ export const getAiClient = () => {
     const customKey = localStorage.getItem(`engram_custom_api_key_${userId}`);
     
     // Priority: 1. Custom Key (LocalStorage) -> 2. Vite Env Var -> 3. Process Env (Fallback)
-    // Note: To prevent API key extraction from APKs, bundled env keys are ignored on native platforms.
-    const isNative = Capacitor.isNativePlatform();
+    // Cast import.meta to unknown then to any to avoid TS error about 'env' property
     const envKey = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
-    const apiKey = customKey || (isNative ? undefined : envKey); 
+    const apiKey = customKey || envKey; 
     
     if (!apiKey) {
         throw new Error("No API Key available. Please configure a custom key in Settings.");

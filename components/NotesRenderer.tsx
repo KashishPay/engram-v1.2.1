@@ -261,8 +261,7 @@ function processBlockMath(latex: string, styleClass: string): string {
     return `<div class="overflow-x-auto w-full pb-2 mb-2 touch-pan-x touch-pan-y ${styleClass}">${sanitized}</div>`;
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
-    const errorHtml = `<div class="p-2 border border-red-200 bg-red-50 text-red-600 text-xs font-mono rounded overflow-x-auto" data-render-error="true"><div class="font-bold flex items-center mb-1"><span style="font-size:1.2em; margin-right:4px;">⚠️</span> LaTeX Error</div>${message}</div>`;
-    return DOMPurify.sanitize(errorHtml, sanitizeConfig);
+    return `<div class="p-2 border border-red-200 bg-red-50 text-red-600 text-xs font-mono rounded overflow-x-auto" data-render-error="true"><div class="font-bold flex items-center mb-1"><span style="font-size:1.2em; margin-right:4px;">⚠️</span> LaTeX Error</div>${message}</div>`;
   }
 }
 
@@ -492,6 +491,7 @@ const AutoTextArea: React.FC<{
 }> = ({ value, onChange, onBlur, onDelete }) => {
     const ref = useRef<HTMLDivElement>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
+    const [refreshCount, setRefreshCount] = useState(0);
     const isInitialized = useRef(false);
 
     useEffect(() => {
@@ -613,7 +613,16 @@ const AutoTextArea: React.FC<{
         e.preventDefault();
         e.stopPropagation();
         
-        setFeedback('Checking...');
+        const models = [
+            { id: 'gemini-2.0-flash', name: 'Ultra Flash' },
+            { id: 'gemini-1.5-flash', name: 'Fast' },
+            { id: 'gemini-2.0-pro-exp-02-05', name: 'Reasoning' }
+        ];
+        const selectedModel = models[refreshCount % models.length];
+        
+        setRefreshCount(prev => prev + 1);
+        
+        setFeedback(`Checking (${selectedModel.name})...`);
         let fixed = value;
 
         try {
@@ -626,8 +635,9 @@ const AutoTextArea: React.FC<{
 
         try {
             const { client } = getAiClient();
-            const response = await client.models.generateContent({
-                model: 'gemini-3.5-flash',
+            
+            const aiPromise = client.models.generateContent({
+                model: selectedModel.id,
                 contents: `The following text contains malformed KaTeX/LaTeX, Markdown formatting, or raw HTML exports of KaTeX that need to be reverted. I am using it in a React app with a custom KaTeX renderer that expects RAW markdown and LaTeX.
 Your job is to fix any broken syntax, unclosed braces, AI hallucination artifacts, or raw HTML and convert it back to clean readable markdown.
 
@@ -642,6 +652,10 @@ CRITICAL RULES:
 Input:
 ${fixed}`,
             });
+
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI Request timed out')), 8000));
+            const response = await Promise.race([aiPromise, timeoutPromise]) as any;
+
             let reply = response.text || fixed;
             if (!fixed.trim().startsWith('```') && reply.trim().startsWith('```')) {
                  reply = reply.replace(/^```[a-zA-Z]*\n?/g, '').replace(/```$/g, '').trim();
@@ -669,15 +683,15 @@ ${fixed}`,
             }
             
             fixed = fixed.replace(/([^\\])\\(\s+)?$/gm, '$1\\\\');
+        } finally {
+            if (fixed !== value && fixed) {
+                onChange(fixed);
+                setFeedback('Fixed!');
+            } else {
+                setFeedback('Looks good!');
+            }
+            setTimeout(() => setFeedback(null), 2000);
         }
-
-        if (fixed !== value && fixed) {
-            onChange(fixed);
-            setFeedback('Fixed!');
-        } else {
-            setFeedback('Looks good!');
-        }
-        setTimeout(() => setFeedback(null), 2000);
     };
 
     return (
@@ -693,12 +707,12 @@ ${fixed}`,
             />
             <button 
                 onMouseDown={handleJsonRepair} 
-                disabled={feedback === 'Checking...' || feedback === 'Uploading limit...'}
-                className={`absolute top-2 right-2 px-2 py-1 bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 text-[10px] font-bold rounded shadow-sm flex items-center transition-all active:scale-95 z-10 opacity-70 hover:opacity-100 backdrop-blur-sm ${feedback === 'Checking...' || feedback === 'Uploading limit...' ? 'cursor-wait opacity-100' : ''}`}
+                disabled={feedback?.startsWith('Checking') || feedback === 'Uploading limit...'}
+                className={`absolute top-2 right-2 px-2 py-1 bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 text-[10px] font-bold rounded shadow-sm flex items-center transition-all active:scale-95 z-10 opacity-70 hover:opacity-100 backdrop-blur-sm ${feedback?.startsWith('Checking') || feedback === 'Uploading limit...' ? 'cursor-wait opacity-100' : ''}`}
                 title="Attempt to automatically repair formatting errors"
             >
-                {feedback === 'Checking...' || feedback === 'Uploading limit...' ? (
-                    <><svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> {feedback === 'Uploading limit...' ? 'Uploading...' : 'Checking...'}</>
+                {feedback?.startsWith('Checking') || feedback === 'Uploading limit...' ? (
+                    <><svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> {feedback === 'Uploading limit...' ? 'Uploading...' : feedback}</>
                 ) : feedback ? feedback : <><span className="mr-1">✨</span> Refresh</>}
             </button>
             {onDelete && (

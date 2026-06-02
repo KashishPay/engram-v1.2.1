@@ -30,7 +30,7 @@ const safeParseJSON = (text: string) => {
 
 export const fetchExamSubjects = async (exam: string, stream: string, language: string = "English"): Promise<string[]> => {
     checkUsageLimit();
-    const { client } = getAiClient();
+    const { client, isCustom } = getAiClient();
     
     // Fetch preferences
     let modelName = 'gemini-3-flash-preview';
@@ -50,7 +50,7 @@ export const fetchExamSubjects = async (exam: string, stream: string, language: 
                 personaStr = `\n\nAdhere to the following persona/instructions:\n${tsPrefs.persona}`;
             }
         }
-    } catch { /* ignore */ }
+    } catch(e) {}
 
     const languageStr = language !== 'English' ? `\nReturn the names of the subjects translated to the requested language: ${language}.` : '';
 
@@ -83,7 +83,10 @@ Return ONLY a JSON array of strings representing the subjects. Keep the subject 
         
         const subjects = safeParseJSON(text);
         return Array.isArray(subjects) ? subjects : [];
-    } catch { /* ignore */ }
+    } catch (error) {
+        console.error("Failed to fetch exam subjects:", error);
+        throw error;
+    }
 };
 
 export const generateExamQuiz = async (
@@ -97,7 +100,7 @@ export const generateExamQuiz = async (
     language: string = "English"
 ): Promise<TestSeriesQuestion[]> => {
     checkUsageLimit();
-    const { client } = getAiClient();
+    const { client, isCustom } = getAiClient();
 
     // Fetch preferences
     let modelName = 'gemini-3-flash-preview';
@@ -122,7 +125,7 @@ export const generateExamQuiz = async (
                 diff = tsPrefs.difficulty; // user's pref overrides the component's default if wanted, or we just keep it
             }
         }
-    } catch { /* ignore */ }
+    } catch(e) {}
 
     const pastContextStr = pastQuestionsContext.length > 0 
         ? `\nIMPORTANT: Do NOT generate questions that are identical or highly similar to these past questions:\n${pastQuestionsContext.slice(-20).map((q, i) => `${i+1}. ${q}`).join('\n')}`
@@ -199,5 +202,8 @@ Return the output strictly as a JSON array of exactly ${numQuestions} objects. E
         
         const questions = safeParseJSON(text);
         return Array.isArray(questions) ? questions : [];
-    } catch { /* ignore */ }
+    } catch (error) {
+        console.error("Failed to generate exam quiz:", error);
+        throw error;
+    }
 };

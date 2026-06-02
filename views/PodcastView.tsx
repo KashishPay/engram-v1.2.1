@@ -9,7 +9,6 @@ import { goBackOrFallback } from '../utils/navigation';
 import { ensureAudioContext } from '../utils/audioCue';
 import { getErrorImage, getFallbackImage } from '../utils/errorImages';
 import katex from 'katex';
-import DOMPurify from 'dompurify';
 import { KeepAwake } from '@capacitor-community/keep-awake';
 
 export const PodcastSettingsView: React.FC<{ 
@@ -630,12 +629,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
             // 5. Bold speaker names (if not already bolded by markdown)
             processedLine = processedLine.replace(/^([A-Za-z0-9\s]+):/g, '<strong class="text-gray-900 dark:text-white">$1:</strong>');
             
-            const sanitizedHtml = DOMPurify.sanitize(processedLine, {
-                ADD_TAGS: ['math', 'annotation', 'semantics', 'mtext', 'mn', 'mo', 'mi', 'msup', 'msub', 'mfrac', 'span', 'div', 'strong', 'em', 'code', 'br', 'p'],
-                ADD_ATTR: ['xmlns', 'display', 'mathvariant', 'class']
-            });
-            
-            return <p key={i} className="mb-2" dangerouslySetInnerHTML={{ __html: sanitizedHtml }}></p>;
+            return <p key={i} className="mb-2" dangerouslySetInnerHTML={{ __html: processedLine }}></p>;
         });
     };
 

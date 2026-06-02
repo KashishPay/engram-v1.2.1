@@ -12,8 +12,6 @@ import { AdManager } from '../services/admob';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
 
-import { saveLargeJSONToIDB, getLargeJSONFromIDB } from '../services/storage';
-
 interface FlashcardHubViewProps {
     studyLog: Topic[];
     userId: string;
@@ -47,15 +45,12 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
     const undoTimeoutRef = useRef<number | null>(null);
 
     // Initial Load from Storage
-    const loadCards = async () => {
+    const loadCards = () => {
         try {
             const key = `engram-flashcard-history_${userId}`;
             const raw = localStorage.getItem(key);
             if (raw) {
                 setAllCards(JSON.parse(raw));
-            } else {
-                const res = await getLargeJSONFromIDB(key, []);
-                setAllCards(res as unknown);
             }
         } catch (_e) {
             console.error("Failed to load flashcards", _e);
@@ -71,9 +66,8 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
     // Save to Storage
     const persistCards = (newCards: FlashCard[]) => {
         setAllCards(newCards);
-        saveLargeJSONToIDB(`engram-flashcard-history_${userId}`, newCards).then(() => {
-            window.dispatchEvent(new CustomEvent('engram-data-changed'));
-        });
+        localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(newCards));
+        window.dispatchEvent(new CustomEvent('engram-data-changed'));
     };
 
     // --- Computed Hierarchy ---

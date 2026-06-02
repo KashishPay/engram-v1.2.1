@@ -9,7 +9,6 @@ import { AdManager } from '../services/admob';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { downloadPDF } from '../utils/download';
-import { saveLargeJSONToIDB, getLargeJSONFromIDB } from '../services/storage';
 
 interface TestSeriesViewProps {
     userId: string;
@@ -215,7 +214,12 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
     };
 
     // Load History
-    const loadHistory = async () => {
+    const loadHistory = () => {
+        const saved = localStorage.getItem(`engram_test_series_history_${userId}`);
+        if (saved) {
+            try { setHistory(JSON.parse(saved)); } catch (e) { console.warn("Failed to parse test series history", e); }
+        }
+        
         const savedLang = localStorage.getItem(`engram_test_series_language_${userId}`);
         if (savedLang) {
             setLanguage(savedLang);
@@ -240,17 +244,6 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             } catch { /* ignore */ }
         }
         setRecentExams(recents);
-
-        const localSaved = localStorage.getItem(`engram_test_series_history_${userId}`);
-        if (localSaved) {
-            try { setHistory(JSON.parse(localSaved)); } catch { /* ignore */ }
-        } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const saved = await getLargeJSONFromIDB(`engram_test_series_history_${userId}`, null) as any;
-            if (saved) {
-                try { setHistory(saved); } catch (e) { console.warn("Failed to parse test series history", e); }
-            }
-        }
     };
 
     useEffect(() => {
@@ -338,12 +331,8 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             const adPromise = AdManager.showAlternatingAd();
 
             // Retrieve past questions context to avoid repetition
-            let pastQuestions = await getLargeJSONFromIDB(`engram_test_series_past_questions_${userId}`, []) as string[];
-            if (!pastQuestions || pastQuestions.length === 0) {
-                pastQuestions = JSON.parse(localStorage.getItem(`engram_test_series_past_questions_${userId}`) || '[]');
-            }
+            const pastQuestions = JSON.parse(localStorage.getItem(`engram_test_series_past_questions_${userId}`) || '[]');
             
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const [_, questions] = await Promise.all([
                 adPromise,
                 generateExamQuiz(exam, stream, selectedSubject, difficulty, numQuestions, pastQuestions, specificTopics, language)
@@ -353,9 +342,8 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             
             // Save new questions to context
             const newPastQuestions = [...pastQuestions, ...questions.map(q => q.question)].slice(-100); // Keep last 100
-            saveLargeJSONToIDB(`engram_test_series_past_questions_${userId}`, newPastQuestions).then(() => {
-                window.dispatchEvent(new CustomEvent('engram-data-changed'));
-            });
+            localStorage.setItem(`engram_test_series_past_questions_${userId}`, JSON.stringify(newPastQuestions));
+            window.dispatchEvent(new CustomEvent('engram-data-changed'));
 
             setQuizData(questions);
             setCurrentQuestionIndex(0);
@@ -390,9 +378,8 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
         
         const updated = [newEntry, ...history];
         setHistory(updated);
-        saveLargeJSONToIDB(`engram_test_series_history_${userId}`, updated).then(() => {
-            window.dispatchEvent(new CustomEvent('engram-data-changed'));
-        });
+        localStorage.setItem(`engram_test_series_history_${userId}`, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('engram-data-changed'));
     };
 
     const handleAnswer = (option: string) => {
@@ -468,7 +455,7 @@ export const TestSeriesView: React.FC<TestSeriesViewProps> = ({ userId, navigate
             processedText = processedText.replace(`__BLOCK_MATH_${index}__`, `<div class="my-4 overflow-x-auto overflow-y-auto touch-pan-x touch-pan-y">${html}</div>`);
         });
 
-        return DOMPurify.sanitize(processedText, { ADD_TAGS: ['math', 'annotation', 'semantics', 'mtext', 'mn', 'mo', 'mi', 'msup', 'msub', 'mfrac', 'span', 'div'], ADD_ATTR: ['xmlns', 'display', 'mathvariant', 'class'] });
+        return DOMPurify.sanitize(processedText);
     };
 
     const formatTime = (seconds: number) => {

@@ -1,7 +1,5 @@
 
 import { ChatMessage, Topic } from '../types';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { Capacitor } from '@capacitor/core';
 
 const DB_NAME = 'EngramDB';
 const AUDIO_STORE = 'audio_files';
@@ -131,7 +129,7 @@ export const closeDB = async (): Promise<void> => {
         try {
             const db = await dbPromise;
             db.close();
-        } catch {
+        } catch (e) {
             console.warn("[Storage] Error closing DB", e);
         }
         dbPromise = null;
@@ -144,21 +142,6 @@ const getBodyKey = (userId: string, topicId: string) => `${userId}:${topicId}`;
 // --- Topic Body Storage (Text) ---
 
 export const saveTopicBodyToIDB = async (userId: string, topicId: string, content: string): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            try { await Filesystem.mkdir({ path: 'topic_bodies', directory: Directory.Data, recursive: true }); } catch { /* ignore */ }
-            await Filesystem.writeFile({
-                path: `topic_bodies/${getBodyKey(userId, topicId)}.txt`,
-                data: content,
-                directory: Directory.Data,
-                encoding: Encoding.UTF8
-            });
-            return;
-        } catch {
-            console.error("Capacitor Topic Body Save Error:", e);
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -169,7 +152,7 @@ export const saveTopicBodyToIDB = async (userId: string, topicId: string, conten
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Topic Body Save Error:", e);
         throw e;
     }
@@ -177,20 +160,6 @@ export const saveTopicBodyToIDB = async (userId: string, topicId: string, conten
 
 export const getTopicBodyFromIDB = async (userId: string, topicId: string): Promise<string | undefined> => {
     const start = performance.now();
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const res = await Filesystem.readFile({
-                path: `topic_bodies/${getBodyKey(userId, topicId)}.txt`,
-                directory: Directory.Data,
-                encoding: Encoding.UTF8
-            });
-            checkPerfBudget(`fetch_body_${topicId.slice(0, 5)}`, start, 150);
-            return res.data as string;
-        } catch {
-            return "";
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve) => {
@@ -207,27 +176,13 @@ export const getTopicBodyFromIDB = async (userId: string, topicId: string): Prom
                 resolve(""); 
             };
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Topic Body Read Error (Critical):", e);
         return ""; 
     }
 };
 
 export const deleteTopicBodyFromIDB = async (userId: string, topicId: string): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            await Filesystem.deleteFile({
-                path: `topic_bodies/${getBodyKey(userId, topicId)}.txt`,
-                directory: Directory.Data
-            });
-        } catch { /* ignore */ }
-        
-        // Opportunistic cleanup of source images and chat history
-        deleteTopicSourcesFromIDB(topicId).catch(e => console.warn("Source cleanup warning", e));
-        deleteChatHistoryFromIDB(userId, topicId).catch(e => console.warn("Chat cleanup warning", e));
-        return;
-    }
-
     try {
         const db = await openDB();
         const tx = db.transaction(TOPIC_BODY_STORE, 'readwrite');
@@ -242,7 +197,7 @@ export const deleteTopicBodyFromIDB = async (userId: string, topicId: string): P
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Topic Body Delete Error:", e);
     }
 };
@@ -250,21 +205,6 @@ export const deleteTopicBodyFromIDB = async (userId: string, topicId: string): P
 // --- Chat History Storage (New) ---
 
 export const saveChatToIDB = async (userId: string, topicId: string, messages: ChatMessage[]): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            try { await Filesystem.mkdir({ path: 'chat_history', directory: Directory.Data, recursive: true }); } catch { /* ignore */ }
-            await Filesystem.writeFile({
-                path: `chat_history/${getBodyKey(userId, topicId)}.txt`,
-                data: JSON.stringify(messages),
-                directory: Directory.Data,
-                encoding: Encoding.UTF8
-            });
-            return;
-        } catch {
-            console.error("Capacitor Chat Save Error:", e);
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -276,25 +216,12 @@ export const saveChatToIDB = async (userId: string, topicId: string, messages: C
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Chat Save Error:", e);
     }
 };
 
 export const getChatFromIDB = async (userId: string, topicId: string): Promise<ChatMessage[] | undefined> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const res = await Filesystem.readFile({
-                path: `chat_history/${getBodyKey(userId, topicId)}.txt`,
-                directory: Directory.Data,
-                encoding: Encoding.UTF8
-            });
-            return JSON.parse(res.data as string);
-        } catch {
-            return undefined;
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve) => {
@@ -305,23 +232,13 @@ export const getChatFromIDB = async (userId: string, topicId: string): Promise<C
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => resolve(undefined);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Chat Read Error:", e);
         return undefined;
     }
 };
 
 export const deleteChatHistoryFromIDB = async (userId: string, topicId: string): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            await Filesystem.deleteFile({
-                path: `chat_history/${getBodyKey(userId, topicId)}.txt`,
-                directory: Directory.Data
-            });
-        } catch { /* ignore */ }
-        return;
-    }
-
     try {
         const db = await openDB();
         const tx = db.transaction(CHAT_HISTORY_STORE, 'readwrite');
@@ -330,7 +247,7 @@ export const deleteChatHistoryFromIDB = async (userId: string, topicId: string):
             tx.oncomplete = () => resolve();
             tx.onerror = () => resolve();
         });
-    } catch {
+    } catch (e) {
         console.warn("Failed to delete chat history", e);
     }
 };
@@ -338,21 +255,6 @@ export const deleteChatHistoryFromIDB = async (userId: string, topicId: string):
 // --- Batch Helpers for Backup ---
 
 export const batchGetTopicBodies = async (userId: string, topicIds: string[]): Promise<Record<string, string>> => {
-    if (Capacitor.isNativePlatform()) {
-        const results: Record<string, string> = {};
-        for (const id of topicIds) {
-            try {
-                const res = await Filesystem.readFile({
-                    path: `topic_bodies/${getBodyKey(userId, id)}.txt`,
-                    directory: Directory.Data,
-                    encoding: Encoding.UTF8
-                });
-                if (res.data) results[id] = res.data as string;
-            } catch { /* ignore */ }
-        }
-        return results;
-    }
-
     try {
         const db = await openDB();
         const results: Record<string, string> = {};
@@ -366,30 +268,13 @@ export const batchGetTopicBodies = async (userId: string, topicIds: string[]): P
             if (val) results[id] = val;
         }
         return results;
-    } catch {
+    } catch (e) {
         console.error("Batch Body Read Error:", e);
         return {};
     }
 };
 
 export const batchSaveTopicBodies = async (userId: string, map: Record<string, string>): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try { await Filesystem.mkdir({ path: 'topic_bodies', directory: Directory.Data, recursive: true }); } catch { /* ignore */ }
-        for (const [id, content] of Object.entries(map)) {
-            try {
-                await Filesystem.writeFile({
-                    path: `topic_bodies/${getBodyKey(userId, id)}.txt`,
-                    data: content,
-                    directory: Directory.Data,
-                    encoding: Encoding.UTF8
-                });
-            } catch {
-                console.error("Capacitor Batch Body Save Error:", e);
-            }
-        }
-        return;
-    }
-
     try {
         const db = await openDB();
         const tx = db.transaction(TOPIC_BODY_STORE, 'readwrite');
@@ -403,30 +288,13 @@ export const batchSaveTopicBodies = async (userId: string, map: Record<string, s
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
-    } catch {
+    } catch (e) {
         console.error("Batch Body Save Error:", e);
         throw e;
     }
 };
 
 export const batchGetImages = async (imageIds: string[]): Promise<Record<string, string>> => {
-    if (Capacitor.isNativePlatform()) {
-        const results: Record<string, string> = {};
-        for (const id of imageIds) {
-            try {
-                const res = await Filesystem.readFile({
-                    path: `images/${id}.txt`,
-                    directory: Directory.Data,
-                    encoding: Encoding.UTF8
-                });
-                if (res.data) results[id] = res.data as string;
-            } catch {
-                // ignore
-            }
-        }
-        return results;
-    }
-
     try {
         const db = await openDB();
         const results: Record<string, string> = {};
@@ -440,28 +308,13 @@ export const batchGetImages = async (imageIds: string[]): Promise<Record<string,
             if (val) results[id] = val;
         }
         return results;
-    } catch {
+    } catch (e) {
         console.error("Batch Image Read Error:", e);
         return {};
     }
 };
 
 export const batchGetOriginalImages = async (topicIds: string[]): Promise<Record<string, string>> => {
-    if (Capacitor.isNativePlatform()) {
-        const results: Record<string, string> = {};
-        for (const topicId of topicIds) {
-            try {
-                const dir = await Filesystem.readdir({ path: 'images', directory: Directory.Data });
-                const files = dir.files.map(f => typeof f === 'string' ? f : f.name).filter(f => f.startsWith(`source_${topicId}_`) && f.endsWith('.txt'));
-                for (const f of files) {
-                    const res = await Filesystem.readFile({ path: `images/${f}`, directory: Directory.Data, encoding: Encoding.UTF8 });
-                    if (res.data) results[f.replace('.txt', '')] = res.data as string;
-                }
-            } catch { /* ignore */ }
-        }
-        return results;
-    }
-
     try {
         const db = await openDB();
         const results: Record<string, string> = {};
@@ -487,33 +340,13 @@ export const batchGetOriginalImages = async (topicIds: string[]): Promise<Record
             });
         }
         return results;
-    } catch {
+    } catch (e) {
         console.error("Batch Original Image Read Error:", e);
         return {};
     }
 };
 
 export const batchSaveImages = async (map: Record<string, string>): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        for (const [id, base64] of Object.entries(map)) {
-            try {
-                // Ignore error if directory already exists
-                try {
-                    await Filesystem.mkdir({ path: 'images', directory: Directory.Data, recursive: true });
-                } catch { /* ignore */ }
-                await Filesystem.writeFile({
-                    path: `images/${id}.txt`,
-                    data: base64,
-                    directory: Directory.Data,
-                    encoding: Encoding.UTF8
-                });
-            } catch {
-                console.error("Capacitor Batch Image Save Error:", e);
-            }
-        }
-        return;
-    }
-
     try {
         const db = await openDB();
         const tx = db.transaction(IMAGE_STORE, 'readwrite');
@@ -527,28 +360,13 @@ export const batchSaveImages = async (map: Record<string, string>): Promise<void
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
-    } catch {
+    } catch (e) {
         console.error("Batch Image Save Error:", e);
         throw e;
     }
 };
 
 export const batchGetChatHistories = async (userId: string, topicIds: string[]): Promise<Record<string, ChatMessage[]>> => {
-    if (Capacitor.isNativePlatform()) {
-        const results: Record<string, ChatMessage[]> = {};
-        for (const id of topicIds) {
-            try {
-                const res = await Filesystem.readFile({
-                    path: `chat_history/${getBodyKey(userId, id)}.txt`,
-                    directory: Directory.Data,
-                    encoding: Encoding.UTF8
-                });
-                if (res.data) results[id] = JSON.parse(res.data as string);
-            } catch { /* ignore */ }
-        }
-        return results;
-    }
-
     try {
         const db = await openDB();
         const results: Record<string, ChatMessage[]> = {};
@@ -562,28 +380,13 @@ export const batchGetChatHistories = async (userId: string, topicIds: string[]):
             if (val) results[id] = val;
         }
         return results;
-    } catch {
+    } catch (e) {
         console.error("Batch Chat Read Error:", e);
         return {};
     }
 };
 
 export const batchSaveChatHistories = async (userId: string, map: Record<string, ChatMessage[]>): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try { await Filesystem.mkdir({ path: 'chat_history', directory: Directory.Data, recursive: true }); } catch { /* ignore */ }
-        for (const [id, messages] of Object.entries(map)) {
-            try {
-                await Filesystem.writeFile({
-                    path: `chat_history/${getBodyKey(userId, id)}.txt`,
-                    data: JSON.stringify(messages),
-                    directory: Directory.Data,
-                    encoding: Encoding.UTF8
-                });
-            } catch { /* ignore */ }
-        }
-        return;
-    }
-
     try {
         const db = await openDB();
         const tx = db.transaction(CHAT_HISTORY_STORE, 'readwrite');
@@ -597,7 +400,7 @@ export const batchSaveChatHistories = async (userId: string, map: Record<string,
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });
-    } catch {
+    } catch (e) {
         console.error("Batch Chat Save Error:", e);
         throw e;
     }
@@ -612,35 +415,6 @@ export const ensureTopicContent = async (userId: string, topic: Topic): Promise<
 // --- Audio Storage ---
 
 export const saveAudioToIDB = async (topicId: string, audioData: Blob | string): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            let dataStr = "";
-            if (typeof audioData === 'string') {
-                dataStr = audioData;
-            } else {
-                dataStr = await new Promise((res, rej) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => res(reader.result as string);
-                    reader.onerror = rej;
-                    reader.readAsDataURL(audioData);
-                });
-            }
-            try {
-                await Filesystem.mkdir({ path: 'audio', directory: Directory.Data, recursive: true });
-            } catch { /* ignore */ }
-            
-            await Filesystem.writeFile({
-                path: `audio/${topicId}.txt`,
-                data: dataStr,
-                directory: Directory.Data,
-                encoding: Encoding.UTF8
-            });
-            return;
-        } catch {
-            console.error("Capacitor Audio Save Error:", e);
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -651,26 +425,13 @@ export const saveAudioToIDB = async (topicId: string, audioData: Blob | string):
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Audio Save Error:", e);
         throw e;
     }
 };
 
 export const getAudioFromIDB = async (topicId: string): Promise<Blob | string | undefined> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const result = await Filesystem.readFile({
-                path: `audio/${topicId}.txt`,
-                directory: Directory.Data,
-                encoding: Encoding.UTF8
-            });
-            return result.data as string;
-        } catch {
-            // might not exist
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -681,22 +442,13 @@ export const getAudioFromIDB = async (topicId: string): Promise<Blob | string | 
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Audio Read Error:", e);
         return undefined;
     }
 };
 
 export const getAllAudioKeys = async (): Promise<string[]> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const dir = await Filesystem.readdir({ path: 'audio', directory: Directory.Data });
-            return dir.files.map(f => typeof f === 'string' ? f : f.name).map(f => f.replace('.txt', ''));
-        } catch {
-            return [];
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -707,26 +459,13 @@ export const getAllAudioKeys = async (): Promise<string[]> => {
             request.onsuccess = () => resolve(request.result as string[]);
             request.onerror = () => reject(request.error);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Audio Key Fetch Error:", e);
         return [];
     }
 };
 
 export const getAllTopicBodyKeys = async (userId: string): Promise<string[]> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const dir = await Filesystem.readdir({ path: 'topic_bodies', directory: Directory.Data });
-            const prefix = `${userId}:`;
-            return dir.files
-                .map(f => typeof f === 'string' ? f : f.name)
-                .filter(f => f.startsWith(prefix) && f.endsWith('.txt'))
-                .map(f => f.replace('.txt', '').replace(prefix, ''));
-        } catch {
-            return [];
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve) => {
@@ -741,22 +480,13 @@ export const getAllTopicBodyKeys = async (userId: string): Promise<string[]> => 
             };
             req.onerror = () => resolve([]);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Topic Body Key Fetch Error:", e);
         return [];
     }
 };
 
 export const deleteAudioFromIDB = async (topicId: string): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            await Filesystem.deleteFile({
-                path: `audio/${topicId}.txt`,
-                directory: Directory.Data
-            });
-        } catch { /* ignore */ }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -767,7 +497,7 @@ export const deleteAudioFromIDB = async (topicId: string): Promise<void> => {
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Audio Delete Error:", e);
     }
 };
@@ -775,20 +505,6 @@ export const deleteAudioFromIDB = async (topicId: string): Promise<void> => {
 // --- Image Storage ---
 
 export const saveImageToIDB = async (imageId: string, base64Image: string): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            await Filesystem.writeFile({
-                path: `images/${imageId}.txt`,
-                data: base64Image,
-                directory: Directory.Data,
-                encoding: Encoding.UTF8
-            });
-            return;
-        } catch {
-            console.error("Capacitor Image Save Error:", e);
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -799,26 +515,13 @@ export const saveImageToIDB = async (imageId: string, base64Image: string): Prom
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Image Save Error:", e);
         throw e;
     }
 };
 
 export const getImageFromIDB = async (imageId: string): Promise<string | undefined> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const result = await Filesystem.readFile({
-                path: `images/${imageId}.txt`,
-                directory: Directory.Data,
-                encoding: Encoding.UTF8
-            });
-            return result.data as string;
-        } catch {
-            // Might not exist
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -829,7 +532,7 @@ export const getImageFromIDB = async (imageId: string): Promise<string | undefin
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         });
-    } catch {
+    } catch (e) {
         console.error("IndexedDB Image Read Error:", e);
         return undefined;
     }
@@ -838,23 +541,6 @@ export const getImageFromIDB = async (imageId: string): Promise<string | undefin
 // --- Source Image Helpers (Append/Count/Delete) ---
 
 export const getNextSourceIndex = async (topicId: string): Promise<number> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const dir = await Filesystem.readdir({ path: 'images', directory: Directory.Data });
-            const files = dir.files.map(f => typeof f === 'string' ? f : f.name).filter(f => f.startsWith(`source_${topicId}_`) && f.endsWith('.txt'));
-            if (files.length === 0) return 0;
-            let max = -1;
-            files.forEach(f => {
-                const parts = f.replace('.txt', '').split('_');
-                const idx = parseInt(parts[parts.length - 1], 10);
-                if (!isNaN(idx) && idx > max) max = idx;
-            });
-            return max + 1;
-        } catch {
-            return 0;
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve) => {
@@ -897,23 +583,13 @@ export const getNextSourceIndex = async (topicId: string): Promise<number> => {
                 req.onerror = () => resolve(0);
             }
         });
-    } catch {
+    } catch (e) {
         console.warn("Failed to get next index", e);
         return 0;
     }
 };
 
 export const getSourceImageCount = async (topicId: string): Promise<number> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const dir = await Filesystem.readdir({ path: 'images', directory: Directory.Data });
-            const files = dir.files.map(f => typeof f === 'string' ? f : f.name).filter(f => f.startsWith(`source_${topicId}_`) && f.endsWith('.txt'));
-            return files.length;
-        } catch {
-            return 0;
-        }
-    }
-
     try {
         const db = await openDB();
         return new Promise((resolve) => {
@@ -938,16 +614,6 @@ export const getSourceImageCount = async (topicId: string): Promise<number> => {
 };
 
 export const deleteTopicSourcesFromIDB = async (topicId: string): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const dir = await Filesystem.readdir({ path: 'images', directory: Directory.Data });
-            const files = dir.files.map(f => typeof f === 'string' ? f : f.name).filter(f => f.startsWith(`source_${topicId}_`) && f.endsWith('.txt'));
-            for (const f of files) {
-                await Filesystem.deleteFile({ path: `images/${f}`, directory: Directory.Data });
-            }
-        } catch { /* ignore */ }
-    }
-
     try {
         const db = await openDB();
         const tx = db.transaction(IMAGE_STORE, 'readwrite');
@@ -970,100 +636,7 @@ export const deleteTopicSourcesFromIDB = async (topicId: string): Promise<void> 
             tx.oncomplete = () => resolve();
             tx.onerror = () => resolve(); 
         });
-    } catch {
+    } catch (e) {
         console.warn("Failed to delete source images", e);
-    }
-};
-
-// --- Heavy Array Storage (Histories & Lists) ---
-
-export const saveLargeJSONToIDB = async (key: string, data: unknown): Promise<void> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            try { await Filesystem.mkdir({ path: 'json_store', directory: Directory.Data, recursive: true }); } catch { /* ignore */ }
-            await Filesystem.writeFile({
-                path: `json_store/${key}.txt`,
-                data: JSON.stringify(data),
-                directory: Directory.Data,
-                encoding: Encoding.UTF8
-            });
-            return;
-        } catch {
-            console.error("Capacitor JSON Save Error:", e);
-        }
-    }
-
-    try {
-        const db = await openDB();
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(TOPIC_BODY_STORE, 'readwrite'); // Reusing TOPIC_BODY_STORE for big strings
-            const store = tx.objectStore(TOPIC_BODY_STORE);
-            const req = store.put(JSON.stringify(data), `json_${key}`);
-            req.onsuccess = () => resolve();
-            req.onerror = () => reject(req.error);
-        });
-    } catch {
-        console.error("IDB Save Error", e);
-    }
-};
-
-export const getLargeJSONFromIDB = async <T>(key: string, defaultValue: T): Promise<T> => {
-    if (Capacitor.isNativePlatform()) {
-        try {
-            const res = await Filesystem.readFile({
-                path: `json_store/${key}.txt`,
-                directory: Directory.Data,
-                encoding: Encoding.UTF8
-            });
-            if (res.data) return JSON.parse(res.data as string) as T;
-        } catch {
-            return defaultValue;
-        }
-    }
-
-    try {
-        const db = await openDB();
-        return new Promise((resolve) => {
-            const tx = db.transaction(TOPIC_BODY_STORE, 'readonly');
-            const store = tx.objectStore(TOPIC_BODY_STORE);
-            const req = store.get(`json_${key}`);
-            req.onsuccess = () => {
-                if (req.result) {
-                    try {
-                        resolve(JSON.parse(req.result) as T);
-                    } catch {
-                        resolve(defaultValue);
-                    }
-                } else {
-                    resolve(defaultValue);
-                }
-            };
-            req.onerror = () => resolve(defaultValue);
-        });
-    } catch {
-        return defaultValue;
-    }
-};
-
-export const migrateLocalStorageHistories = async (userId: string) => {
-    const keys = [
-        `engram-flashcard-history_${userId}`,
-        `engramTasks_${userId}`,
-        `engramMatrix_${userId}`,
-        `engram_test_series_history_${userId}`,
-        `engram_test_series_past_questions_${userId}`,
-        // Data and subjects shouldn't be migrated since they are actively modified very frequently by hooks. We can migrate them if we move everything.
-    ];
-
-    for (const key of keys) {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-            try {
-                const parsed = JSON.parse(raw);
-                await saveLargeJSONToIDB(key, parsed);
-                // Optionally remove from local storage after successful migration to save space
-                // localStorage.removeItem(key);
-            } catch { /* ignore */ }
-        }
     }
 };
