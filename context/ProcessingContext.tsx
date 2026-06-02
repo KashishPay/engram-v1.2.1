@@ -410,6 +410,7 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
         await requestWakeLock();
 
         try {
+            const MAX_PDF_PAGES = 50;
             let totalSizeBytes = 0;
             for (let i = 0; i < files.length; i++) totalSizeBytes += files[i].size;
             const sizeMb = (totalSizeBytes / (1024 * 1024)).toFixed(2) + " MB";
@@ -418,6 +419,7 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
             const failedFiles: { name: string, reason: string }[] = [];
             
             let processedPagesCount = 0;
+            let isTruncatedPdf = false;
 
             // 1. Pre-process files (Robust Loop with individual catch)
             for (let i = 0; i < files.length; i++) {
@@ -442,7 +444,11 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
                         // PDF Pipeline
                         const pdf = await getPdfDocument(file);
                         
-                        const pagesToProcess = pdf.numPages;
+                        let pagesToProcess = pdf.numPages;
+                        if (pagesToProcess > MAX_PDF_PAGES) {
+                            pagesToProcess = MAX_PDF_PAGES;
+                            isTruncatedPdf = true;
+                        }
                         
                         processedPagesCount += pagesToProcess;
                         
