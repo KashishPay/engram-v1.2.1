@@ -355,7 +355,7 @@ export const NotesRenderer: React.FC<NotesRendererProps> = React.memo(({ content
 
         processedText = processedText
             .replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-white font-bold">$1</strong>')
-            .replace(/\*([^*]+)\*/g, '<em class="text-gray-800 dark:text-gray-200 italic">$1</em>')
+            .replace(/\*([^\*]+)\*/g, '<em class="text-gray-800 dark:text-gray-200 italic">$1</em>')
             .replace(/_(.*?)_/g, '<em class="text-blue-600 dark:text-blue-400 not-italic">$1</em>')
             .replace(/`([^`]+)`/g, (match, inner) => {
                 if (
@@ -492,7 +492,6 @@ const AutoTextArea: React.FC<{
 }> = ({ value, onChange, onBlur, onDelete }) => {
     const ref = useRef<HTMLDivElement>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
-    const [retryCount, setRetryCount] = useState(0);
     const isInitialized = useRef(false);
 
     useEffect(() => {
@@ -614,10 +613,7 @@ const AutoTextArea: React.FC<{
         e.preventDefault();
         e.stopPropagation();
         
-        const currentRetry = retryCount + 1;
-        setRetryCount(currentRetry);
-        setFeedback(currentRetry === 1 ? 'Checking...' : `Retrying (v${currentRetry})...`);
-        
+        setFeedback('Checking...');
         let fixed = value;
 
         try {
@@ -630,29 +626,9 @@ const AutoTextArea: React.FC<{
 
         try {
             const { client } = getAiClient();
-            
-            // Cycle models: Flash -> Pro -> Flash (Latest/3.5)
-            const modelToUse = currentRetry === 1 
-                ? 'gemini-3.5-flash' 
-                : currentRetry === 2 
-                    ? 'gemini-3.1-pro-preview' 
-                    : 'gemini-3-flash-preview';
-
-            const repairPrompt = currentRetry > 2 
-                ? `CRITICAL FORMATTING FIX (ATTEMPT ${currentRetry}):
-                   The previous AI response had broken KaTeX/LaTeX or Markdown formatting. 
-                   YOU MUST FIX THE SYNTAX NOW. 
-                   
-                   SPECIFIC INSTRUCTIONS:
-                   - Ensure every \\begin{...} has a matching \\end{...}.
-                   - Ensure all \\[ ... \\] and \\( ... \\) are correctly closed and balanced.
-                   - Remove any raw HTML or random characters like /.{{...}
-                   - Revert any "Equation 1: ..." text if it's accompanied by broken Math.
-                   - Return ONLY the corrected raw text.
-                   
-                   CONTENT TO FIX:
-                   ${fixed}`
-                : `The following text contains malformed KaTeX/LaTeX, Markdown formatting, or raw HTML exports of KaTeX that need to be reverted. I am using it in a React app with a custom KaTeX renderer that expects RAW markdown and LaTeX.
+            const response = await client.models.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: `The following text contains malformed KaTeX/LaTeX, Markdown formatting, or raw HTML exports of KaTeX that need to be reverted. I am using it in a React app with a custom KaTeX renderer that expects RAW markdown and LaTeX.
 Your job is to fix any broken syntax, unclosed braces, AI hallucination artifacts, or raw HTML and convert it back to clean readable markdown.
 
 CRITICAL RULES:
@@ -664,13 +640,8 @@ CRITICAL RULES:
 6. ONLY return the corrected raw text. Include no conversational fluff.
 
 Input:
-${fixed}`;
-
-            const response = await client.models.generateContent({
-                model: modelToUse,
-                contents: repairPrompt,
+${fixed}`,
             });
-            
             let reply = response.text || fixed;
             if (!fixed.trim().startsWith('```') && reply.trim().startsWith('```')) {
                  reply = reply.replace(/^```[a-zA-Z]*\n?/g, '').replace(/```$/g, '').trim();
@@ -702,24 +673,11 @@ ${fixed}`;
 
         if (fixed !== value && fixed) {
             onChange(fixed);
-            
-            // Check if formatting error still exists in the FIXED content
-            const stillHasError = fixed.includes('data-render-error="true"') || 
-                                fixed.includes('[Math Error]') || 
-                                fixed.includes('LaTeX Error') ||
-                                (fixed.match(/\\begin/g)?.length !== fixed.match(/\\end/g)?.length);
-
-            if (!stillHasError) {
-                setFeedback('Fixed!');
-                setRetryCount(0); // Reset on success
-            } else {
-                setFeedback('Better, but still errors. Tap refresh again!');
-            }
+            setFeedback('Fixed!');
         } else {
             setFeedback('Looks good!');
-            setRetryCount(0);
         }
-        setTimeout(() => setFeedback(null), 3000);
+        setTimeout(() => setFeedback(null), 2000);
     };
 
     return (

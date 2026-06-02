@@ -3,8 +3,6 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RotateCw } from 'lucide-react'; 
 
 import { DateTimeSettings, UserProfile, Habit, NotificationSettings } from './types';
-import { PluginListenerHandle } from '@capacitor/core';
-import { App as CapApp } from '@capacitor/app';
 import { AppRouter } from './components/AppRouter';
 import { AdManager } from './services/admob';
 
@@ -54,39 +52,19 @@ export const App: React.FC = () => {
         window.addEventListener("pageshow", e => console.debug("[UPLOAD] pageshow", { persisted: e.persisted }));
         document.addEventListener("visibilitychange", () => console.debug("[UPLOAD] visibilitychange", document.visibilityState));
         
-        // 6-minute ad interval logic with background awareness
+        // 6-minute ad interval
         const AD_INTERVAL = 6 * 60 * 1000;
         let lastAdTime = Date.now();
-        let isBackground = false;
-
-        const checkAndShowAd = async () => {
-            if (isBackground) return;
-            const now = Date.now();
-            if (now - lastAdTime >= AD_INTERVAL - 5000) {
-                console.debug("[AD] 6 minutes passed, showing interstitial ad.");
-                await AdManager.showInterstitial();
-                lastAdTime = Date.now();
-            }
-        };
-
-        const adTimer = setInterval(checkAndShowAd, 30 * 1000); // Check every 30 seconds
+        const adTimer = setInterval(async () => {
+             // Only show ad if 6 minutes have passed, prevents stacking if tab suspended
+             if (Date.now() - lastAdTime >= AD_INTERVAL - 5000) { 
+                 console.debug("[AD] 6 minutes passed, showing interstitial ad.");
+                 await AdManager.showInterstitial();
+                 lastAdTime = Date.now(); // reset after ad concludes or fails
+             }
+        }, AD_INTERVAL);
         
-        let appStateListener: PluginListenerHandle;
-        const setupAppStateListener = async () => {
-            appStateListener = await CapApp.addListener('appStateChange', async ({ isActive }) => {
-                isBackground = !isActive;
-                if (isActive) {
-                    console.debug("[AD] App returned to foreground, checking for pending ad.");
-                    await checkAndShowAd();
-                }
-            });
-        };
-        setupAppStateListener();
-        
-        return () => {
-            clearInterval(adTimer);
-            if (appStateListener) appStateListener.remove();
-        };
+        return () => clearInterval(adTimer);
     }, []);
 
     // App State
