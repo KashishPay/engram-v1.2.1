@@ -1,5 +1,6 @@
 
 import { GoogleGenAI, Schema } from "@google/genai";
+import { Capacitor } from '@capacitor/core';
 
 // -- USAGE LIMITS --
 const FREE_LIMIT = 50; // Monthly
@@ -50,9 +51,10 @@ export const getAiClient = () => {
     const customKey = localStorage.getItem(`engram_custom_api_key_${userId}`);
     
     // Priority: 1. Custom Key (LocalStorage) -> 2. Vite Env Var -> 3. Process Env (Fallback)
-    // Cast import.meta to unknown then to any to avoid TS error about 'env' property
+    // Note: To prevent API key extraction from APKs, bundled env keys are ignored on native platforms.
+    const isNative = Capacitor.isNativePlatform();
     const envKey = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
-    const apiKey = customKey || envKey; 
+    const apiKey = customKey || (isNative ? undefined : envKey); 
     
     if (!apiKey) {
         throw new Error("No API Key available. Please configure a custom key in Settings.");
@@ -79,6 +81,56 @@ export const validateApiKey = async (key: string): Promise<boolean> => {
 };
 
 // -- CONFIG HELPERS --
+export const getAvailableModels = async (): Promise<{id: string, label: string}[]> => {
+    const fallbackModels = [
+        { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Latest & Fastest)' },
+        { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (Ultra-fast)' },
+        { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview (Advanced Reasoning)' },
+        { id: 'gemini-3.0-flash-preview', label: 'Gemini 3.0 Flash Preview' },
+        { id: 'gemini-3-flash-preview', label: 'Gemini 3-Flash (Preview)' }
+    ];
+
+    try {
+        const cacheKey = 'engram_dynamic_models_cache';
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+                return parsed.models;
+            }
+        }
+
+        const userId = localStorage.getItem('engramCurrentUserId') || 'default';
+        const customKey = localStorage.getItem(`engram_custom_api_key_${userId}`);
+        const envKey = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_KEY;
+        const apiKey = customKey || envKey;
+        
+        if (!apiKey) return fallbackModels;
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (!res.ok) return fallbackModels;
+
+        const data = await res.json();
+        
+        const models = data.models
+            .filter((m: any) => m.name.startsWith('models/gemini') && m.supportedGenerationMethods?.includes('generateContent'))
+            .map((m: any) => ({
+                id: m.name.replace('models/', ''),
+                label: m.displayName
+            }));
+
+        if (models.length > 0) {
+            localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), models }));
+            return models;
+        }
+
+        return fallbackModels;
+    } catch (e) {
+        console.error("Failed to fetch models", e);
+        return fallbackModels;
+    }
+};
+
 export const getFeatureConfig = (featureId: string) => {
     try {
         const userId = localStorage.getItem('engramCurrentUserId') || 'default';

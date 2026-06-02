@@ -95,7 +95,20 @@ export const VisualMarkdownEditor = React.forwardRef<VisualMarkdownEditorRef, Pr
     };
 
     return (
-        <div className="w-full h-full pb-32 flex flex-col items-stretch overflow-y-auto overflow-x-hidden p-6 gap-2">
+        <div 
+            className="w-full h-full pb-32 flex flex-col items-stretch overflow-y-auto overflow-x-hidden p-6 gap-2"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                    const lastIndex = parts.length - 1;
+                    const lastTextarea = textareaRefs.current[lastIndex];
+                    if (lastTextarea) {
+                        lastTextarea.focus();
+                        const len = lastTextarea.value.length;
+                        lastTextarea.setSelectionRange(len, len);
+                    }
+                }
+            }}
+        >
             {parts.map((part, index) => {
                 const isImage = part.startsWith('![') && part.includes('](data:image/');
                 
@@ -274,7 +287,7 @@ const TextBlock: React.FC<{
             onFocus={onFocus}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="w-full bg-transparent resize-none outline-none text-gray-700 dark:text-gray-300 font-mono text-sm leading-relaxed overflow-hidden min-h-[1.5em]"
+            className="w-full shrink-0 bg-transparent resize-none outline-none text-gray-700 dark:text-gray-300 font-mono text-sm leading-relaxed overflow-hidden min-h-[1.5em]"
         />
     );
 };
@@ -324,7 +337,7 @@ const ImageBlock: React.FC<{
 
     return (
         <div 
-            className="relative group py-2"
+            className="relative group py-2 shrink-0"
             onMouseLeave={() => { handleSaveResize(); }}
         >
             <div 

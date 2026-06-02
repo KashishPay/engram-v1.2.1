@@ -233,8 +233,6 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
     const [showImportSuccessModal, setShowImportSuccessModal] = useState(false);
     const [breakdownFilter, setBreakdownFilter] = useState<string>('all');
     const [routerError, setRouterError] = useState<Error | null>(null);
-    const [isTestSeriesActive, setIsTestSeriesActive] = useState(false);
-    const [isQuizActive, setIsQuizActive] = useState(false);
 
     // Derived Auth State
     const isLoggedIn = !!(props.user || props.isGuest);

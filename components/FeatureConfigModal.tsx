@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { getAvailableModels } from '../services/gemini';
 
 interface FeatureConfigModalProps {
     isOpen: boolean;
@@ -17,17 +18,10 @@ const FEATURE_TITLES: Record<string, string> = {
     testSeries: 'Test Series Settings'
 };
 
-const ADVANCED_MODELS = [
-    { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Latest & Fastest - Recommended)' },
-    { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (Ultra-fast)' },
-    { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview (Advanced Reasoning)' },
-    { id: 'gemini-3.0-flash-preview', label: 'Gemini 3.0 Flash Preview' },
-    { id: 'gemini-3-flash-preview', label: 'Gemini 3-Flash (Preview)' }
-];
-
 export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, featureId, onClose }) => {
     const [prefs, setPrefs] = useState<Record<string, unknown>>({});
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [advancedModels, setAdvancedModels] = useState<{id: string, label: string}[]>([]);
 
     useEffect(() => {
         if (isOpen) {
@@ -46,6 +40,14 @@ export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, 
             setShowAdvanced(false);
         }
     }, [isOpen, featureId]);
+
+    useEffect(() => {
+        let mounted = true;
+        getAvailableModels().then(models => {
+            if (mounted) setAdvancedModels(models);
+        });
+        return () => { mounted = false; };
+    }, []);
 
     const handleSave = () => {
         try {
@@ -105,8 +107,8 @@ export const FeatureConfigModal: React.FC<FeatureConfigModalProps> = ({ isOpen, 
                         </button>
 
                         {showAdvanced && (
-                            <div className="mt-2 animate-in fade-in slide-in-from-top-1 bg-gray-50 dark:bg-gray-800 rounded-xl p-2 border border-gray-100 dark:border-gray-700">
-                                {ADVANCED_MODELS.map(opt => (
+                            <div className="mt-2 animate-in fade-in slide-in-from-top-1 bg-gray-50 dark:bg-gray-800 rounded-xl p-2 border border-gray-100 dark:border-gray-700 max-h-60 overflow-y-auto">
+                                {advancedModels.map(opt => (
                                     <button
                                         key={opt.id}
                                         onClick={() => updatePref('model', opt.id)}

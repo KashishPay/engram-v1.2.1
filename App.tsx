@@ -3,6 +3,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RotateCw } from 'lucide-react'; 
 
 import { DateTimeSettings, UserProfile, Habit, NotificationSettings } from './types';
+import { PluginListenerHandle } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import { AppRouter } from './components/AppRouter';
 import { AdManager } from './services/admob';
 
@@ -19,7 +21,9 @@ import {
     batchGetChatHistories,
     batchSaveTopicBodies,
     batchSaveImages,
-    batchSaveChatHistories
+    batchSaveChatHistories,
+    getLargeJSONFromIDB,
+    saveLargeJSONToIDB
 } from './services/storage';
 import { ObservationsService } from './services/observations';
 import { getPomodoroLogs, savePomodoroLogs } from './utils/sessionLog';
@@ -49,6 +53,40 @@ export const App: React.FC = () => {
         window.addEventListener("beforeunload", () => console.debug("[UPLOAD] beforeunload fired"));
         window.addEventListener("pageshow", e => console.debug("[UPLOAD] pageshow", { persisted: e.persisted }));
         document.addEventListener("visibilitychange", () => console.debug("[UPLOAD] visibilitychange", document.visibilityState));
+        
+        // 6-minute ad interval logic with background awareness
+        const AD_INTERVAL = 6 * 60 * 1000;
+        let lastAdTime = Date.now();
+        let isBackground = false;
+
+        const checkAndShowAd = async () => {
+            if (isBackground) return;
+            const now = Date.now();
+            if (now - lastAdTime >= AD_INTERVAL - 5000) {
+                console.debug("[AD] 6 minutes passed, showing interstitial ad.");
+                await AdManager.showInterstitial();
+                lastAdTime = Date.now();
+            }
+        };
+
+        const adTimer = setInterval(checkAndShowAd, 30 * 1000); // Check every 30 seconds
+        
+        let appStateListener: PluginListenerHandle;
+        const setupAppStateListener = async () => {
+            appStateListener = await CapApp.addListener('appStateChange', async ({ isActive }) => {
+                isBackground = !isActive;
+                if (isActive) {
+                    console.debug("[AD] App returned to foreground, checking for pending ad.");
+                    await checkAndShowAd();
+                }
+            });
+        };
+        setupAppStateListener();
+        
+        return () => {
+            clearInterval(adTimer);
+            if (appStateListener) appStateListener.remove();
+        };
     }, []);
 
     // App State
@@ -366,34 +404,44 @@ export const App: React.FC = () => {
                 }
                 
                 if (heavy.flashcardHistory && Array.isArray(heavy.flashcardHistory)) {
-                    let localHistory = [];
-                    try { localHistory = JSON.parse(localStorage.getItem(`engram-flashcard-history_${userId}`) || "[]"); } catch { /* ignore */ }
+                    let localHistory = await getLargeJSONFromIDB(`engram-flashcard-history_${userId}`, []) as unknown[];
+                    if (!localHistory || localHistory.length === 0) {
+                        try { localHistory = JSON.parse(localStorage.getItem(`engram-flashcard-history_${userId}`) || "[]"); } catch { /* ignore */ }
+                    }
                     const merged = [...localHistory, ...heavy.flashcardHistory].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-                    localStorage.setItem(`engram-flashcard-history_${userId}`, JSON.stringify(merged));
+                    await saveLargeJSONToIDB(`engram-flashcard-history_${userId}`, merged);
                 }
                 if (heavy.tasks && Array.isArray(heavy.tasks)) {
-                    let localTasks = [];
-                    try { localTasks = JSON.parse(localStorage.getItem(`engramTasks_${userId}`) || "[]"); } catch { /* ignore */ }
+                    let localTasks = await getLargeJSONFromIDB(`engramTasks_${userId}`, []) as unknown[];
+                    if (!localTasks || localTasks.length === 0) {
+                        try { localTasks = JSON.parse(localStorage.getItem(`engramTasks_${userId}`) || "[]"); } catch { /* ignore */ }
+                    }
                     const merged = [...localTasks, ...heavy.tasks].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-                    localStorage.setItem(`engramTasks_${userId}`, JSON.stringify(merged));
+                    await saveLargeJSONToIDB(`engramTasks_${userId}`, merged);
                 }
                 if (heavy.matrix && Array.isArray(heavy.matrix)) {
-                    let localMatrix = [];
-                    try { localMatrix = JSON.parse(localStorage.getItem(`engramMatrix_${userId}`) || "[]"); } catch { /* ignore */ }
+                    let localMatrix = await getLargeJSONFromIDB(`engramMatrix_${userId}`, []) as unknown[];
+                    if (!localMatrix || localMatrix.length === 0) {
+                        try { localMatrix = JSON.parse(localStorage.getItem(`engramMatrix_${userId}`) || "[]"); } catch { /* ignore */ }
+                    }
                     const merged = [...localMatrix, ...heavy.matrix].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-                    localStorage.setItem(`engramMatrix_${userId}`, JSON.stringify(merged));
+                    await saveLargeJSONToIDB(`engramMatrix_${userId}`, merged);
                 }
                 if (heavy.testSeriesHistory && Array.isArray(heavy.testSeriesHistory)) {
-                    let localHistory = [];
-                    try { localHistory = JSON.parse(localStorage.getItem(`engram_test_series_history_${userId}`) || "[]"); } catch { /* ignore */ }
+                    let localHistory = await getLargeJSONFromIDB(`engram_test_series_history_${userId}`, []) as unknown[];
+                    if (!localHistory || localHistory.length === 0) {
+                        try { localHistory = JSON.parse(localStorage.getItem(`engram_test_series_history_${userId}`) || "[]"); } catch { /* ignore */ }
+                    }
                     const merged = [...localHistory, ...heavy.testSeriesHistory].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-                    localStorage.setItem(`engram_test_series_history_${userId}`, JSON.stringify(merged));
+                    await saveLargeJSONToIDB(`engram_test_series_history_${userId}`, merged);
                 }
                 if (heavy.testSeriesPastQuestions && Array.isArray(heavy.testSeriesPastQuestions)) {
-                    let localQuestions = [];
-                    try { localQuestions = JSON.parse(localStorage.getItem(`engram_test_series_past_questions_${userId}`) || "[]"); } catch { /* ignore */ }
+                    let localQuestions = await getLargeJSONFromIDB(`engram_test_series_past_questions_${userId}`, []) as unknown[];
+                    if (!localQuestions || localQuestions.length === 0) {
+                        try { localQuestions = JSON.parse(localStorage.getItem(`engram_test_series_past_questions_${userId}`) || "[]"); } catch { /* ignore */ }
+                    }
                     const merged = [...new Set([...localQuestions, ...heavy.testSeriesPastQuestions])].slice(-100);
-                    localStorage.setItem(`engram_test_series_past_questions_${userId}`, JSON.stringify(merged));
+                    await saveLargeJSONToIDB(`engram_test_series_past_questions_${userId}`, merged);
                 }
             }
         }
@@ -445,35 +493,45 @@ export const App: React.FC = () => {
             const observations = ObservationsService.getAll(userId);
             const globalPomodoroLogs = getPomodoroLogs();
             
-            let flashcardHistory = [];
-            try {
-                const raw = localStorage.getItem(`engram-flashcard-history_${userId}`);
-                if (raw) flashcardHistory = JSON.parse(raw);
-            } catch { /* ignore */ }
+            let flashcardHistory = await getLargeJSONFromIDB(`engram-flashcard-history_${userId}`, []) as unknown[];
+            if (!flashcardHistory || flashcardHistory.length === 0) {
+                try {
+                    const raw = localStorage.getItem(`engram-flashcard-history_${userId}`);
+                    if (raw) flashcardHistory = JSON.parse(raw);
+                } catch { /* ignore */ }
+            }
 
-            let tasks = [];
-            try {
-                const raw = localStorage.getItem(`engramTasks_${userId}`);
-                if (raw) tasks = JSON.parse(raw);
-            } catch { /* ignore */ }
+            let tasks = await getLargeJSONFromIDB(`engramTasks_${userId}`, []) as unknown[];
+            if (!tasks || tasks.length === 0) {
+                try {
+                    const raw = localStorage.getItem(`engramTasks_${userId}`);
+                    if (raw) tasks = JSON.parse(raw);
+                } catch { /* ignore */ }
+            }
 
-            let matrix = [];
-            try {
-                const raw = localStorage.getItem(`engramMatrix_${userId}`);
-                if (raw) matrix = JSON.parse(raw);
-            } catch { /* ignore */ }
+            let matrix = await getLargeJSONFromIDB(`engramMatrix_${userId}`, []) as unknown[];
+            if (!matrix || matrix.length === 0) {
+                try {
+                    const raw = localStorage.getItem(`engramMatrix_${userId}`);
+                    if (raw) matrix = JSON.parse(raw);
+                } catch { /* ignore */ }
+            }
 
-            let testSeriesHistory = [];
-            try {
-                const raw = localStorage.getItem(`engram_test_series_history_${userId}`);
-                if (raw) testSeriesHistory = JSON.parse(raw);
-            } catch { /* ignore */ }
+            let testSeriesHistory = await getLargeJSONFromIDB(`engram_test_series_history_${userId}`, []) as unknown[];
+            if (!testSeriesHistory || testSeriesHistory.length === 0) {
+                try {
+                    const raw = localStorage.getItem(`engram_test_series_history_${userId}`);
+                    if (raw) testSeriesHistory = JSON.parse(raw);
+                } catch { /* ignore */ }
+            }
 
-            let testSeriesPastQuestions = [];
-            try {
-                const raw = localStorage.getItem(`engram_test_series_past_questions_${userId}`);
-                if (raw) testSeriesPastQuestions = JSON.parse(raw);
-            } catch { /* ignore */ }
+            let testSeriesPastQuestions = await getLargeJSONFromIDB(`engram_test_series_past_questions_${userId}`, []) as unknown[];
+            if (!testSeriesPastQuestions || testSeriesPastQuestions.length === 0) {
+                try {
+                    const raw = localStorage.getItem(`engram_test_series_past_questions_${userId}`);
+                    if (raw) testSeriesPastQuestions = JSON.parse(raw);
+                } catch { /* ignore */ }
+            }
 
             const heavyData = {
                 notesByTopicId,

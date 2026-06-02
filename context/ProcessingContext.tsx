@@ -417,9 +417,7 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
             const attachments: { base64: string, mimeType: string }[] = [];
             const failedFiles: { name: string, reason: string }[] = [];
             
-            const MAX_PDF_PAGES = 10;
             let processedPagesCount = 0;
-            let isTruncatedPdf = false;
 
             // 1. Pre-process files (Robust Loop with individual catch)
             for (let i = 0; i < files.length; i++) {
@@ -444,12 +442,7 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
                         // PDF Pipeline
                         const pdf = await getPdfDocument(file);
                         
-                        let pagesToProcess = pdf.numPages;
-                        if (pagesToProcess > MAX_PDF_PAGES) {
-                            pagesToProcess = MAX_PDF_PAGES;
-                            isTruncatedPdf = true;
-                            console.warn(`[UPLOAD] PDF ${file.name} truncated: ${pdf.numPages} -> ${MAX_PDF_PAGES} pages`);
-                        }
+                        const pagesToProcess = pdf.numPages;
                         
                         processedPagesCount += pagesToProcess;
                         
@@ -480,7 +473,6 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
 
             // Update Job with Stats and Warnings
             let statusMsg = 'AI Agent analyzing content...';
-            if (isTruncatedPdf) statusMsg = `Processing (PDF limited to ${MAX_PDF_PAGES} pages)...`;
             if (failedFiles.length > 0) statusMsg = `Processing valid files (${failedFiles.length} failed)...`;
 
             updateJob(jobId, { 
@@ -518,9 +510,6 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
             if (failedFiles.length > 0) {
                 newContentAccumulator += `\n\n> **Upload Note**: The following files could not be processed: ${failedFiles.map(f => f.name).join(', ')}.\n\n`;
             }
-            if (isTruncatedPdf) {
-                newContentAccumulator += `\n\n> **Upload Note**: Large PDF detected. Processing was limited to the first ${MAX_PDF_PAGES} pages to ensure performance.\n\n`;
-            }
 
             // 4. Save Final Result
             const finalContent = (existingBody + "\n\n" + newContentAccumulator).trim();
@@ -533,11 +522,9 @@ export const ProcessingProvider: React.FC<{ children: ReactNode }> = ({ children
             let finalMsg = 'Processing complete!';
             if (failedFiles.length > 0) {
                 finalMsg = `Saved ${attachments.length} items. ${failedFiles.length} file(s) failed.`;
-            } else if (isTruncatedPdf) {
-                finalMsg = `Saved. Large PDF truncated to ${MAX_PDF_PAGES} pages.`;
             }
 
-            console.debug("[UPLOAD] summary", { ok: attachments.length, fail: failedFiles.length, truncated: isTruncatedPdf, totalImages });
+            console.debug("[UPLOAD] summary", { ok: attachments.length, fail: failedFiles.length, totalImages });
             
             // Pass totalImages in stats for UI update
             updateJob(jobId, { 
