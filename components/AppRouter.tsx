@@ -13,7 +13,9 @@ import {
     batchSaveImages, 
     batchGetOriginalImages,
     batchGetChatHistories,
-    batchSaveChatHistories
+    batchSaveChatHistories,
+    batchGetAudio,
+    batchSaveAudio
 } from '../services/storage';
 import { logGlobalSession, getPomodoroLogs, savePomodoroLogs, getLocalISODate } from '../utils/sessionLog';
 import { ObservationsService } from '../services/observations';
@@ -796,6 +798,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 // 3. Restore Original Source Images (for "View Original")
                 if (data.originalImages) await batchSaveImages(data.originalImages);
 
+                // 3.1 Restore Audio
+                if (data.audioByTopicId) await batchSaveAudio(data.audioByTopicId);
+
                 // 4. Restore Preferences (Overwrites)
                 if (data.preferences) {
                     if (data.preferences.ai) localStorage.setItem(`engram_ai_preferences_${props.userId}`, JSON.stringify(data.preferences.ai));
@@ -893,6 +898,17 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     const mergedExams = [...localExams, ...data.recentExams].filter((v, i, a) => a.findIndex(e => e.id === v.id) === i);
                     localStorage.setItem(key, JSON.stringify(mergedExams));
                 }
+
+                // 16. Restore Analytics
+                if (data.analytics) {
+                    const key = `engramCalendarAgg_${props.userId}`;
+                    localStorage.setItem(key, JSON.stringify(data.analytics));
+                }
+                
+                // 17. Restore Test Series Language
+                if (data.preferences?.testSeriesLanguage) {
+                     localStorage.setItem(`engram_test_series_language_${props.userId}`, data.preferences.testSeriesLanguage);
+                }
                 
                 setShowImportSuccessModal(true);
             } catch (err: unknown) {
@@ -906,12 +922,10 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
 
     const handleExportData = async () => {
         try {
-            // 1. Get Study Log (Including Podcast Audio)
+            // 1. Get Study Log
             const sanitizedLog = props.studyLog.map(item => {
                 const newItem = { ...item };
-                delete newItem.podcastScript;
-                delete newItem.podcastAudio;
-                delete newItem.hasSavedAudio;
+                // Keep everything, to support 'export everything'
                 return newItem;
             });
 
@@ -932,6 +946,9 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
 
             // 4. Fetch Original Source Images
             const originalImages = await batchGetOriginalImages(topicIds);
+            
+            // 4.1 Fetch Audio Data
+            const audioByTopicId = await batchGetAudio(topicIds);
 
             // 5. Fetch Additional User Data
             const observations = ObservationsService.getAll(props.userId);
@@ -942,6 +959,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             const testSeriesPastQuestions = safeReadJSON(`engram_test_series_past_questions_${props.userId}`, safeReadJSON('engram_test_series_past_questions', []));
             const diary = safeReadJSON(`engram_diary_${props.userId}`, []);
             const recentExams = safeReadJSON(`engram_recent_exams_${props.userId}`, []);
+            const analytics = safeReadJSON(`engramCalendarAgg_${props.userId}`, null);
 
             let aiPrefs = {};
             try {
@@ -961,6 +979,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 notesByTopicId,
                 images,
                 originalImages,     // Raw source files
+                audioByTopicId,     // Raw audio files
                 observations,       // Daily journal
                 globalPomodoroLogs, // General timer history
                 chatHistoryByTopicId, // Chat history (text)
@@ -969,6 +988,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 testSeriesPastQuestions, // Test Series Past Questions
                 diary,              // Diary
                 recentExams,        // Recent Exams
+                analytics,          // User Calendar Analytics
                 habits: props.habits,
                 tasks: safeReadJSON(`engramTasks_${props.userId}`, []),
                 matrix: safeReadJSON(`engramMatrix_${props.userId}`, []),
@@ -984,6 +1004,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     enabledTabs: props.enabledTabs,
                     fcFont: localStorage.getItem(`engram_fc_font_${props.userId}`),
                     celebrated21Days: localStorage.getItem(`engram_21_day_celebrated_${props.userId}`),
+                    testSeriesLanguage: localStorage.getItem(`engram_test_series_language_${props.userId}`),
                     podcastConfig: props.podcastConfig,
                 }
             };

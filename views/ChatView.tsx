@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, ArrowLeft, Sparkles, StopCircle, Copy, Check, RotateCw, ChevronDown, Hash, Download, Camera, Image as ImageIcon, X } from 'lucide-react';
+import { Send, ArrowLeft, Sparkles, StopCircle, Copy, Check, RotateCw, ChevronDown, Hash, Download, Camera, Image as ImageIcon, X, FileText } from 'lucide-react';
 import { Topic } from '../types';
 import { chatWithNotesStream } from '../services/gemini';
 import { ensureTopicContent, getChatFromIDB, saveChatToIDB } from '../services/storage';
@@ -26,7 +26,7 @@ interface Message {
     text: string;
     timestamp?: number;
     isStreaming?: boolean;
-    images?: { base64: string, mimeType: string }[];
+    images?: { base64: string, mimeType: string, name?: string }[];
     adContent?: {
         imageUrl?: string;
         title?: string;
@@ -119,59 +119,78 @@ const MarkdownContent = ({ text }: { text: string }) => {
 };
 
 const ChatInputArea: React.FC<{
-    onSend: (text: string, images?: { base64: string, mimeType: string }[]) => void;
+    onSend: (text: string, images?: { base64: string, mimeType: string, name?: string }[]) => void;
     isTyping: boolean;
     isReady: boolean;
     themeColor: string;
 }> = ({ onSend, isTyping, isReady, themeColor }) => {
     const [input, setInput] = useState('');
-    const [selectedImage, setSelectedImage] = useState<{ base64: string, mimeType: string } | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<{ base64: string, mimeType: string, name: string }[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
 
     const handleSend = () => {
-        if ((!input.trim() && !selectedImage) || isTyping || !isReady) return;
-        onSend(input, selectedImage ? [selectedImage] : undefined);
+        if ((!input.trim() && selectedFiles.length === 0) || isTyping || !isReady) return;
+        onSend(input, selectedFiles.length > 0 ? selectedFiles : undefined);
         setInput('');
-        setSelectedImage(null);
+        setSelectedFiles([]);
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            if (event.target?.result && typeof event.target.result === 'string') {
-                const base64Content = event.target.result.split(',')[1];
-                setSelectedImage({ base64: base64Content, mimeType: file.type });
-            }
-        };
-        reader.readAsDataURL(file);
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+        
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                if (event.target?.result && typeof event.target.result === 'string') {
+                    const base64Content = event.target.result.split(',')[1];
+                    setSelectedFiles(prev => [...prev, { base64: base64Content, mimeType: file.type, name: file.name }]);
+                }
+            };
+            reader.readAsDataURL(file);
+        });
         e.target.value = ''; // Reset
+    };
+
+    const removeFile = (index: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
     };
 
     return (
         <div className="shrink-0 p-3 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 z-20 safe-area-bottom">
             <div className="max-w-3xl mx-auto relative">
-                {selectedImage && (
-                    <div className="mb-3 relative inline-block">
-                        <img 
-                            src={`data:${selectedImage.mimeType};base64,${selectedImage.base64}`} 
-                            alt="Selected" 
-                            className="h-20 w-auto rounded-lg border border-gray-200 shadow-sm" 
-                        />
-                        <button 
-                            onClick={() => setSelectedImage(null)}
-                            className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 hover:bg-gray-700 transition"
-                        >
-                            <X size={14} />
-                        </button>
+                {selectedFiles.length > 0 && (
+                    <div className="mb-3 flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                        {selectedFiles.map((file, idx) => (
+                            <div key={idx} className="relative inline-block shrink-0">
+                                {file.mimeType.startsWith('image/') ? (
+                                    <img 
+                                        src={`data:${file.mimeType};base64,${file.base64}`} 
+                                        alt="Selected" 
+                                        className="h-20 w-auto rounded-lg border border-gray-200 shadow-sm object-cover" 
+                                    />
+                                ) : (
+                                    <div className="h-20 w-20 rounded-lg border border-gray-200 shadow-sm flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 text-gray-500">
+                                        <FileText size={24} className="mb-1" />
+                                        <span className="text-[10px] w-full px-1 truncate text-center font-medium" title={file.name}>{file.name}</span>
+                                    </div>
+                                )}
+                                <button 
+                                    onClick={() => removeFile(idx)}
+                                    className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 hover:bg-gray-700 transition z-10"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        ))}
                     </div>
                 )}
                 
                 <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,application/pdf"
+                    multiple
                     ref={fileInputRef}
                     className="hidden"
                     onChange={handleFileChange}
@@ -200,7 +219,7 @@ const ChatInputArea: React.FC<{
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isTyping || !isReady}
                             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
-                            title="Upload Image"
+                            title="Upload File"
                         >
                             <ImageIcon size={18} />
                         </button>
@@ -219,9 +238,9 @@ const ChatInputArea: React.FC<{
                     
                     <button 
                         onClick={handleSend}
-                        disabled={(!input.trim() && !selectedImage) || isTyping || !isReady}
+                        disabled={(!input.trim() && selectedFiles.length === 0) || isTyping || !isReady}
                         className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-lg transition ${
-                            (!input.trim() && !selectedImage) || isTyping
+                            (!input.trim() && selectedFiles.length === 0) || isTyping
                                 ? 'text-gray-400 dark:text-gray-600' 
                                 : `bg-${themeColor}-500 text-white shadow-md hover:bg-${themeColor}-600`
                         }`}
@@ -648,12 +667,46 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                                                 {msg.images && msg.images.length > 0 && (
                                                     <div className="flex flex-wrap gap-2 mb-3">
                                                         {msg.images.map((img, i) => (
-                                                            <img 
-                                                                key={i}
-                                                                src={`data:${img.mimeType};base64,${img.base64}`} 
-                                                                alt="Attached" 
-                                                                className="max-h-48 w-auto rounded-lg border border-gray-200 shadow-sm"
-                                                            />
+                                                            img.mimeType.startsWith('image/') ? (
+                                                                <img 
+                                                                    key={i}
+                                                                    src={`data:${img.mimeType};base64,${img.base64}`} 
+                                                                    alt="Attached" 
+                                                                    className="max-h-48 w-auto rounded-lg border border-gray-200 shadow-sm"
+                                                                />
+                                                            ) : (
+                                                                <button 
+                                                                    key={i} 
+                                                                    onClick={() => {
+                                                                        try {
+                                                                            const byteCharacters = atob(img.base64);
+                                                                            const byteNumbers = new Array(byteCharacters.length);
+                                                                            for (let i = 0; i < byteCharacters.length; i++) {
+                                                                                byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                                                            }
+                                                                            const byteArray = new Uint8Array(byteNumbers);
+                                                                            const blob = new Blob([byteArray], {type: img.mimeType});
+                                                                            const blobUrl = URL.createObjectURL(blob);
+                                                                            
+                                                                            const link = document.createElement('a');
+                                                                            link.href = blobUrl;
+                                                                            link.download = img.name || 'document.pdf';
+                                                                            document.body.appendChild(link);
+                                                                            link.click();
+                                                                            document.body.removeChild(link);
+                                                                            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                                                                        } catch (e) {
+                                                                            console.error("Failed to download document", e);
+                                                                        }
+                                                                    }}
+                                                                    className="flex flex-row items-center space-x-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition text-left"
+                                                                >
+                                                                    <FileText size={18} className="shrink-0 text-gray-500" />
+                                                                    <span className="text-xs font-medium max-w-[200px] truncate" title={img.name || 'Document'}>
+                                                                        {img.name || 'Document'}
+                                                                    </span>
+                                                                </button>
+                                                            )
                                                         ))}
                                                     </div>
                                                 )}

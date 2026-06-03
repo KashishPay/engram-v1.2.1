@@ -486,6 +486,69 @@ export const getAllTopicBodyKeys = async (userId: string): Promise<string[]> => 
     }
 };
 
+export const batchSaveAudio = async (audioData: Record<string, string>): Promise<void> => {
+    try {
+        const db = await openDB();
+        const tx = db.transaction(AUDIO_STORE, 'readwrite');
+        const store = tx.objectStore(AUDIO_STORE);
+        
+        await Promise.all(Object.entries(audioData).map(([id, data]) => {
+            return new Promise<void>((resolve, reject) => {
+                const request = store.put(data, id);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error); 
+            });
+        }));
+    } catch (e) {
+        console.error("IndexedDB Batch Audio Save Error:", e);
+    }
+};
+
+export const batchGetAudio = async (topicIds: string[]): Promise<Record<string, string>> => {
+    try {
+        const db = await openDB();
+        const tx = db.transaction(AUDIO_STORE, 'readonly');
+        const store = tx.objectStore(AUDIO_STORE);
+        
+        const audioData: Record<string, string> = {};
+        
+        await Promise.all(topicIds.map(async id => {
+            return new Promise<void>((resolve) => {
+                const request = store.get(id);
+                request.onsuccess = () => {
+                    if (request.result) {
+                        try {
+                            const val = request.result;
+                            if (val instanceof Blob) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                    audioData[id] = reader.result as string;
+                                    resolve();
+                                };
+                                reader.readAsDataURL(val);
+                            } else {
+                                audioData[id] = val;
+                                resolve();
+                            }
+                        } catch(e) {
+                             console.warn("Failed reading audio", e);
+                             resolve();
+                        }
+                    } else {
+                        resolve();
+                    }
+                };
+                request.onerror = () => resolve();
+            });
+        }));
+        
+        return audioData;
+    } catch (e) {
+        console.error("IndexedDB Batch Audio Fetch Error:", e);
+        return {};
+    }
+};
+    
 export const deleteAudioFromIDB = async (topicId: string): Promise<void> => {
     try {
         const db = await openDB();

@@ -614,9 +614,9 @@ const AutoTextArea: React.FC<{
         e.stopPropagation();
         
         const models = [
-            { id: 'gemini-2.0-flash', name: 'Ultra Flash' },
-            { id: 'gemini-1.5-flash', name: 'Fast' },
-            { id: 'gemini-2.0-pro-exp-02-05', name: 'Reasoning' }
+            { id: 'gemini-3.5-flash', name: 'Ultra Flash' },
+            { id: 'gemini-3.1-flash-lite', name: 'Fast' },
+            { id: 'gemini-3.1-pro-preview', name: 'Reasoning' }
         ];
         const selectedModel = models[refreshCount % models.length];
         
@@ -624,6 +624,9 @@ const AutoTextArea: React.FC<{
         
         setFeedback(`Checking (${selectedModel.name})...`);
         let fixed = value;
+
+        // Local heuristic: immediately strip leading markdown headers (###, etc.) to fix 1% edge cases
+        fixed = fixed.replace(/^#+\s*/gm, '');
 
         try {
             if (fixed.trim().startsWith('{') || fixed.trim().startsWith('[')) {
@@ -636,9 +639,19 @@ const AutoTextArea: React.FC<{
         try {
             const { client } = getAiClient();
             
-            const aiPromise = client.models.generateContent({
-                model: selectedModel.id,
-                contents: `The following text contains malformed KaTeX/LaTeX, Markdown formatting, or raw HTML exports of KaTeX that need to be reverted. I am using it in a React app with a custom KaTeX renderer that expects RAW markdown and LaTeX.
+            const prompt = refreshCount > 0 ? 
+                `The following text contains malformed KaTeX/LaTeX or Markdown formatting that is failing to render. The user has requested to simplify this text.
+Your job is to REWRITE and SIMPLIFY it into plain text and simple inline math.
+CRITICAL RULES:
+1. Remove all complex block equations (avoid \\[ \\]). Use simple inline math (\\( \\)) or plain text.
+2. REMOVE ALL '#' characters, headers, or markdown titles.
+3. Explain the code block or formula simply and concisely in minimum space.
+4. ONLY return the corrected raw text. Include no conversational fluff.
+
+Input:
+${fixed}`
+                :
+                `The following text contains malformed KaTeX/LaTeX, Markdown formatting, or raw HTML exports of KaTeX that need to be reverted. I am using it in a React app with a custom KaTeX renderer that expects RAW markdown and LaTeX.
 Your job is to fix any broken syntax, unclosed braces, AI hallucination artifacts, or raw HTML and convert it back to clean readable markdown.
 
 CRITICAL RULES:
@@ -650,7 +663,11 @@ CRITICAL RULES:
 6. ONLY return the corrected raw text. Include no conversational fluff.
 
 Input:
-${fixed}`,
+${fixed}`;
+
+            const aiPromise = client.models.generateContent({
+                model: selectedModel.id,
+                contents: prompt,
             });
 
             const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('AI Request timed out')), 8000));
@@ -661,8 +678,15 @@ ${fixed}`,
                  reply = reply.replace(/^```[a-zA-Z]*\n?/g, '').replace(/```$/g, '').trim();
             }
             fixed = reply;
-        } catch (error) {
+        } catch (error: any) {
             console.error("AI Repair failed, using heuristics", error);
+            
+            if (error?.status === 404 || error?.message?.includes('not found') || error?.message?.includes('no longer available')) {
+                setFeedback('Model deprecated. Change model in Notes Settings.');
+                setTimeout(() => setFeedback(null), 3500);
+                return;
+            }
+
             const openBraces = (fixed.match(/\{/g) || []).length;
             const closeBraces = (fixed.match(/\}/g) || []).length;
             if (openBraces > closeBraces) fixed += '}'.repeat(openBraces - closeBraces);

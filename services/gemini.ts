@@ -89,7 +89,7 @@ export const getAvailableModels = async (): Promise<{id: string, label: string}[
     ];
 
     try {
-        const cacheKey = 'engram_dynamic_models_cache';
+        const cacheKey = 'engram_dynamic_models_cache_v3';
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
             const parsed = JSON.parse(cached);
@@ -112,9 +112,16 @@ export const getAvailableModels = async (): Promise<{id: string, label: string}[
         
         const models = data.models
             .filter((m: any) => m.name.startsWith('models/gemini') && m.supportedGenerationMethods?.includes('generateContent'))
+            .filter((m: any) => {
+                const id = m.name;
+                const dn = m.displayName || "";
+                // Exclude models prior to 3.0 or known deprecated, test models like Nano Banana or Robotics
+                if (dn.toLowerCase().includes('nano banana') || dn.toLowerCase().includes('robotics')) return false;
+                return !id.includes('1.5') && !id.includes('2.0') && !id.includes('2.5') && !id.includes('02-05') && !id.includes('001') && !id.includes('vision');
+            })
             .map((m: any) => ({
                 id: m.name.replace('models/', ''),
-                label: m.displayName
+                label: m.displayName || m.name.replace('models/', '')
             }));
 
         if (models.length > 0) {
@@ -211,11 +218,17 @@ export const callGeminiApiWithRetry = async (
                 return JSON.parse(jsonStr);
             }
             return response;
-        } catch (e: unknown) {
+        } catch (e: any) {
             console.warn(`Attempt ${i + 1} failed`, e);
             lastError = e;
-            if (e && typeof e === 'object' && (e as Error).name === 'UsageLimitError') throw e; // Don't retry quota errors
-            if (e && typeof e === 'object' && 'status' in e && (e as { status: number }).status === 429) {
+            if (e && typeof e === 'object' && e.name === 'UsageLimitError') throw e; // Don't retry quota errors
+            
+            // Intercept 404 Model Not Found or deprecated model errors
+            if (e && typeof e === 'object' && (e.status === 404 || (e.message && (e.message.includes('not found') || e.message.includes('no longer available'))))) {
+                throw new Error("The selected AI model is deprecated or no longer available. Please open AI Settings (or the specific feature settings) and choose a newer model (e.g., Gemini 3.5 Flash).");
+            }
+
+            if (e && typeof e === 'object' && 'status' in e && e.status === 429) {
                 // Rate limit, wait
                 await new Promise(r => setTimeout(r, 2000 * (i + 1)));
                 continue;
