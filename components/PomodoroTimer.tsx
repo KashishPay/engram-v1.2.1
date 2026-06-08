@@ -71,7 +71,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ topicId, topicName
                     icon: 'https://cdn-icons-png.flaticon.com/512/3062/3062634.png',
                     tag: 'engram-session-end',
                     renotify: true,
-                    requireInteraction: true // Keeps notification until user interacts
+                    requireInteraction: true, // Keeps notification until user interacts
+                    channelId: 'pomodoro-timer'
                 });
             } else {
                 // Foreground: In-App Feedback

@@ -41,6 +41,7 @@ export interface LocalNotificationOptions extends NotificationOptions {
     ongoing?: boolean;
     extra?: Record<string, string | number | boolean | null>;
     actionTypeId?: string;
+    channelId?: string;
 }
 
 /**
@@ -65,7 +66,8 @@ export const showLocalNotification = async (title: string, options: LocalNotific
                     smallIcon: 'ic_stat_icon_config_sample', // Default resource name
                     actionTypeId: options.actionTypeId || '',
                     extra: options.extra || null,
-                    ongoing: options.ongoing || false // True = Sticky (cannot swipe away)
+                    ongoing: options.ongoing || false, // True = Sticky (cannot swipe away)
+                    channelId: options.channelId || undefined
                 }]
             });
             return;
@@ -184,17 +186,29 @@ export const scheduleFinishNotification = async (secondsRemaining: number) => {
     // 1. Native Mobile
     if (Capacitor.isNativePlatform()) {
         try {
+            if (Capacitor.getPlatform() === 'android') {
+                await LocalNotifications.createChannel({
+                    id: 'pomodoro-timer',
+                    name: 'Pomodoro Timer',
+                    description: 'Notifies you when your focus session is over',
+                    importance: 5,
+                    visibility: 1,
+                    vibration: true
+                });
+            }
+
             // Cancel any previous timer notifications first
             await LocalNotifications.cancel({ notifications: [{ id: 8888 }] });
 
             await LocalNotifications.schedule({
                 notifications: [{
-                    title: "Session Complete!",
-                    body: "Great job! Tap to log your session.",
+                    title: "Time for a break!",
+                    body: "Your Pomodoro session is complete. Great job!",
                     id: 8888, // Fixed ID for the active timer
                     schedule: { at: finishDate },
                     sound: 'beep.wav',
                     smallIcon: 'ic_stat_icon_config_sample',
+                    channelId: 'pomodoro-timer',
                     actionTypeId: 'OPEN_APP'
                 }]
             });

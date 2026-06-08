@@ -67,7 +67,8 @@ export const FloatingFocusTimer: React.FC<FloatingFocusTimerProps> = ({
                     icon: 'https://cdn-icons-png.flaticon.com/512/3062/3062634.png',
                     tag: 'engram-session-end',
                     renotify: true,
-                    requireInteraction: true
+                    requireInteraction: true,
+                    channelId: 'pomodoro-timer'
                 });
             }
 

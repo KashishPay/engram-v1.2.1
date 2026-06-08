@@ -9,7 +9,11 @@ export const triggerHaptic = {
     selection: async () => {
         try {
             if (isNative) {
-                await Haptics.selectionChanged();
+                if (Capacitor.getPlatform() === 'android') {
+                    await Haptics.impact({ style: ImpactStyle.Light });
+                } else {
+                    await Haptics.selectionChanged();
+                }
             } else {
                 if (navigator.vibrate) navigator.vibrate(5);
             }

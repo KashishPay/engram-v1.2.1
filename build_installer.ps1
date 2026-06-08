@@ -83,6 +83,11 @@ Write-Output "Running base npm install from package.json..."
 # and prevents accidental breaking upgrades to React 19 which is incompatible with several assets/libraries.
 npm install
 
+Write-Output "Ensuring Core UX Capacitor Plugins are installed..."
+# Install standard UI plugins (Splash Screen, Status Bar, Keyboard) which are essential for native polish
+# but often omitted from package.json. This ensures assets generated in Step 8 render correctly.
+npm install @capacitor/splash-screen @capacitor/status-bar @capacitor/keyboard --save
+
 # 6) Build Web App
 Write-Output "--- Step 6: Building Web Assets ---"
 # Manually run worker copy in case postinstall didn't trigger yet
