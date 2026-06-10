@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle, XCircle, Trophy, Share2, AlertCircle } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, QuizQuestion } from '../types';
+import { Share } from '@capacitor/share';
 import { SPACING_INTERVALS } from '../constants';
 import katex from 'katex';
 import DOMPurify from 'dompurify';
@@ -122,18 +123,21 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
 
     const handleShare = async () => {
         const text: string = `I just scored ${score > totalQuestions ? score + '%' : score + '/' + totalQuestions} on ${topic.topicName} in Engram! 🚀 Can you beat my score? https://engram-space.vercel.app`;
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: 'Engram Result',
-                    text: text,
-                });
-            } catch {
-                console.log('Share canceled');
+        try {
+            await Share.share({
+                title: 'Engram Result',
+                text: text,
+                dialogTitle: 'Share my Quiz Result'
+            });
+        } catch (err) {
+            console.debug('Share failed or canceled', err);
+            // Fallback for web if plugin fails (though Capacitor Share works on web too)
+            if (navigator.share) {
+                try { await navigator.share({ title: 'Engram Result', text }); } catch { /* ignore */ }
+            } else {
+                navigator.clipboard.writeText(text);
+                alert("Result copied to clipboard!");
             }
-        } else {
-            navigator.clipboard.writeText(text);
-            alert("Result copied to clipboard!");
         }
     };
 

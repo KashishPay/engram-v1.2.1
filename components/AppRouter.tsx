@@ -8,11 +8,11 @@ import { AppShell } from './AppShell';
 import { Topic, Subject, UserProfile, Habit, DateTimeSettings, NotificationSettings } from '../types';
 import { AnalyticsService } from '../services/analytics';
 import { 
-    batchGetTopicBodies, 
-    batchGetImages, 
+    getTopicBodyFromIDB, 
+    getImageFromIDB, 
     batchSaveImages, 
     batchGetOriginalImages,
-    batchGetChatHistories,
+    getChatFromIDB,
     batchSaveChatHistories,
     batchGetAudio,
     batchSaveAudio
@@ -23,6 +23,7 @@ import { ENABLE_PASSWORD_RECOVERY } from '../config/auth';
 import { normalizeDoubleHashToQuery } from '../utils/urlSanitizer';
 import { checkGuestStatus, getGuestStartTimestamp } from '../utils/guestLimit';
 import { ErrorCard } from './ErrorCard';
+import { downloadLargeJSONStream } from '../utils/download';
 import { App as CapacitorApp, URLOpenListenerEvent } from '@capacitor/app'; 
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -922,79 +923,110 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
 
     const handleExportData = async () => {
         try {
-            // 1. Get Study Log
-            const sanitizedLog = props.studyLog.map(item => {
-                const newItem = { ...item };
-                // Keep everything, to support 'export everything'
-                return newItem;
-            });
-
+            const sanitizedLog = props.studyLog.map(item => ({ ...item }));
             const topicIds = sanitizedLog.map(t => t.id);
-            
-            // 2. Fetch Bodies
-            const notesByTopicId = await batchGetTopicBodies(props.userId, topicIds);
-            
-            // 3. Fetch Cropped Images (parsed from notes)
-            const imageIds = new Set<string>();
-            const captureRegex = /\[FIG_CAPTURE: (.*?) \|/g; 
-            Object.values(notesByTopicId).forEach(note => {
-                if (!note) return;
-                const matches = [...note.matchAll(captureRegex)];
-                matches.forEach(m => imageIds.add(m[1]));
-            });
-            const images = await batchGetImages(Array.from(imageIds));
 
-            // 4. Fetch Original Source Images
-            const originalImages = await batchGetOriginalImages(topicIds);
-            
-            // 4.1 Fetch Audio Data
-            const audioByTopicId = await batchGetAudio(topicIds);
+            const generateBackupStream = async function* (): AsyncGenerator<string, void, unknown> {
+                yield '{\n';
+                yield `  "schemaVersion": "1.0.0",\n`;
+                yield `  "appVersion": "1.4",\n`;
+                yield `  "timestamp": "${new Date().toISOString()}",\n`;
+                yield `  "userId": ${JSON.stringify(props.userId)},\n`;
+                yield `  "userSubjects": ${JSON.stringify(props.userSubjects || [])},\n`;
+                yield `  "studyLog": ${JSON.stringify(sanitizedLog || [])},\n`;
 
-            // 5. Fetch Additional User Data
-            const observations = ObservationsService.getAll(props.userId);
-            const globalPomodoroLogs = getPomodoroLogs();
-            const chatHistoryByTopicId = await batchGetChatHistories(props.userId, topicIds); // New: Include Chat History
-            const flashcardHistory = safeReadJSON(`engram-flashcard-history_${props.userId}`, []);
-            const testSeriesHistory = safeReadJSON(`engram_test_series_history_${props.userId}`, safeReadJSON('engram_test_series_history', []));
-            const testSeriesPastQuestions = safeReadJSON(`engram_test_series_past_questions_${props.userId}`, safeReadJSON('engram_test_series_past_questions', []));
-            const diary = safeReadJSON(`engram_diary_${props.userId}`, []);
-            const recentExams = safeReadJSON(`engram_recent_exams_${props.userId}`, []);
-            const analytics = safeReadJSON(`engramCalendarAgg_${props.userId}`, null);
+                // 2. Fetch Bodies Incrementally
+                yield `  "notesByTopicId": {`;
+                let firstNote = true;
+                const imageIds = new Set<string>();
+                const captureRegex = /\[FIG_CAPTURE: (.*?) \|/g; 
+                for (const id of topicIds) {
+                    const note = await getTopicBodyFromIDB(props.userId, id);
+                    if (note) {
+                        const matches = [...note.matchAll(captureRegex)];
+                        matches.forEach(m => imageIds.add(m[1]));
+                        if (!firstNote) yield ',';
+                        yield `\n    "${id}": ${JSON.stringify(note)}`;
+                        firstNote = false;
+                    }
+                }
+                yield `\n  },\n`;
 
-            let aiPrefs = {};
-            try {
-                const raw = localStorage.getItem(`engram_ai_preferences_${props.userId}`);
-                if (raw) aiPrefs = JSON.parse(raw);
-            } catch (e) {
-                console.warn("[Router] Failed to parse AI preferences", e);
-            }
+                // 3. Fetch Cropped Images (parsed from notes) incrementally
+                yield `  "images": {`;
+                let firstImage = true;
+                for (const imgId of Array.from(imageIds)) {
+                    const imgBase64 = await getImageFromIDB(imgId);
+                    if (imgBase64) {
+                        if (!firstImage) yield ',';
+                        yield `\n    "${imgId}": ${JSON.stringify(imgBase64)}`;
+                        firstImage = false;
+                    }
+                }
+                yield `\n  },\n`;
 
-            const backupBundle = {
-                schemaVersion: "1.0.0",
-                appVersion: "1.4", // Bump for new schema support
-                timestamp: new Date().toISOString(),
-                userId: props.userId,
-                userSubjects: props.userSubjects,
-                studyLog: sanitizedLog,
-                notesByTopicId,
-                images,
-                originalImages,     // Raw source files
-                audioByTopicId,     // Raw audio files
-                observations,       // Daily journal
-                globalPomodoroLogs, // General timer history
-                chatHistoryByTopicId, // Chat history (text)
-                flashcardHistory,   // Flashcards
-                testSeriesHistory,  // Test Series History
-                testSeriesPastQuestions, // Test Series Past Questions
-                diary,              // Diary
-                recentExams,        // Recent Exams
-                analytics,          // User Calendar Analytics
-                habits: props.habits,
-                tasks: safeReadJSON(`engramTasks_${props.userId}`, []),
-                matrix: safeReadJSON(`engramMatrix_${props.userId}`, []),
-                userProfile: props.userProfile,
-                guestStartTs: props.isGuest ? getGuestStartTimestamp() : undefined,
-                preferences: {
+                // 4. Fetch Original Source Images incrementally
+                yield `  "originalImages": {`;
+                let firstOrig = true;
+                for (const id of topicIds) {
+                    const origImages = await batchGetOriginalImages([id]);
+                    for (const [k, v] of Object.entries(origImages)) {
+                        if (!firstOrig) yield ',';
+                        yield `\n    "${k}": ${JSON.stringify(v)}`;
+                        firstOrig = false;
+                    }
+                }
+                yield `\n  },\n`;
+
+                // 4.1 Fetch Audio Data incrementally
+                yield `  "audioByTopicId": {`;
+                let firstAudio = true;
+                for (const id of topicIds) {
+                    const audio = await batchGetAudio([id]);
+                    if (audio[id]) {
+                        if (!firstAudio) yield ',';
+                        yield `\n    "${id}": ${JSON.stringify(audio[id])}`;
+                        firstAudio = false;
+                    }
+                }
+                yield `\n  },\n`;
+
+                // 5. Fetch Additional User Data
+                yield `  "observations": ${JSON.stringify(ObservationsService.getAll(props.userId) || [])},\n`;
+                yield `  "globalPomodoroLogs": ${JSON.stringify(getPomodoroLogs() || [])},\n`;
+
+                // Chat History Incrementally
+                yield `  "chatHistoryByTopicId": {`;
+                let firstChat = true;
+                for (const id of topicIds) {
+                    const chatLog = await getChatFromIDB(props.userId, id);
+                    if (chatLog) {
+                        if (!firstChat) yield ',';
+                        yield `\n    "${id}": ${JSON.stringify(chatLog)}`;
+                        firstChat = false;
+                    }
+                }
+                yield `\n  },\n`;
+
+                yield `  "flashcardHistory": ${JSON.stringify(safeReadJSON(`engram-flashcard-history_${props.userId}`, []))},\n`;
+                yield `  "testSeriesHistory": ${JSON.stringify(safeReadJSON(`engram_test_series_history_${props.userId}`, safeReadJSON('engram_test_series_history', [])))},\n`;
+                yield `  "testSeriesPastQuestions": ${JSON.stringify(safeReadJSON(`engram_test_series_past_questions_${props.userId}`, safeReadJSON('engram_test_series_past_questions', [])))},\n`;
+                yield `  "diary": ${JSON.stringify(safeReadJSON(`engram_diary_${props.userId}`, []))},\n`;
+                yield `  "recentExams": ${JSON.stringify(safeReadJSON(`engram_recent_exams_${props.userId}`, []))},\n`;
+                yield `  "analytics": ${JSON.stringify(safeReadJSON(`engramCalendarAgg_${props.userId}`, null))},\n`;
+                yield `  "habits": ${JSON.stringify(props.habits || [])},\n`;
+                yield `  "tasks": ${JSON.stringify(safeReadJSON(`engramTasks_${props.userId}`, []))},\n`;
+                yield `  "matrix": ${JSON.stringify(safeReadJSON(`engramMatrix_${props.userId}`, []))},\n`;
+                yield `  "userProfile": ${JSON.stringify(props.userProfile || null)},\n`;
+                yield `  "guestStartTs": ${props.isGuest ? JSON.stringify(getGuestStartTimestamp()) : "null"},\n`;
+
+                let aiPrefs = {};
+                try {
+                    const raw = localStorage.getItem(`engram_ai_preferences_${props.userId}`);
+                    if (raw) aiPrefs = JSON.parse(raw);
+                } catch { /* ignore */ }
+
+                yield `  "preferences": ${JSON.stringify({
                     ai: aiPrefs,
                     appMode: localStorage.getItem(`engramAppMode_${props.userId}`) || 'system',
                     themeColor: props.currentTheme,
@@ -1006,48 +1038,13 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     celebrated21Days: localStorage.getItem(`engram_21_day_celebrated_${props.userId}`),
                     testSeriesLanguage: localStorage.getItem(`engram_test_series_language_${props.userId}`),
                     podcastConfig: props.podcastConfig,
-                }
+                })}\n`;
+                yield '}\n';
             };
-            
-            const dataStr = JSON.stringify(backupBundle, null, 2);
+
             const fileName = `engram_backup_${new Date().toISOString().split('T')[0]}.json`;
-
-            if (Capacitor.isNativePlatform()) {
-                // Native: Write to Cache and Share
-                try {
-                    await Filesystem.writeFile({
-                        path: fileName,
-                        data: dataStr,
-                        directory: Directory.Cache,
-                        encoding: Encoding.UTF8,
-                    });
-
-                    const fileResult = await Filesystem.getUri({
-                        directory: Directory.Cache,
-                        path: fileName,
-                    });
-
-                    await Share.share({
-                        title: 'Engram Backup',
-                        text: 'Engram Study Data Backup',
-                        url: fileResult.uri,
-                        dialogTitle: 'Save Backup File',
-                    });
-                } catch (nativeErr: unknown) {
-                    console.error("Native export failed:", nativeErr);
-                    const message = nativeErr instanceof Error ? nativeErr.message : String(nativeErr);
-                    setRouterError(new Error("Failed to share backup file: " + message));
-                }
-            } else {
-                // Web: Download Blob
-                const blob = new Blob([dataStr], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = fileName;
-                link.click();
-                URL.revokeObjectURL(url);
-            }
+            await downloadLargeJSONStream(generateBackupStream(), fileName);
+            
         } catch (e) {
             console.error("Export failed:", e);
             setRouterError(new Error("Export failed. Please check console for details."));
@@ -1105,7 +1102,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             <div style={{ display: currentView === 'home' ? 'flex' : 'none' }} className="flex-col flex-1 w-full relative">
                 <HomeView studyLog={props.studyLog} allSubjects={props.userSubjects} navigateTo={navigateTo} userId={props.userId} themeColor={props.currentTheme} userProfile={props.userProfile} loading={props.loadingData} />
             </div>
-            {currentView === 'subjects' && <SubjectsView allSubjects={props.userSubjects} studyLog={props.studyLog} navigateTo={navigateTo} onAddSubject={props.handleAddSubject} onUpdateSubject={props.handleUpdateSubject} onDeleteSubject={props.handleDeleteSubject} onAddTopic={props.handleAddTopic} themeColor={props.currentTheme} />}
+            {currentView === 'subjects' && <SubjectsView allSubjects={props.userSubjects} studyLog={props.studyLog} navigateTo={navigateTo} onAddSubject={props.handleAddSubject} onUpdateSubject={props.handleUpdateSubject} onDeleteSubject={props.handleDeleteSubject} onDeleteTopic={props.handleDeleteTopic} onAddTopic={props.handleAddTopic} themeColor={props.currentTheme} />}
             {currentView === 'topicDetail' && <TopicDetailView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} onUpdateTopic={props.handleUpdateTopic} onDeleteTopic={props.handleDeleteTopic} themeColor={props.currentTheme} defaultLanguage={props.podcastConfig.language} />}
             {currentView === 'quiz' && <QuizView topic={selectedTopic} userId={props.userId} navigateTo={navigateTo} onUpdateTopic={props.handleUpdateTopic} themeColor={props.currentTheme} onLockTabs={setIsQuizActive} />}
             {currentView === 'quizReview' && (

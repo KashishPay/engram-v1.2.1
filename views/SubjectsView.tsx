@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { BookOpenText, RotateCw, ChevronDown, Clock, Edit2, Check, X } from 'lucide-react';
+import { BookOpenText, RotateCw, ChevronDown, Clock, Edit2, Check, X, Trash2, FolderOpen } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, Subject } from '../types';
 import { INITIAL_SUBJECTS } from '../constants';
 import { VirtualList } from '../components/VirtualList';
+import { triggerHaptic } from '../utils/haptics';
 
 interface SubjectsViewProps {
     allSubjects: Subject[];
@@ -12,6 +13,7 @@ interface SubjectsViewProps {
     navigateTo: (view: string, data?: unknown) => void;
     onAddSubject: (subject: Subject) => void;
     onDeleteSubject: (id: string) => void;
+    onDeleteTopic?: (id: string) => void;
     onUpdateSubject: (subject: Subject) => void;
     onAddTopic: (topic: Omit<Topic, 'id'>) => void;
     themeColor: string;
@@ -193,7 +195,7 @@ const SubjectItem = React.memo(({
     );
 });
 
-export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjects, studyLog, navigateTo, onAddSubject, onDeleteSubject, onUpdateSubject, onAddTopic, themeColor }) => {
+export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjects, studyLog, navigateTo, onAddSubject, onDeleteSubject, onDeleteTopic, onUpdateSubject, onAddTopic, themeColor }) => {
     const [newTopicName, setNewTopicName] = useState('');
     const [selectedSubjectId, setSelectedSubjectId] = useState(allSubjects?.[0]?.id || '');
     const [isAddingTopic, setIsAddingTopic] = useState(false);
@@ -201,6 +203,12 @@ export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjec
     const [manualSubjectName, setManualSubjectName] = useState('');
     const [isAddTopicExpanded, setIsAddTopicExpanded] = useState(false);
     
+    // Manage Subjects Dashboard States
+    const [isManageMode, setIsManageMode] = useState(false);
+    const [expandedManageSubjects, setExpandedManageSubjects] = useState<Record<string, boolean>>({});
+    const [confirmDeleteSubjectId, setConfirmDeleteSubjectId] = useState<string | null>(null);
+    const [confirmDeleteTopicId, setConfirmDeleteTopicId] = useState<string | null>(null);
+
     // Ref to manage focus
     const topicInputRef = useRef<HTMLInputElement>(null);
 
@@ -295,9 +303,121 @@ export const SubjectsView: React.FC<SubjectsViewProps> = React.memo(({ allSubjec
 
     return (
         <div className="py-4 space-y-6">
-            <h1 className={`px-4 text-3xl font-bold text-${themeColor}-800 dark:text-${themeColor}-200 flex items-center`}>
-                <BookOpenText size={28} className="mr-2" /> All Subjects
-            </h1>
+            <div className="px-4 flex justify-between items-center">
+                <h1 className={`text-3xl font-bold text-${themeColor}-800 dark:text-${themeColor}-200 flex items-center`}>
+                    <BookOpenText size={28} className="mr-2" /> All Subjects
+                </h1>
+                <button
+                    onClick={() => setIsManageMode(!isManageMode)}
+                    className={`px-4 py-2 rounded-xl font-bold transition text-sm flex items-center gap-2 ${isManageMode ? `bg-${themeColor}-500 text-white shadow-md` : `bg-${themeColor}-100 text-${themeColor}-700 dark:bg-${themeColor}-900/40 dark:text-${themeColor}-300 hover:bg-${themeColor}-200 dark:hover:bg-${themeColor}-800`}`}
+                >
+                    {isManageMode && <Check size={18} />}
+                    {isManageMode ? "Done" : "Manage"}
+                </button>
+            </div>
+
+            {isManageMode && (
+                <div className="px-4 animate-in slide-in-from-top-2 fade-in">
+                    <Card className={`border-2 border-${themeColor}-500 bg-white dark:bg-gray-800 shadow-xl overflow-hidden`}>
+                        <div className={`bg-${themeColor}-50 dark:bg-${themeColor}-900/20 p-4 border-b border-${themeColor}-100 dark:border-${themeColor}-900/50 flex items-center justify-between`}>
+                            <h2 className={`text-lg font-bold text-${themeColor}-800 dark:text-${themeColor}-200 flex items-center`}>
+                                <FolderOpen className="mr-2" size={20} />
+                                Manage Subjects Data
+                            </h2>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto p-4 space-y-3">
+                            {allSubjects.map(subject => {
+                                const sTopics = topicsBySubject[subject.id] || [];
+                                const isExp = expandedManageSubjects[subject.id];
+                                return (
+                                    <div key={subject.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                                        <div className="p-2 sm:p-3 bg-gray-50 dark:bg-gray-800 flex flex-wrap gap-2 justify-between items-center transition cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-750" onClick={() => setExpandedManageSubjects(p => ({ ...p, [subject.id]: !p[subject.id] }))}>
+                                            <div className="flex items-center space-x-2 flex-1 min-w-0 pr-2">
+                                                <div className={`p-1 shrink-0 rounded bg-gray-200 dark:bg-gray-700 transition-transform ${isExp ? 'rotate-90' : ''}`}>
+                                                    <ChevronDown size={14} className="text-gray-600 dark:text-gray-300" />
+                                                </div>
+                                                <span className="font-bold text-sm sm:text-base text-gray-800 dark:text-gray-200 truncate">{subject.name}</span>
+                                                {confirmDeleteSubjectId !== subject.id && (
+                                                    <span className="text-[10px] font-semibold bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded-full shrink-0">{sTopics.length} Topics</span>
+                                                )}
+                                            </div>
+                                            {confirmDeleteSubjectId === subject.id ? (
+                                                <div className="flex items-center space-x-1.5 shrink-0 bg-red-50 dark:bg-red-900/10 p-1 rounded-lg border border-red-100 dark:border-red-900/30">
+                                                    <span className="text-[10px] text-red-600 dark:text-red-400 font-bold uppercase tracking-wider px-1">Delete?</span>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); triggerHaptic.impact('Heavy'); onDeleteSubject(subject.id); setConfirmDeleteSubjectId(null); }}
+                                                        className="px-2 py-1 bg-red-500 text-white text-[10px] font-semibold rounded hover:bg-red-600 transition shadow-sm"
+                                                    >
+                                                        Yes
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); triggerHaptic.selection(); setConfirmDeleteSubjectId(null); }}
+                                                        className="px-2 py-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 text-[10px] font-semibold rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition shadow-sm"
+                                                    >
+                                                        No
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); triggerHaptic.impact('Medium'); setConfirmDeleteSubjectId(subject.id); }}
+                                                    className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition shrink-0"
+                                                    title={`Delete ${subject.name}`}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        {isExp && sTopics.length > 0 && (
+                                            <div className="bg-white dark:bg-gray-900 p-2 space-y-1 sm:pl-10 pl-6 border-t border-gray-200 dark:border-gray-700">
+                                                {sTopics.map(topic => (
+                                                    <div key={topic.id} className="flex flex-wrap gap-2 justify-between items-center py-2 px-2 sm:px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate pr-2 flex-1 min-w-0">{topic.topicName}</span>
+                                                        {confirmDeleteTopicId === topic.id ? (
+                                                            <div className="flex items-center space-x-1.5 shrink-0 bg-red-50 dark:bg-red-900/10 p-1 rounded-lg border border-red-100 dark:border-red-900/30">
+                                                                <span className="text-[10px] text-red-600 dark:text-red-400 font-bold uppercase tracking-wider px-1">Delete?</span>
+                                                                <button 
+                                                                    onClick={() => { triggerHaptic.impact('Heavy'); if (onDeleteTopic) onDeleteTopic(topic.id); setConfirmDeleteTopicId(null); }}
+                                                                    className="px-2 py-1 bg-red-500 text-white text-[10px] font-semibold rounded hover:bg-red-600 transition shadow-sm"
+                                                                >
+                                                                    Yes
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => { triggerHaptic.selection(); setConfirmDeleteTopicId(null); }}
+                                                                    className="px-2 py-1 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 text-[10px] font-semibold rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition shadow-sm"
+                                                                >
+                                                                    No
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => { triggerHaptic.impact('Medium'); setConfirmDeleteTopicId(topic.id); }}
+                                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition shrink-0"
+                                                                title={`Delete ${topic.topicName}`}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {isExp && sTopics.length === 0 && (
+                                            <div className="bg-white dark:bg-gray-900 p-4 text-sm text-gray-500 dark:text-gray-400 text-center italic border-t border-gray-200 dark:border-gray-700">
+                                                No topics in this subject.
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            {allSubjects.length === 0 && (
+                                <div className="text-center p-8 text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-700 rounded-xl">
+                                    No subjects to manage.
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </div>
+            )}
 
             <div className="px-4">
                 <Card className="bg-white dark:bg-gray-800 border-l-4 border-gray-500">

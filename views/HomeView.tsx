@@ -37,16 +37,18 @@ const HomeSkeleton = () => (
     </div>
 );
 
-const FlashCardDeck: React.FC<{ 
+export const FlashCardDeck: React.FC<{ 
     topics: Topic[], 
     allSubjects: Subject[], 
     themeColor: string, 
     dueTopics: Topic[], 
     onReview: (topic: Topic) => void,
     userId: string,
-    navigateTo: (view: string) => void
-}> = ({ topics, allSubjects, themeColor, dueTopics, onReview, userId, navigateTo }) => {
-    const [cards, setCards] = useState<FlashCard[]>([]);
+    navigateTo: (view: string) => void,
+    initialDeck?: FlashCard[],
+    onClosePlay?: () => void
+}> = ({ topics, allSubjects, themeColor, dueTopics, onReview, userId, navigateTo, initialDeck, onClosePlay }) => {
+    const [cards, setCards] = useState<FlashCard[]>(() => initialDeck || []);
     const [index, setIndex] = useState(0);
     const [loading, setLoading] = useState(false);
     const [isFlipped, setIsFlipped] = useState(false);
@@ -184,6 +186,7 @@ const FlashCardDeck: React.FC<{
         IMPORTANT: Create a mix of questions covering different topics from the provided content if possible.
         The front should be a concept or question, the back should be the explanation.
         Use LaTeX for all math expressions (e.g., $E=mc^2$).
+        ${persona ? `Additionally, adhere to the following persona/custom instructions:\n"${persona}"\nUse the googleSearch tool if the instructions require verifying external information or drawing on recent knowledge.` : ''}
         ${avoidInstruction}
         
         Source Material:
@@ -202,7 +205,7 @@ const FlashCardDeck: React.FC<{
                 systemInstr, 
                 FLASHCARD_SCHEMA,
                 null,
-                null,
+                [{ googleSearch: {} }],
                 3,
                 modelToUse,
                 'flashcards'
@@ -447,6 +450,21 @@ const FlashCardDeck: React.FC<{
     }
 
     if (cards.length === 0 || completed) {
+        if (initialDeck) {
+            return (
+                <div className="p-10 text-center flex flex-col items-center justify-center">
+                    <Check size={48} className={`text-${themeColor}-500 mb-4`} />
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Deck Complete</h3>
+                    <button 
+                        onClick={() => { triggerHaptic.selection(); if (onClosePlay) onClosePlay(); }}
+                        className={`mt-4 px-6 py-2 bg-${themeColor}-500 text-white font-bold rounded-full hover:bg-${themeColor}-600 transition`}
+                    >
+                        Close
+                    </button>
+                </div>
+            );
+        }
+
         // Summary View logic...
         const totalHistoryCount = cardHistory.length;
         const missedCount = cardHistory.filter(c => c.lastResult === 'unknown').length;
@@ -598,7 +616,7 @@ const FlashCardDeck: React.FC<{
             {/* Controls */}
             <div className="flex items-center justify-center w-full mt-6 z-20 gap-4">
                 <button 
-                    onClick={() => { triggerHaptic.selection(); setCards([]); setCompleted(false); setIndex(0); }}
+                    onClick={() => { triggerHaptic.selection(); setCards([]); setCompleted(false); setIndex(0); if (onClosePlay) onClosePlay(); }}
                     className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full shadow-sm text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition flex items-center justify-center active:scale-95"
                     title="Exit Review"
                 >
@@ -801,22 +819,24 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
 
             <div className="px-4 space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex justify-between items-center px-1">
-                    <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center">
-                        <PieChart size={18} className="mr-2 text-gray-400" /> Analytics
+                    <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center whitespace-nowrap mr-2">
+                        <PieChart size={18} className="mr-2 text-gray-400 group-hover:text-blue-500 transition-colors" /> Analytics
                     </h2>
                     
-                    <div className="flex items-center space-x-2 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full shadow-sm border border-gray-100 dark:border-gray-700">
-                        <Filter size={14} className="text-gray-400" />
+                    <div className="flex items-center space-x-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-full shadow-sm border border-gray-100 dark:border-gray-700 max-w-[55%] sm:max-w-[60%]">
+                        <Filter size={14} className="text-gray-400 shrink-0" />
                         <select 
                             value={selectedSubjectFilter} 
                             onChange={(e) => setSelectedSubjectFilter(e.target.value)}
-                            className="bg-transparent text-xs font-semibold text-gray-600 dark:text-gray-300 focus:outline-none cursor-pointer"
+                            className="appearance-none bg-transparent text-xs font-semibold text-gray-600 dark:text-gray-300 focus:outline-none cursor-pointer w-full text-ellipsis overflow-hidden"
+                            style={{ backgroundImage: 'none' }}
                         >
                             <option value="all" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200">All Subjects</option>
                             {allSubjects.map(s => (
                                 <option key={s.id} value={s.id} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200">{s.name}</option>
                             ))}
                         </select>
+                        <ChevronDown size={14} className="text-gray-400 shrink-0 pointer-events-none" />
                     </div>
                 </div>
                 

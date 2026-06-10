@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon, X } from 'lucide-react';
+import { ArrowLeft, Dna, Folder, FolderOpen, ChevronRight, ChevronDown, Plus, RotateCw, Trash2, Undo2, Camera, Upload, Loader2, Sparkles, Image as ImageIcon, X, Play } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Topic, FlashCard } from '../types';
 import { FLASHCARD_SCHEMA } from '../constants';
@@ -11,14 +11,17 @@ import { compressImage } from '../utils/media';
 import { AdManager } from '../services/admob';
 import DOMPurify from 'dompurify';
 import katex from 'katex';
+import { FlashCardDeck } from './HomeView';
 
 interface FlashcardHubViewProps {
     studyLog: Topic[];
     userId: string;
     themeColor: string;
+    navigateTo?: (view: string) => void;
+    goBack?: () => void;
 }
 
-export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, themeColor }) => {
+export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, themeColor, studyLog }) => {
     
     React.useEffect(() => {
         return () => {
@@ -29,6 +32,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
     const [allCards, setAllCards] = useState<FlashCard[]>([]);
     const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
     const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+    const [isReviewingDeck, setIsReviewingDeck] = useState(false);
     
     // Evolve State
     const [isEvolving, setIsEvolving] = useState(false);
@@ -343,6 +347,26 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
 
     if (selectedTopicId) {
         // --- DECK VIEW ---
+        if (isReviewingDeck) {
+            return (
+                <div className="absolute inset-x-0 inset-y-0 -mt-4 -mx-4 z-50 bg-gray-50 dark:bg-gray-900 overflow-hidden flex flex-col items-center justify-center">
+                    <div className="w-full max-w-lg">
+                        <FlashCardDeck
+                            initialDeck={activeDeck}
+                            topics={studyLog}
+                            allSubjects={[]} // FlashcardHub uses its own structure to render so empty is fine for HomeView internal state bypass
+                            themeColor={themeColor}
+                            dueTopics={[]}
+                            onReview={() => {}}
+                            userId={userId}
+                            navigateTo={() => {}} // We're not doing real navigation inside this standalone
+                            onClosePlay={() => setIsReviewingDeck(false)}
+                        />
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="px-0 py-4 space-y-6 pb-24 relative">
                 {deletedCard && (
@@ -367,15 +391,26 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
                             <p className="text-xs text-gray-500 dark:text-gray-400">{activeSubjectName} • {activeDeck.length} Cards</p>
                         </div>
                     </div>
-                    {/* Evolve Button */}
-                    <button 
-                        onClick={handleEvolve}
-                        disabled={isEvolving || activeDeck.length === 0}
-                        className={`p-3 rounded-full shadow-lg transition transform active:scale-95 ${isEvolving ? 'bg-gray-300 dark:bg-gray-700' : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'}`}
-                        title="Evolve Deck with AI"
-                    >
-                        {isEvolving ? <RotateCw size={20} className="animate-spin" /> : <Dna size={20} />}
-                    </button>
+                    <div className="flex items-center space-x-2">
+                        {/* Play Button */}
+                        <button
+                            onClick={() => setIsReviewingDeck(true)}
+                            disabled={activeDeck.length === 0}
+                            className={`p-3 rounded-full shadow-lg transition transform active:scale-95 ${activeDeck.length === 0 ? 'bg-gray-300 dark:bg-gray-700' : `bg-${themeColor}-500 text-white hover:bg-${themeColor}-600`}`}
+                            title="Play Deck"
+                        >
+                            <Play size={20} className="fill-current ml-0.5" />
+                        </button>
+                        {/* Evolve Button */}
+                        <button 
+                            onClick={handleEvolve}
+                            disabled={isEvolving || activeDeck.length === 0}
+                            className={`p-3 rounded-full shadow-lg transition transform active:scale-95 ${isEvolving ? 'bg-gray-300 dark:bg-gray-700' : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'}`}
+                            title="Evolve Deck with AI"
+                        >
+                            {isEvolving ? <RotateCw size={20} className="animate-spin" /> : <Dna size={20} />}
+                        </button>
+                    </div>
                 </div>
 
                 {evolveStatus && (

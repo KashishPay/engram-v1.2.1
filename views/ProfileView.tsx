@@ -149,25 +149,60 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             topic.focusLogs?.forEach(log => activityDates.add(log.date));
         });
         const sortedDates = Array.from(activityDates).sort();
-        if (sortedDates.length === 0) return { current: 0 };
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-        let current = 0;
-        const lastActive = sortedDates[sortedDates.length - 1];
-        if (lastActive === today || lastActive === yesterday) {
-            current = 1;
-            let currDate = lastActive;
-            for (let i = sortedDates.length - 2; i >= 0; i--) {
-                const prevDate = sortedDates[i];
-                const d = new Date(currDate);
-                d.setDate(d.getDate() - 1);
-                if (prevDate === d.toISOString().split('T')[0]) {
-                    current++;
-                    currDate = prevDate;
-                } else break;
+        
+        if (sortedDates.length === 0) return { current: 0, longest: 0, currentStart: null, history: [] };
+        
+        const todayD = new Date();
+        const today = `${todayD.getFullYear()}-${String(todayD.getMonth() + 1).padStart(2, '0')}-${String(todayD.getDate()).padStart(2, '0')}`;
+        
+        const yesterdayD = new Date();
+        yesterdayD.setDate(yesterdayD.getDate() - 1);
+        const yesterday = `${yesterdayD.getFullYear()}-${String(yesterdayD.getMonth() + 1).padStart(2, '0')}-${String(yesterdayD.getDate()).padStart(2, '0')}`;
+
+        const streaks: {start: string, end: string, length: number}[] = [];
+        let currentStreakStart = sortedDates[0];
+        let currentStreakEnd = sortedDates[0];
+        let currentLen = 1;
+
+        const parseDate = (ds: string) => {
+            const [y, m, d] = ds.split('-').map(Number);
+            return Date.UTC(y, m - 1, d);
+        };
+
+        for (let i = 1; i < sortedDates.length; i++) {
+            const curr = parseDate(sortedDates[i]);
+            const prev = parseDate(sortedDates[i - 1]);
+            const diffDays = Math.round((curr - prev) / 86400000);
+            
+            if (diffDays === 1) {
+                currentLen++;
+                currentStreakEnd = sortedDates[i];
+            } else if (diffDays > 1) {
+                streaks.push({ start: currentStreakStart, end: currentStreakEnd, length: currentLen });
+                currentStreakStart = sortedDates[i];
+                currentStreakEnd = sortedDates[i];
+                currentLen = 1;
             }
         }
-        return { current };
+        streaks.push({ start: currentStreakStart, end: currentStreakEnd, length: currentLen });
+
+        let current = 0;
+        let cStart: string | null = null;
+        
+        const latestStreak = streaks[streaks.length - 1];
+        if (latestStreak && (latestStreak.end === today || latestStreak.end === yesterday)) {
+            current = latestStreak.length;
+            cStart = latestStreak.start;
+        }
+
+        const longest = Math.max(0, ...streaks.map(s => s.length));
+        
+        return { 
+            current, 
+            longest, 
+            currentStart: cStart, 
+            history: streaks.sort((a, b) => b.end.localeCompare(a.end)) 
+        };
     }, [studyLog]);
 
     const currentStreak = streakInfo.current;
@@ -180,16 +215,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         const allBadgeDefinitions = [
             { id: 's1', icon: '🔥', lvl: 1, name: 'Spark', desc: '3 Day Streak', req: 3, type: 'streak' },
             { id: 's2', icon: '⚡', lvl: 2, name: 'Charged', desc: '7 Day Streak', req: 7, type: 'streak' },
+            { id: 's2.5', icon: '💎', lvl: 2, name: 'Unbreakable', desc: '14 Day Streak', req: 14, type: 'streak' },
             { id: 's3', icon: '🌋', lvl: 3, name: 'Wildfire', desc: '21 Day Streak', req: 21, type: 'streak' },
+            { id: 's3.5', icon: '🌠', lvl: 3, name: 'Supernova', desc: '50 Day Streak', req: 50, type: 'streak' },
             { id: 's4', icon: '🌌', lvl: 4, name: 'Eternal', desc: '100 Day Streak', req: 100, type: 'streak' },
+            { id: 's5', icon: '♾️', lvl: 5, name: 'Immortal', desc: '365 Day Streak', req: 365, type: 'streak' },
             { id: 't1', icon: '🌱', lvl: 1, name: 'Initiate', desc: 'Create 1 Topic', req: 1, type: 'topic' },
+            { id: 't1.5', icon: '🌿', lvl: 1, name: 'Sprout', desc: 'Create 5 Topics', req: 5, type: 'topic' },
             { id: 't2', icon: '📚', lvl: 2, name: 'Scribe', desc: 'Create 10 Topics', req: 10, type: 'topic' },
+            { id: 't2.5', icon: '📖', lvl: 2, name: 'Scholar', desc: 'Create 25 Topics', req: 25, type: 'topic' },
             { id: 't3', icon: '🏛️', lvl: 3, name: 'Archivist', desc: 'Create 50 Topics', req: 50, type: 'topic' },
+            { id: 't4', icon: '👑', lvl: 4, name: 'Mastermind', desc: 'Create 100 Topics', req: 100, type: 'topic' },
+            { id: 'f0', icon: '⏱️', lvl: 1, name: 'Started', desc: '30 Mins Study', req: 30, type: 'minutes' },
             { id: 'f1', icon: '⏳', lvl: 1, name: 'Focused', desc: '1 Hour Study', req: 60, type: 'minutes' },
             { id: 'f2', icon: '🧘', lvl: 2, name: 'Deep Diver', desc: '5 Hours Study', req: 300, type: 'minutes' },
+            { id: 'f3', icon: '🧠', lvl: 3, name: 'Flow State', desc: '24 Hours Study', req: 1440, type: 'minutes' },
+            { id: 'f4', icon: '🦉', lvl: 4, name: 'Sage', desc: '100 Hours Study', req: 6000, type: 'minutes' },
             { id: 'r1', icon: '🛡️', lvl: 1, name: 'Reviewer', desc: '10 Repetitions', req: 10, type: 'reps' },
             { id: 'r2', icon: '⚔️', lvl: 2, name: 'Veteran', desc: '50 Repetitions', req: 50, type: 'reps' },
+            { id: 'r2.5', icon: '🏹', lvl: 2, name: 'Marksman', desc: '100 Repetitions', req: 100, type: 'reps' },
             { id: 'r3', icon: '🏰', lvl: 3, name: 'Titan', desc: '200 Repetitions', req: 200, type: 'reps' },
+            { id: 'r4', icon: '🦾', lvl: 4, name: 'Cyborg', desc: '500 Repetitions', req: 500, type: 'reps' },
+            { id: 'r5', icon: '🚀', lvl: 5, name: 'Ascended', desc: '1000 Repetitions', req: 1000, type: 'reps' },
         ];
         return allBadgeDefinitions.map(def => {
             let unlocked = false;
@@ -333,10 +380,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         if (scrollRef.current) {
             const todayEl = scrollRef.current.querySelector('[data-is-today="true"]');
             if (todayEl) {
-                const containerWidth = scrollRef.current.offsetWidth;
-                const elLeft = (todayEl as HTMLElement).offsetLeft;
-                const elWidth = (todayEl as HTMLElement).offsetWidth;
-                scrollRef.current.scrollLeft = elLeft - containerWidth / 2 + elWidth / 2;
+                setTimeout(() => {
+                    if (!scrollRef.current) return;
+                    const containerWidth = scrollRef.current.offsetWidth;
+                    const elLeft = (todayEl as HTMLElement).offsetLeft;
+                    const elWidth = (todayEl as HTMLElement).offsetWidth;
+                    // Scroll so today is near the right edge, making earlier (past) days visible
+                    scrollRef.current.scrollLeft = elLeft - containerWidth + (elWidth * 2) + 16;
+                }, 100);
             }
         }
     }, [activityDates]);
@@ -446,12 +497,55 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
                         {activeModal === 'streak' && (
                             <>
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Current Streak</h3>
-                                <div className="text-center py-8">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-0">Streak Details</h3>
+                                </div>
+                                <div className="text-center py-6 border-b border-gray-100 dark:border-gray-800">
                                     <Flame size={64} className="mx-auto text-orange-500 mb-4 animate-pulse" fill="currentColor" />
                                     <span className="text-5xl font-black text-gray-900 dark:text-white">{currentStreak}</span>
                                     <p className="text-gray-500 dark:text-gray-400 mt-2 font-medium">Days in a row</p>
-                                    <p className="text-xs text-gray-400 mt-4 px-4">Study every day to keep your streak alive and unlock special badges!</p>
+                                    
+                                    {streakInfo.currentStart && (
+                                        <div className="mt-4 inline-flex items-center space-x-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-1.5 rounded-full border border-orange-100 dark:border-orange-900/30">
+                                            <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+                                                Started on {new Date(streakInfo.currentStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="py-2">
+                                    <p className="text-xs text-gray-400 text-center mb-4 px-4 bg-gray-50 dark:bg-gray-800/50 py-2 rounded-xl">Study every day to keep your streak alive and unlock special badges!</p>
+                                    
+                                    {streakInfo.history.length > 0 && (
+                                        <div className="max-h-48 overflow-y-auto space-y-4 pr-1">
+                                            <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                                                 <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300">Longest Streak</h4>
+                                                 <span className="text-xs font-black text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-2 py-1 rounded-full">{streakInfo.longest} Days</span>
+                                            </div>
+
+                                            {streakInfo.history.filter(s => s.length > 0).length > 0 && (
+                                                <div>
+                                                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1">History</h4>
+                                                    <div className="space-y-2">
+                                                        {streakInfo.history.map((s, i) => (
+                                                            <div key={i} className="flex justify-between items-center bg-white dark:bg-gray-900 p-3 rounded-xl border border-gray-100 dark:border-gray-800">
+                                                                <div className="text-xs">
+                                                                    <span className="font-semibold text-gray-700 dark:text-gray-300">{new Date(s.start).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
+                                                                    <span className="text-gray-300 dark:text-gray-600 mx-2">→</span>
+                                                                    <span className="font-semibold text-gray-700 dark:text-gray-300">{new Date(s.end).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</span>
+                                                                </div>
+                                                                <div className="flex items-center space-x-1 text-orange-500 font-bold text-sm bg-orange-50 dark:bg-orange-900/10 px-2.5 py-1 rounded-lg">
+                                                                    <Flame size={12} fill="currentColor"/>
+                                                                    <span>{s.length}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         )}

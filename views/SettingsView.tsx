@@ -27,7 +27,7 @@ interface SettingsViewProps {
     currentTheme: string;
     navigateTo: (view: string) => void;
     setShowFeedbackModal: (show: boolean) => void;
-    handleExportData: () => void;
+    handleExportData: () => Promise<void>;
     handleImportData: (e: React.ChangeEvent<HTMLInputElement>) => void;
     appMode: string;
     setAppMode: (mode: string) => void;
@@ -179,6 +179,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
     const [showCelebration, setShowCelebration] = useState(false);
     const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
+    const [isExporting, setIsExporting] = useState(false);
+
+    const onExportClick = async () => {
+        setIsExporting(true);
+        try {
+            await handleExportData();
+        } finally {
+            setIsExporting(false);
+        }
+    };
     
     // BYOK State
     const [showKeyInput, setShowKeyInput] = useState(false);
@@ -570,8 +580,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
                             <div className="p-4 border-b border-gray-100 dark:border-gray-700">
                                 <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={handleExportData} className="flex items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl font-medium text-sm border border-blue-100 dark:border-blue-800 transition hover:bg-blue-100 dark:hover:bg-blue-900/30">
-                                        <Download size={18} className="mr-2" />Export Backup
+                                    <button 
+                                        onClick={onExportClick} 
+                                        disabled={isExporting}
+                                        className={`flex items-center justify-center p-3 rounded-xl font-medium text-sm border transition ${
+                                            isExporting 
+                                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-400 dark:text-blue-500 border-blue-200 dark:border-blue-700 cursor-not-allowed' 
+                                                : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                                        }`}
+                                    >
+                                        {isExporting ? (
+                                            <>
+                                                <Loader2 size={18} className="mr-2 animate-spin" />
+                                                Compiling... Wait a moment
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Download size={18} className="mr-2" />
+                                                Export Backup
+                                            </>
+                                        )}
                                     </button>
                                     {isGuest ? (
                                         <button 

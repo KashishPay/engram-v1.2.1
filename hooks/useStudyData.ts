@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Topic, Subject } from '../types';
-import { saveAudioToIDB, saveTopicBodyToIDB, getAllAudioKeys, getAllTopicBodyKeys } from '../services/storage';
+import { saveAudioToIDB, saveTopicBodyToIDB, getAllAudioKeys, getAllTopicBodyKeys, deleteTopicBodyFromIDB, deleteAudioFromIDB } from '../services/storage';
 
 export const useStudyData = (userId: string) => {
     const [studyLog, setStudyLog] = useState<Topic[]>([]);

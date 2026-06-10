@@ -11,7 +11,7 @@ import rehypeKatex from 'rehype-katex';
 import { PlotComponent } from '../components/PlotComponent';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { downloadPDF } from '../utils/download';
+import { downloadPDF, downloadFileFromBase64 } from '../utils/download';
 
 interface ChatViewProps {
     topic: Topic | null;
@@ -668,33 +668,37 @@ export const ChatView: React.FC<ChatViewProps> = ({ topic, userId, navigateTo, t
                                                     <div className="flex flex-wrap gap-2 mb-3">
                                                         {msg.images.map((img, i) => (
                                                             img.mimeType.startsWith('image/') ? (
-                                                                <img 
+                                                                <button 
                                                                     key={i}
-                                                                    src={`data:${img.mimeType};base64,${img.base64}`} 
-                                                                    alt="Attached" 
-                                                                    className="max-h-48 w-auto rounded-lg border border-gray-200 shadow-sm"
-                                                                />
+                                                                    onClick={() => {
+                                                                        try {
+                                                                            downloadFileFromBase64(
+                                                                                img.base64,
+                                                                                img.name || `image_${i}.jpg`,
+                                                                                img.mimeType
+                                                                            );
+                                                                        } catch (e) {
+                                                                            console.error("Failed to open image", e);
+                                                                        }
+                                                                    }}
+                                                                    className="text-left focus:outline-none"
+                                                                >
+                                                                    <img 
+                                                                        src={`data:${img.mimeType};base64,${img.base64}`} 
+                                                                        alt="Attached" 
+                                                                        className="max-h-48 w-auto rounded-lg border border-gray-200 shadow-sm transition hover:opacity-90"
+                                                                    />
+                                                                </button>
                                                             ) : (
                                                                 <button 
                                                                     key={i} 
                                                                     onClick={() => {
                                                                         try {
-                                                                            const byteCharacters = atob(img.base64);
-                                                                            const byteNumbers = new Array(byteCharacters.length);
-                                                                            for (let i = 0; i < byteCharacters.length; i++) {
-                                                                                byteNumbers[i] = byteCharacters.charCodeAt(i);
-                                                                            }
-                                                                            const byteArray = new Uint8Array(byteNumbers);
-                                                                            const blob = new Blob([byteArray], {type: img.mimeType});
-                                                                            const blobUrl = URL.createObjectURL(blob);
-                                                                            
-                                                                            const link = document.createElement('a');
-                                                                            link.href = blobUrl;
-                                                                            link.download = img.name || 'document.pdf';
-                                                                            document.body.appendChild(link);
-                                                                            link.click();
-                                                                            document.body.removeChild(link);
-                                                                            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                                                                            downloadFileFromBase64(
+                                                                                img.base64,
+                                                                                img.name || 'document.pdf',
+                                                                                img.mimeType || 'application/pdf'
+                                                                            );
                                                                         } catch (e) {
                                                                             console.error("Failed to download document", e);
                                                                         }
