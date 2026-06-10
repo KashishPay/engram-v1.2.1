@@ -1,5 +1,5 @@
 # ==============================================================================
-# ENGRAM ANDROID BUILD AUTOMATOR (Iterated v1.9)
+# ENGRAM ANDROID BUILD AUTOMATOR (Iterated v1.8)
 # ==============================================================================
 
 # 1) Define Paths & Auto-Detect Latest Zip
@@ -83,8 +83,10 @@ Write-Output "Running base npm install from package.json..."
 # and prevents accidental breaking upgrades to React 19 which is incompatible with several assets/libraries.
 npm install
 
-Write-Output "Standard UI Capacitior plugins (@capacitor/splash-screen, status-bar, keyboard) are now handled by package.json."
-# Previously: npm install @capacitor/splash-screen @capacitor/status-bar @capacitor/keyboard --save
+Write-Output "Ensuring Core UX Capacitor Plugins are installed..."
+# Install standard UI plugins (Splash Screen, Status Bar, Keyboard) which are essential for native polish
+# but often omitted from package.json. This ensures assets generated in Step 8 render correctly.
+npm install @capacitor/splash-screen @capacitor/status-bar @capacitor/keyboard --save
 
 # 6) Build Web App
 Write-Output "--- Step 6: Building Web Assets ---"
@@ -132,16 +134,16 @@ if (Test-Path $LogoSource) {
 # 9) Windows-Specific Build Fixes
 Write-Output "--- Step 9: Applying Windows Build Fixes ---"
 if (Test-Path "android") {
-    # 1. Fix AdMob and system errors by using stable Android 15 SDK
+    # 1. Fix "VANILLA_ICE_CREAM" and AdMob errors by bumping SDK versions to stable Android 15
     $varsFile = "android\variables.gradle"
     if (Test-Path $varsFile) {
         $varsContent = Get-Content $varsFile -Raw
-        $varsContent = $varsContent -replace 'compileSdkVersion = \d+', 'compileSdkVersion = 35'
-        $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 35'
+        $varsContent = $varsContent -replace 'compileSdkVersion = \d+', 'compileSdkVersion = 36'
+        $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 36'
         $varsContent = $varsContent -replace 'minSdkVersion = \d+', 'minSdkVersion = 24'
         $varsContent = $varsContent -replace "androidxCoreVersion = '[^']+'", "androidxCoreVersion = '1.15.0'"
         Set-Content -Path $varsFile -Value $varsContent
-        Write-Output "Updated variables.gradle (compile/target=35, min=24, androidxCoreVersion=1.15.0)."
+        Write-Output "Updated variables.gradle (compile/target=36, min=24, androidxCoreVersion=1.15.0)."
     }
 
     # 1.1 Update gradle-wrapper.properties

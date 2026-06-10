@@ -13,23 +13,6 @@ const config: CapacitorConfig = {
       iconColor: "#f59e0b",
       sound: "beep.wav",
     },
-    SplashScreen: {
-      launchShowDuration: 2000,
-      backgroundColor: "#ffffff",
-      showSpinner: false,
-      androidScaleType: "CENTER_CROP",
-      splashFullScreen: true,
-      splashImmersive: true,
-    },
-    Keyboard: {
-      resize: "body",
-      style: "light",
-      resizeOnFullScreen: true,
-    },
-    StatusBar: {
-      style: "light",
-      backgroundColor: "#ffffff",
-    },
   },
 };
 
