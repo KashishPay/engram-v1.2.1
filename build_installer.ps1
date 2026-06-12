@@ -236,7 +236,10 @@ subprojects {
             "android.permission.READ_EXTERNAL_STORAGE",
             "android.permission.WAKE_LOCK",
             "android.permission.VIBRATE",
-            "com.google.android.gms.permission.AD_ID"
+            "com.google.android.gms.permission.AD_ID",
+            "android.permission.SYSTEM_ALERT_WINDOW",
+            "android.permission.FOREGROUND_SERVICE",
+            "android.permission.FOREGROUND_SERVICE_SPECIAL_USE"
         )
 
         foreach ($perm in $permsToInject) {
@@ -244,6 +247,20 @@ subprojects {
                 $manifestContent = $manifestContent -replace '<manifest([^>]*)>', "<manifest`$1>`n    <uses-permission android:name=`"$perm`" />"
                 Write-Output "Injected permission: $perm"
             }
+        }
+        
+        # Verify Widget Receiver registration
+        if ($manifestContent -notmatch "EngramWidgetReceiver") {
+            $widgetReceiverMeta = "`n        <receiver android:name=`".glance.EngramWidgetReceiver`" android:exported=`"true`">`n            <intent-filter>`n                <action android:name=`"android.appwidget.action.APPWIDGET_UPDATE`" />`n            </intent-filter>`n            <meta-data android:name=`"android.appwidget.provider`" android:resource=`"@xml/engram_widget_info`" />`n        </receiver>"
+            $manifestContent = $manifestContent -replace '</application>', "$widgetReceiverMeta`n    </application>"
+            Write-Output "Injected EngramWidgetReceiver into AndroidManifest.xml."
+        }
+
+        # Verify OverlayTimerService registration
+        if ($manifestContent -notmatch "OverlayTimerService") {
+            $serviceMeta = "`n        <service android:name=`".OverlayTimerService`" android:enabled=`"true`" android:exported=`"false`" android:foregroundServiceType=`"specialUse`" />"
+            $manifestContent = $manifestContent -replace '</application>', "$serviceMeta`n    </application>"
+            Write-Output "Injected OverlayTimerService into AndroidManifest.xml."
         }
 
         # Inject <queries> for File Opener (Android 11+)
@@ -281,6 +298,21 @@ subprojects {
             $appGradleContent = $appGradleContent -replace "sourceCompatibility\s+JavaVersion\.[A-Za-z0-9_]+", "sourceCompatibility JavaVersion.VERSION_17"
             $appGradleContent = $appGradleContent -replace "targetCompatibility\s+JavaVersion\.[A-Za-z0-9_]+", "targetCompatibility JavaVersion.VERSION_17"
             Write-Output "Enforced Java 17 source/target compatibility in app/build.gradle."
+        }
+
+        # Verify Glance and Compose dependencies
+        if ($appGradleContent -notmatch "androidx.glance:glance-appwidget") {
+            $glanceDeps = "`n    implementation `"androidx.glance:glance-appwidget:1.1.0`"`n    implementation `"androidx.glance:glance-material3:1.1.0`""
+            $appGradleContent = $appGradleContent -replace 'dependencies\s*\{', "dependencies {$glanceDeps"
+            Write-Output "Injected Glance dependencies into app/build.gradle."
+        }
+        if ($appGradleContent -notmatch "buildFeatures\s*\{[^}]*compose\s+true") {
+            if ($appGradleContent -match "buildFeatures\s*\{") {
+                $appGradleContent = $appGradleContent -replace "buildFeatures\s*\{", "buildFeatures {`n        compose true"
+            } else {
+                $appGradleContent = $appGradleContent -replace 'android\s*\{', "android {`n    buildFeatures {`n        compose true`n    }"
+            }
+            Write-Output "Enabled Compose buildFeatures in app/build.gradle."
         }
 
         Set-Content -Path $appGradleFile -Value $appGradleContent

@@ -378,6 +378,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                 <div className="grid grid-cols-1 gap-4">
                     <PomodoroTimer 
                         topicId={topic.id}
+                        subjectId={topic.subjectId}
                         topicName={topic.topicName}
                         onTimeLogged={handleTimeLogged} 
                         themeColor={themeColor} 

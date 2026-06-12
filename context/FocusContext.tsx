@@ -2,26 +2,36 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { AMBIENT_SOUNDS } from '../constants';
 import { scheduleFinishNotification, cancelFinishNotification } from '../utils/notifications';
+import { Preferences } from '@capacitor/preferences';
+import OverlayTimer from '../plugins/OverlayTimer';
+import { Capacitor } from '@capacitor/core';
+import { logPomodoroSession, logTopicSession } from '../utils/sessionLog';
+
+export type TimerType = 'pomodoro' | 'subject';
 
 interface FocusState {
-    mode: 'stopwatch' | 'pomodoro';
+    type: TimerType;
+    mode: 'stopwatch' | 'pomodoro'; // Keep for backwards compatibility within Pomodoro UI
     duration: number; // in minutes (target for pomodoro)
     elapsed: number; // seconds accumulated
     isRunning: boolean;
-    topicId: string | null;
-    topicName: string | null;
+    sessionTitle: string | null; // For pomodoro
+    subjectId: string | null;    // For subject
+    topicId: string | null;      // For subject
+    topicName: string | null;    // UI convenience
     activeSoundId: string | null;
 }
 
 interface FocusContextType extends FocusState {
-    startSession: (topicId: string, topicName: string) => void;
+    startPomodoro: (title: string, durationMinutes: number) => void;
+    startSubjectTimer: (subjectId: string, topicId: string, topicName: string) => void;
     pauseSession: () => void;
     resumeSession: () => void;
     resetSession: () => void;
     setMode: (mode: 'stopwatch' | 'pomodoro') => void;
     setSessionDuration: (minutes: number) => void;
     setActiveSoundId: (id: string | null) => void;
-    logAndReset: () => number; // Returns minutes
+    logAndReset: () => void; // Unify logging inside Context
     formatTime: (seconds: number) => string;
 }
 
@@ -49,6 +59,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
     const getFocusKey = useCallback((key: string) => `focus_${key}_${userId}`, [userId]);
 
     // Initial state from localStorage or defaults
+    const [timerType, setTimerType] = useState<TimerType>(() => 
+        (localStorage.getItem(`focus_timerType_${userId}`) as TimerType | null) || 'pomodoro');
     const [mode, setModeState] = useState<'stopwatch' | 'pomodoro'>(() => 
         (localStorage.getItem(`focus_mode_${userId}`) as 'stopwatch' | 'pomodoro' | null) || 'stopwatch');
     const [duration, setDurationState] = useState<number>(() => 
@@ -57,6 +69,10 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         parseFloat(localStorage.getItem(`focus_elapsed_${userId}`) || '0'));
     const [isRunning, setIsRunning] = useState<boolean>(() => 
         localStorage.getItem(`focus_running_${userId}`) === 'true');
+    const [sessionTitle, setSessionTitle] = useState<string | null>(() => 
+        localStorage.getItem(`focus_sessionTitle_${userId}`) || null);
+    const [subjectId, setSubjectId] = useState<string | null>(() => 
+        localStorage.getItem(`focus_subjectId_${userId}`) || null);
     const [topicId, setTopicId] = useState<string | null>(() => 
         localStorage.getItem(`focus_topicId_${userId}`) || null);
     const [topicName, setTopicName] = useState<string | null>(() => 
@@ -68,10 +84,19 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     // Persist helpers
+    useEffect(() => localStorage.setItem(getFocusKey('timerType'), timerType), [timerType]);
     useEffect(() => localStorage.setItem(getFocusKey('mode'), mode), [mode]);
     useEffect(() => localStorage.setItem(getFocusKey('duration'), duration.toString()), [duration]);
     useEffect(() => localStorage.setItem(getFocusKey('elapsed'), elapsed.toString()), [elapsed]);
     useEffect(() => localStorage.setItem(getFocusKey('running'), String(isRunning)), [isRunning]);
+    useEffect(() => {
+        if(sessionTitle) localStorage.setItem(getFocusKey('sessionTitle'), sessionTitle);
+        else localStorage.removeItem(getFocusKey('sessionTitle'));
+    }, [sessionTitle]);
+    useEffect(() => {
+        if(subjectId) localStorage.setItem(getFocusKey('subjectId'), subjectId);
+        else localStorage.removeItem(getFocusKey('subjectId'));
+    }, [subjectId]);
     useEffect(() => {
         if(topicId) localStorage.setItem(getFocusKey('topicId'), topicId);
         else localStorage.removeItem(getFocusKey('topicId'));
@@ -167,6 +192,16 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
                         // Return exactly the duration to avoid overshoot visual
                         return duration * 60;
                     }
+                    
+                    let secondsToShow = next;
+                    if (mode === 'pomodoro') {
+                        secondsToShow = Math.max(0, (duration * 60) - next);
+                    }
+                    
+                    if (Capacitor.isNativePlatform()) {
+                        OverlayTimer.updateTimer({ time: Math.floor(secondsToShow) }).catch(console.error);
+                    }
+                    
                     return next;
                 });
                 
@@ -175,10 +210,28 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
             };
 
             worker.postMessage('start');
+            if (Capacitor.isNativePlatform()) {
+                let secondsToShow = elapsed;
+                if (mode === 'pomodoro') {
+                    secondsToShow = Math.max(0, (duration * 60) - elapsed);
+                }
+                const m = Math.floor(secondsToShow / 60);
+                const s = Math.floor(secondsToShow % 60);
+                const formatted = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                Preferences.set({ key: 'pomodoroTime', value: formatted }).catch(console.error);
+                OverlayTimer.startTimer({ 
+                    type: timerType, 
+                    title: sessionTitle || topicName || 'Focus Timer' 
+                }).catch(console.error);
+            }
         } else {
             // Not running, reset tick reference
             lastTickRef.current = 0;
             localStorage.setItem(getFocusKey('lastTick'), '0');
+            if (Capacitor.isNativePlatform()) {
+                OverlayTimer.stopTimer().catch(console.error);
+                Preferences.remove({ key: 'pomodoroTime' }).catch(console.error);
+            }
         }
 
         return () => {
@@ -201,23 +254,39 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
                 setElapsed(prev => prev + delta); // Catch up the time missed while app was unloaded/frozen
             }
         }
-    }, []);
+    }, [getFocusKey]);
 
-    const startSession = (id: string, name: string) => {
-        // If switching topics, reset first
-        if (id !== topicId) {
+    const startPomodoro = (title: string, durationMinutes: number) => {
+        setTimerType('pomodoro');
+        setMode('pomodoro'); // Sync mode
+        if (title !== sessionTitle) {
             setElapsed(0);
         }
-        setTopicId(id);
-        setTopicName(name);
+        setSessionTitle(title);
+        setDurationState(durationMinutes);
+        setSubjectId(null);
+        setTopicId(null);
+        setTopicName(null);
         setIsRunning(true);
         lastTickRef.current = Date.now();
 
-        // Schedule notification for background completion
-        if (mode === 'pomodoro') {
-            const secondsRemaining = (duration * 60) - (id !== topicId ? 0 : elapsed);
-            scheduleFinishNotification(secondsRemaining);
+        const secondsRemaining = (durationMinutes * 60) - (title !== sessionTitle ? 0 : elapsed);
+        scheduleFinishNotification(secondsRemaining);
+    };
+
+    const startSubjectTimer = (sId: string, tId: string, tName: string) => {
+        setTimerType('subject');
+        setMode('stopwatch'); // Subject timers act as stopwatches by default
+        if (tId !== topicId) {
+            setElapsed(0);
         }
+        setSubjectId(sId);
+        setTopicId(tId);
+        setTopicName(tName);
+        setSessionTitle(null);
+        setIsRunning(true);
+        lastTickRef.current = Date.now();
+        cancelFinishNotification();
     };
 
     const pauseSession = () => {
@@ -230,7 +299,7 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         lastTickRef.current = Date.now();
         
         // Reschedule based on current elapsed time
-        if (mode === 'pomodoro') {
+        if (timerType === 'pomodoro' || mode === 'pomodoro') {
             const secondsRemaining = (duration * 60) - elapsed;
             scheduleFinishNotification(secondsRemaining);
         }
@@ -241,6 +310,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         setElapsed(0);
         setTopicId(null);
         setTopicName(null);
+        setSubjectId(null);
+        setSessionTitle(null);
         lastTickRef.current = 0;
         localStorage.setItem(getFocusKey('lastTick'), '0');
         cancelFinishNotification();
@@ -258,8 +329,17 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         }
 
         const mins = currentElapsed / 60;
+        
+        // Actually log to the correct subsystem based on timerType
+        if (timerType === 'pomodoro') {
+            logPomodoroSession(mins, sessionTitle || 'General Focus');
+        } else if (timerType === 'subject' && topicName) {
+            // Need subject name, for now fallback to ID if we don't have it easily or use generic 'Subject'
+            // To be precise we might want the subject name, but logGlobalSession accepts 'subject'.
+            logTopicSession(mins, topicName, subjectId || 'Unknown');
+        }
+        
         resetSession();
-        return mins;
     };
 
     const setMode = (m: 'stopwatch' | 'pomodoro') => {
@@ -285,10 +365,23 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     };
 
+    useEffect(() => {
+        const handleWidgetStart = () => {
+            // Check if already running so we don't restart unnecessarily
+            if (!isRunning) {
+                startPomodoro('Focus Timer', 25);
+            }
+        };
+        window.addEventListener('start_widget_timer', handleWidgetStart);
+        return () => window.removeEventListener('start_widget_timer', handleWidgetStart);
+    }, [isRunning]);
+
     return (
         <FocusContext.Provider value={{
-            mode, duration, elapsed, isRunning, topicId, topicName, activeSoundId,
-            startSession, pauseSession, resumeSession, resetSession, setMode, setSessionDuration, setActiveSoundId, logAndReset, formatTime
+            type: timerType,
+            mode, duration, elapsed, isRunning, 
+            sessionTitle, subjectId, topicId, topicName, activeSoundId,
+            startPomodoro, startSubjectTimer, pauseSession, resumeSession, resetSession, setMode, setSessionDuration, setActiveSoundId, logAndReset, formatTime
         }}>
             {children}
         </FocusContext.Provider>

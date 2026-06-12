@@ -133,11 +133,11 @@ const isDuplicate = (logs: SessionLog[], topicName: string, type: string) => {
     return isRecent && latest.type === type && latest.topicName === topicName;
 };
 
-export const logPomodoroSession = (minutes: number) => {
+export const logPomodoroSession = (minutes: number, title: string = 'General Focus') => {
     const logs = getPomodoroLogs();
     
     // Idempotency check
-    if (isDuplicate(logs, 'General Focus', 'POMODORO')) {
+    if (isDuplicate(logs, title, 'POMODORO')) {
         console.warn("[LOG] Duplicate Pomodoro session prevented.");
         return;
     }
@@ -149,7 +149,7 @@ export const logPomodoroSession = (minutes: number) => {
         date: getLocalISODate(now),
         time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase(),
         createdAt: Date.now(),
-        topicName: 'General Focus',
+        topicName: title,
         subject: 'General'
     };
     
