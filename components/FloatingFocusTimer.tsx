@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Clock, Pause, Play, CheckSquare, Minimize2 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 import { useFocus } from '../context/FocusContext';
 import { playCompletionCue } from '../utils/audioCue';
 import { showLocalNotification } from '../utils/notifications';
@@ -129,6 +130,10 @@ export const FloatingFocusTimer: React.FC<FloatingFocusTimerProps> = ({
     const bgStyle = isRunning 
         ? `bg-${themeColor}-600/40 border-${themeColor}-400/50`
         : `bg-gray-800/40 border-gray-600/50`;
+
+    if (Capacitor.isNativePlatform()) {
+        return null;
+    }
 
     // Minimized View (Ball)
     if (isMinimized) {

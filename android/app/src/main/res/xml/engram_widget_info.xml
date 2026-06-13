@@ -3,6 +3,6 @@
     android:minWidth="250dp"
     android:minHeight="110dp"
     android:updatePeriodMillis="1800000"
-    android:initialLayout="@layout/glance_default_loading"
+    android:initialLayout="@android:layout/simple_list_item_1"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

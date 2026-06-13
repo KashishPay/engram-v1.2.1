@@ -317,6 +317,29 @@ subprojects {
 
         Set-Content -Path $appGradleFile -Value $appGradleContent
     }
+
+    # 6. Enforce safe fallback layouts in widget XML
+    $xmlResDir = "android\app\src\main\res\xml"
+    if (Test-Path $xmlResDir) {
+        Get-ChildItem -Path $xmlResDir -Filter "*.xml" | ForEach-Object {
+            $xmlContent = Get-Content $_.FullName -Raw
+            $layoutMatches = [regex]::Matches($xmlContent, 'android:initialLayout="(@layout/([^"]+))"')
+            $modified = $false
+            foreach ($match in $layoutMatches) {
+                $layoutRef = $match.Groups[1].Value
+                $layoutName = $match.Groups[2].Value
+                $layoutFile = "android\app\src\main\res\layout\$layoutName.xml"
+                if (-not (Test-Path $layoutFile)) {
+                    Write-Output "Warning: Invalid layout $layoutRef in $($_.Name). Replaced with @android:layout/simple_list_item_1"
+                    $xmlContent = $xmlContent.Replace($layoutRef, '@android:layout/simple_list_item_1')
+                    $modified = $true
+                }
+            }
+            if ($modified) {
+                Set-Content -Path $_.FullName -Value $xmlContent
+            }
+        }
+    }
 }
 
 # 10) Sync & Launch

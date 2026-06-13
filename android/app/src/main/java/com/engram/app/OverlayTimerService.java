@@ -79,6 +79,7 @@ public class OverlayTimerService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        android.util.Log.d("OverlayTimerService", "Overlay service started");
         createNotificationChannel();
         Notification notification = new NotificationCompat.Builder(this, "OVERLAY_CHANNEL")
                 .setContentTitle("Pomodoro Timer")
@@ -188,7 +189,13 @@ public class OverlayTimerService extends Service {
             }
         });
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
+            android.util.Log.e("OverlayTimerService", "SYSTEM_ALERT_WINDOW permission not granted. Cannot draw overlay.");
+            return;
+        }
+
         windowManager.addView(floatingView, params);
+        android.util.Log.d("OverlayTimerService", "View attached to WindowManager");
         
         // Read initial state from SharedPreferences (Capacitor stores it as CapacitorStorage)
         SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
@@ -210,6 +217,7 @@ public class OverlayTimerService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
             String action = intent.getAction();
+            android.util.Log.d("OverlayTimerService", "Received action: " + action);
             if ("START".equals(action)) {
                 if (intent.hasExtra("type")) {
                     currentType = intent.getStringExtra("type");
@@ -217,13 +225,16 @@ public class OverlayTimerService extends Service {
                 if (intent.hasExtra("title")) {
                     currentTitle = intent.getStringExtra("title");
                 }
+                android.util.Log.d("OverlayTimerService", "Starting timer: type=" + currentType + " title=" + currentTitle);
                 updateUIText();
             } else if ("STOP".equals(action)) {
+                android.util.Log.d("OverlayTimerService", "Stopping timer update loop");
                 handler.removeCallbacks(timerRunnable);
                 stopSelf();
                 return START_NOT_STICKY;
             } else if ("UPDATE".equals(action)) {
                 int time = intent.getIntExtra("time", 0);
+                android.util.Log.d("OverlayTimerService", "Updating timer with time: " + time);
                 currentTimeInSeconds = time;
                 updateUIText();
                 handler.removeCallbacks(timerRunnable);

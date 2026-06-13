@@ -45,7 +45,11 @@ public class OverlayTimerPlugin extends Plugin {
     public void stopTimer(PluginCall call) {
         Intent serviceIntent = new Intent(getContext(), OverlayTimerService.class);
         serviceIntent.setAction("STOP");
-        getContext().startService(serviceIntent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(serviceIntent);
+        } else {
+            getContext().startService(serviceIntent);
+        }
         call.resolve();
     }
 
@@ -55,7 +59,11 @@ public class OverlayTimerPlugin extends Plugin {
         Intent serviceIntent = new Intent(getContext(), OverlayTimerService.class);
         serviceIntent.setAction("UPDATE");
         serviceIntent.putExtra("time", time);
-        getContext().startService(serviceIntent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(serviceIntent);
+        } else {
+            getContext().startService(serviceIntent);
+        }
         call.resolve();
     }
 }
