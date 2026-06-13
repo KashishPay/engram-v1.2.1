@@ -41,7 +41,7 @@ $from  = if ($inner) { $inner.FullName } else { $src }
 
 # Use Robocopy for speed and reliability. /MT:32 uses multi-threading.
 # Piped to Out-Null to keep the console clean.
-& robocopy $from $repo /E /MT:32 /XD node_modules dist .git android ios /XF .env.local | Out-Null
+& robocopy $from $repo /E /MT:32 /XD node_modules dist .git ios /XF .env.local | Out-Null
 cd $repo
 
 # 4) Configure Package & PDF Worker
@@ -86,7 +86,7 @@ npm install
 Write-Output "Ensuring Core UX Capacitor Plugins are installed..."
 # Install standard UI plugins (Splash Screen, Status Bar, Keyboard) which are essential for native polish
 # but often omitted from package.json. This ensures assets generated in Step 8 render correctly.
-npm install @capacitor/splash-screen @capacitor/status-bar @capacitor/keyboard @capacitor/preferences --save
+npm install @capacitor/splash-screen @capacitor/status-bar @capacitor/keyboard @capacitor/preferences @capacitor/app @capacitor/filesystem @capacitor/haptics @capacitor/local-notifications @capacitor/share --save
 
 # 6) Build Web App
 Write-Output "--- Step 6: Building Web Assets ---"
@@ -249,11 +249,23 @@ subprojects {
             }
         }
         
-        # Verify Widget Receiver registration
-        if ($manifestContent -notmatch "EngramWidgetReceiver") {
-            $widgetReceiverMeta = "`n        <receiver android:name=`".glance.EngramWidgetReceiver`" android:exported=`"true`">`n            <intent-filter>`n                <action android:name=`"android.appwidget.action.APPWIDGET_UPDATE`" />`n            </intent-filter>`n            <meta-data android:name=`"android.appwidget.provider`" android:resource=`"@xml/engram_widget_info`" />`n        </receiver>"
-            $manifestContent = $manifestContent -replace '</application>', "$widgetReceiverMeta`n    </application>"
-            Write-Output "Injected EngramWidgetReceiver into AndroidManifest.xml."
+        # Verify Widget Receiver registrations
+        $widgetsToInject = @(
+            @{Name="EngramWidgetReceiver"; Xml="engram_widget_info"; Label="Engram Widget"},
+            @{Name="FocusWidgetReceiver"; Xml="focus_widget_info"; Label="Focus Timer Widget"},
+            @{Name="ReviewWidgetReceiver"; Xml="review_widget_info"; Label="Due Reviews Widget"},
+            @{Name="StreakWidgetReceiver"; Xml="streak_widget_info"; Label="Activity Streak Widget"}
+        )
+
+        foreach ($w in $widgetsToInject) {
+            $name = $w.Name
+            $xml = $w.Xml
+            $label = $w.Label
+            if ($manifestContent -notmatch $name) {
+                $meta = "`n        <receiver android:name=`".glance.$name`" android:label=`"$label`" android:exported=`"true`">`n            <intent-filter>`n                <action android:name=`"android.appwidget.action.APPWIDGET_UPDATE`" />`n            </intent-filter>`n            <meta-data android:name=`"android.appwidget.provider`" android:resource=`"@xml/$xml`" />`n        </receiver>"
+                $manifestContent = $manifestContent -replace '</application>', "$meta`n    </application>"
+                Write-Output "Injected $name into AndroidManifest.xml."
+            }
         }
 
         # Verify OverlayTimerService registration
@@ -319,13 +331,16 @@ subprojects {
     }
 
     # 6. Ensure widget XML exists and is correct
-    $widgetXmlFile = "android\app\src\main\res\xml\engram_widget_info.xml"
-    $xmlDir = Split-Path $widgetXmlFile -Parent
-    if (-not (Test-Path $xmlDir)) {
-        New-Item -ItemType Directory -Force -Path $xmlDir | Out-Null
-    }
+    $widgetNames = @("engram_widget_info", "focus_widget_info", "review_widget_info", "streak_widget_info")
     
-    $expectedWidgetXml = @"
+    foreach ($widget in $widgetNames) {
+        $widgetXmlFile = "android\app\src\main\res\xml\$widget.xml"
+        $xmlDir = Split-Path $widgetXmlFile -Parent
+        if (-not (Test-Path $xmlDir)) {
+            New-Item -ItemType Directory -Force -Path $xmlDir | Out-Null
+        }
+        
+        $expectedWidgetXml = @"
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="110dp"
@@ -335,8 +350,9 @@ subprojects {
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />
 "@
-    Set-Content -Path $widgetXmlFile -Value $expectedWidgetXml -Encoding UTF8
-    Write-Output "Ensured engram_widget_info.xml exists with safe layout."
+        Set-Content -Path $widgetXmlFile -Value $expectedWidgetXml -Encoding UTF8
+        Write-Output "Ensured $widget.xml exists with safe layout."
+    }
 
     # 7. Enforce safe fallback layouts in other widget XMLs
     $xmlResDir = "android\app\src\main\res\xml"
