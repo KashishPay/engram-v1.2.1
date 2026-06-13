@@ -318,7 +318,27 @@ subprojects {
         Set-Content -Path $appGradleFile -Value $appGradleContent
     }
 
-    # 6. Enforce safe fallback layouts in widget XML
+    # 6. Ensure widget XML exists and is correct
+    $widgetXmlFile = "android\app\src\main\res\xml\engram_widget_info.xml"
+    $xmlDir = Split-Path $widgetXmlFile -Parent
+    if (-not (Test-Path $xmlDir)) {
+        New-Item -ItemType Directory -Force -Path $xmlDir | Out-Null
+    }
+    
+    $expectedWidgetXml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@android:layout/simple_list_item_1"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />
+"@
+    Set-Content -Path $widgetXmlFile -Value $expectedWidgetXml -Encoding UTF8
+    Write-Output "Ensured engram_widget_info.xml exists with safe layout."
+
+    # 7. Enforce safe fallback layouts in other widget XMLs
     $xmlResDir = "android\app\src\main\res\xml"
     if (Test-Path $xmlResDir) {
         Get-ChildItem -Path $xmlResDir -Filter "*.xml" | ForEach-Object {

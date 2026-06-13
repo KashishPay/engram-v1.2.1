@@ -272,6 +272,14 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
 
         const secondsRemaining = (durationMinutes * 60) - (title !== sessionTitle ? 0 : elapsed);
         scheduleFinishNotification(secondsRemaining);
+        
+        if (Capacitor.isNativePlatform()) {
+             console.log("[FocusContext] Calling OverlayTimer.startTimer for pomodoro");
+             OverlayTimer.startTimer({ 
+                 type: 'pomodoro', 
+                 title: title || 'Focus Timer' 
+             }).catch(console.error);
+        }
     };
 
     const startSubjectTimer = (sId: string, tId: string, tName: string) => {
@@ -286,6 +294,14 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         setSessionTitle(null);
         setIsRunning(true);
         lastTickRef.current = Date.now();
+        
+        if (Capacitor.isNativePlatform()) {
+             console.log("[FocusContext] Calling OverlayTimer.startTimer for subject");
+             OverlayTimer.startTimer({ 
+                 type: 'subject', 
+                 title: tName || 'Subject Timer' 
+             }).catch(console.error);
+        }
         cancelFinishNotification();
     };
 
