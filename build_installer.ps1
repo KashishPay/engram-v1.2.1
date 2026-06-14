@@ -142,8 +142,13 @@ if (Test-Path "android") {
         $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 36'
         $varsContent = $varsContent -replace 'minSdkVersion = \d+', 'minSdkVersion = 24'
         $varsContent = $varsContent -replace "androidxCoreVersion = '[^']+'", "androidxCoreVersion = '1.15.0'"
+        if ($varsContent -notmatch "kotlin_version") {
+            $varsContent = "ext.kotlin_version = '2.0.21'`n" + $varsContent
+        } else {
+            $varsContent = $varsContent -replace "kotlin_version\s*=\s*'[^']+'", "kotlin_version = '2.0.21'"
+        }
         Set-Content -Path $varsFile -Value $varsContent
-        Write-Output "Updated variables.gradle (compile/target=36, min=24, androidxCoreVersion=1.15.0)."
+        Write-Output "Updated variables.gradle (compile/target=36, min=24, androidxCoreVersion=1.15.0, kotlin_version=2.0.21)."
     }
 
     # 1.1 Update gradle-wrapper.properties
@@ -161,6 +166,15 @@ if (Test-Path "android") {
         $rootGradleContent = Get-Content $rootGradleFile -Raw
         # Also handle standard AGP classpaths as well as variables if any
         $rootGradleContent = $rootGradleContent -replace "classpath 'com\.android\.tools\.build:gradle:[^']+'", "classpath 'com.android.tools.build:gradle:8.9.1'"
+        $rootGradleContent = $rootGradleContent -replace "classpath 'org\.jetbrains\.kotlin:kotlin-gradle-plugin:[^']+'", "classpath `"org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21`""
+        if ($rootGradleContent -notmatch "compose-compiler-gradle-plugin") {
+            $rootGradleContent = $rootGradleContent -replace "classpath `"org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21`"", "classpath `"org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21`"`n        classpath `"org.jetbrains.kotlin:compose-compiler-gradle-plugin:2.0.21`""
+        }
+        
+        # Inject kotlin_version into buildscript block if not already present
+        if ($rootGradleContent -notmatch "ext\.kotlin_version") {
+            $rootGradleContent = $rootGradleContent -replace "buildscript\s*\{(?!\s*ext\.kotlin_version)", "buildscript {`n    ext.kotlin_version = '2.0.21'"
+        }
         
         # 1.3 Add subprojects block for Java/Kotlin 17 enforcement
         if ($rootGradleContent -notmatch "subprojects\s*\{") {
@@ -325,6 +339,18 @@ subprojects {
                 $appGradleContent = $appGradleContent -replace 'android\s*\{', "android {`n    buildFeatures {`n        compose true`n    }"
             }
             Write-Output "Enabled Compose buildFeatures in app/build.gradle."
+        }
+
+        # Remove deprecated composeOptions for Kotlin 2.0+
+        if ($appGradleContent -match 'composeOptions\s*\{(?:\s*kotlinCompilerExtensionVersion\s*[^}]*\s*)?\}') {
+            $appGradleContent = [regex]::Replace($appGradleContent, '(?s)composeOptions\s*\{(?:[^{}]*|\{[^{}]*\})*\}', '')
+            Write-Output "Removed deprecated composeOptions from app/build.gradle for Kotlin 2.0+ compatibility."
+        }
+        
+        # Apply JetBrains Compose Compiler plugin
+        if ($appGradleContent -notmatch "org\.jetbrains\.kotlin\.plugin\.compose") {
+            $appGradleContent = $appGradleContent -replace "apply plugin:\s*'org\.jetbrains\.kotlin\.android'", "apply plugin: 'org.jetbrains.kotlin.android'`napply plugin: 'org.jetbrains.kotlin.plugin.compose'"
+            Write-Output "Applied org.jetbrains.kotlin.plugin.compose plugin in app/build.gradle."
         }
 
         Set-Content -Path $appGradleFile -Value $appGradleContent
