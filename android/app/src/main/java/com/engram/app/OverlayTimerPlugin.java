@@ -66,4 +66,14 @@ public class OverlayTimerPlugin extends Plugin {
         }
         call.resolve();
     }
+
+    @PluginMethod
+    public void updateWidgets(PluginCall call) {
+        try {
+            com.engram.app.glance.WidgetUpdater.updateAllWidgets(getContext());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        call.resolve();
+    }
 }

@@ -31,6 +31,7 @@ import { SyncService, SyncPayload } from './services/sync';
 import { initNotificationListeners } from './utils/notifications';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
+import OverlayTimer from './plugins/OverlayTimer';
 
 export const App: React.FC = () => {
     // [AUTH DIAGNOSIS] Boot Logs & Upload Diagnostics
@@ -676,6 +677,8 @@ export const App: React.FC = () => {
                 await Preferences.set({ key: 'widget_data_due', value: dueCount.toString() });
                 await Preferences.set({ key: 'widget_data_streak', value: currentStreak.toString() });
                 await Preferences.set({ key: 'widget_data_progress', value: progress.toString() });
+                
+                await OverlayTimer.updateWidgets();
             } catch (err) {
                 console.error("[WidgetSync] Error syncing widget data to preferences", err);
             }

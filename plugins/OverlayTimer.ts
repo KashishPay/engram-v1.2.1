@@ -10,6 +10,7 @@ export interface OverlayTimerPlugin {
   startTimer(config: OverlayTimerConfig): Promise<void>;
   stopTimer(): Promise<void>;
   updateTimer(options: { time: number }): Promise<void>;
+  updateWidgets(): Promise<void>;
 }
 
 export class OverlayTimerWeb extends WebPlugin implements OverlayTimerPlugin {
@@ -21,6 +22,9 @@ export class OverlayTimerWeb extends WebPlugin implements OverlayTimerPlugin {
   }
   async updateTimer(_options: { time: number }): Promise<void> {
     // console.log('OverlayTimerWeb: updateTimer', _options);
+  }
+  async updateWidgets(): Promise<void> {
+    console.log('OverlayTimerWeb: updateWidgets');
   }
 }
 

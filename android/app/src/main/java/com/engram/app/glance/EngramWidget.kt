@@ -16,6 +16,7 @@ import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
@@ -114,7 +115,10 @@ class StartTimerAction : ActionCallback {
         val prefs = context.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE)
         prefs.edit().putString("widget_action_start_timer", System.currentTimeMillis().toString()).apply()
         
-        EngramWidget().update(context, glanceId)
+        EngramWidget().updateAll(context)
+        FocusWidget().updateAll(context)
+        ReviewWidget().updateAll(context)
+        StreakWidget().updateAll(context)
     }
 }
 
