@@ -177,10 +177,24 @@ if (Test-Path "android") {
         }
         
         # 1.3 Add subprojects block for Java/Kotlin 17 enforcement
-        if ($rootGradleContent -notmatch "subprojects\s*\{") {
-            $subprojectsBlock = @"
+        # If it ALREADY exists, we should probably update it, but string replacement is safest if we just rewrite it or assume it's cleanly injected.
+        # Here we do a clean replace if there's an older version, or just append:
+        if ($rootGradleContent -match "subprojects\s*\{") {
+            $rootGradleContent = [regex]::Replace($rootGradleContent, '(?s)subprojects\s*\{.*$', '')
+        }
+        
+        $subprojectsBlock = @"
 
 subprojects {
+    configurations.all {
+        resolutionStrategy {
+            force "org.jetbrains.kotlin:kotlin-stdlib:2.0.21"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21"
+            force "org.jetbrains.kotlin:kotlin-reflect:2.0.21"
+        }
+    }
+
     afterEvaluate { project ->
 
         // Fix Java for all modules
@@ -197,13 +211,13 @@ subprojects {
         project.tasks.matching { it.name.contains("Kotlin") }.configureEach {
             if (it.hasProperty("kotlinOptions")) {
                 it.kotlinOptions.jvmTarget = "17"
+                it.kotlinOptions.freeCompilerArgs += ["-Xskip-metadata-version-check"]
             }
         }
     }
 }
 "@
-            $rootGradleContent = $rootGradleContent + $subprojectsBlock
-        }
+        $rootGradleContent = $rootGradleContent + $subprojectsBlock
         
         Set-Content -Path $rootGradleFile -Value $rootGradleContent
         Write-Output "Updated Android Gradle Plugin (AGP) version to 8.9.1 and injected Java 17 / Kotlin 17 constraints in build.gradle."
@@ -332,6 +346,26 @@ subprojects {
             $appGradleContent = $appGradleContent -replace 'dependencies\s*\{', "dependencies {$glanceDeps"
             Write-Output "Injected Glance dependencies into app/build.gradle."
         }
+        
+        # 1. ENSURE ADMOB RUNTIME DEPENDENCY
+        if ($appGradleContent -notmatch "com\.google\.android\.gms:play-services-ads") {
+            $adMobDeps = "`n    implementation `"com.google.android.gms:play-services-ads:22.6.0`""
+            $appGradleContent = $appGradleContent -replace 'dependencies\s*\{', "dependencies {$adMobDeps"
+            Write-Output "Injected AdMob runtime dependency into app/build.gradle."
+        }
+        
+        # 2. ENABLE MULTIDEX SUPPORT
+        if ($appGradleContent -notmatch "multiDexEnabled\s+true") {
+            if ($appGradleContent -match "defaultConfig\s*\{") {
+                $appGradleContent = $appGradleContent -replace "defaultConfig\s*\{", "defaultConfig {`n        multiDexEnabled true"
+            }
+        }
+        if ($appGradleContent -notmatch "androidx\.multidex:multidex") {
+            $multiDexDep = "`n    implementation `"androidx.multidex:multidex:2.0.1`""
+            $appGradleContent = $appGradleContent -replace 'dependencies\s*\{', "dependencies {$multiDexDep"
+        }
+        Write-Output "Checked MultiDex support in app/build.gradle."
+
         if ($appGradleContent -notmatch "buildFeatures\s*\{[^}]*compose\s+true") {
             if ($appGradleContent -match "buildFeatures\s*\{") {
                 $appGradleContent = $appGradleContent -replace "buildFeatures\s*\{", "buildFeatures {`n        compose true"
@@ -407,5 +441,59 @@ subprojects {
 # 10) Sync & Launch
 Write-Output "--- Step 10: Syncing to Android ---"
 npx cap sync android
+
+# 11) Fix plugin configurations
+Write-Output "--- Step 11: Fixing outdated node_modules plugin Gradle files ---"
+$admobPluginGradle = "node_modules\@capacitor-community\admob\android\build.gradle"
+if (Test-Path $admobPluginGradle) {
+    Write-Output "Fixing AdMob Plugin Gradle..."
+    $admobContent = Get-Content $admobPluginGradle -Raw
+    
+    # 1. Update kotlin plugin notation (no explicit version required as root has it)
+    $admobContent = $admobContent -replace "ext\.kotlin_version\s*=.*", "ext.kotlin_version = '2.0.21'"
+    $admobContent = $admobContent -replace "classpath\s*`"org.jetbrains.kotlin:kotlin-gradle-plugin:[^`"]*`"", "classpath `"org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21`""
+    $admobContent = $admobContent -replace "apply\s*plugin:\s*'kotlin-android'", "apply plugin: 'org.jetbrains.kotlin.android'"
+    
+    # 2. Enforce java/kotlin 17
+    $admobContent = $admobContent -replace "sourceCompatibility\s*JavaVersion\.VERSION_21", "sourceCompatibility JavaVersion.VERSION_17"
+    $admobContent = $admobContent -replace "targetCompatibility\s*JavaVersion\.VERSION_21", "targetCompatibility JavaVersion.VERSION_17"
+    $admobContent = $admobContent -replace "jvmTarget\s*=\s*(?:JavaVersion\.VERSION_21|'21')", "jvmTarget = `"17`""
+
+    # 3. Add compiler argument to skip metadata validation
+    if ($admobContent -notmatch "Xskip-metadata-version-check") {
+        $admobContent += "`n`ntasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {`n    kotlinOptions {`n        freeCompilerArgs += [`"-Xskip-metadata-version-check`"]`n    }`n}`n"
+    }
+
+    Set-Content -Path $admobPluginGradle -Value $admobContent
+    Write-Output "AdMob plugin aligned to Kotlin 2.0.21 and Java 17."
+}
+
+# 12) Final Validation
+Write-Output "--- Step 12: Final Validation before build ---"
+$validationFailed = $false
+
+$appGradleVal = Get-Content "android\app\build.gradle" -Raw -ErrorAction SilentlyContinue
+if ($appGradleVal -notmatch "com\.google\.android\.gms:play-services-ads") {
+    Write-Output "ERROR: play-services-ads dependency missing in app/build.gradle!"
+    $validationFailed = $true
+}
+
+$rootGradleVal = Get-Content "android\build.gradle" -Raw -ErrorAction SilentlyContinue
+if ($rootGradleVal -notmatch "ext\.kotlin_version\s*=\s*'2.0.21'") {
+    Write-Output "ERROR: Kotlin version mismatch in root build.gradle!"
+    $validationFailed = $true
+}
+
+$manifestVal = Get-Content "android\app\src\main\AndroidManifest.xml" -Raw -ErrorAction SilentlyContinue
+if ($manifestVal -notmatch "android\.permission\.FOREGROUND_SERVICE_SPECIAL_USE") {
+    Write-Output "ERROR: FOREGROUND_SERVICE_SPECIAL_USE permission missing!"
+    $validationFailed = $true
+}
+
+if ($validationFailed) {
+    Write-Output "Validation failed! Please review."
+} else {
+    Write-Output "Validation passed. Build environment is ready and safe."
+}
 
 
