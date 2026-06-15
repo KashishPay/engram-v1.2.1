@@ -27,20 +27,20 @@ public class OverlayTimerService extends Service {
 
     private boolean isViewAttached = false;
     private WindowManager windowManager;
-    private View floatingView;
-    private TextView timerText;
-    private TextView titleText;
+    private android.widget.FrameLayout floatingView;
+    private android.webkit.WebView overlayWebView;
     private String currentType = "pomodoro";
     private String currentTitle = "Focus Timer";
 
     private WindowManager.LayoutParams params;
 
     private int currentTimeInSeconds = -1;
+    private boolean isRunning = true;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable timerRunnable = new Runnable() {
         @Override
         public void run() {
-            if (currentTimeInSeconds > 0) {
+            if (currentTimeInSeconds > 0 && isRunning) {
                 currentTimeInSeconds--;
                 updateUIText();
                 handler.postDelayed(this, 1000);
@@ -49,26 +49,16 @@ public class OverlayTimerService extends Service {
     };
 
     private void updateUIText() {
-        if (timerText != null && currentTimeInSeconds >= 0) {
+        if (overlayWebView != null && currentTimeInSeconds >= 0) {
             int minutes = currentTimeInSeconds / 60;
             int seconds = currentTimeInSeconds % 60;
-            timerText.setText(String.format("%02d:%02d", minutes, seconds));
-        }
-        if (titleText != null) {
-            if ("pomodoro".equals(currentType)) {
-                titleText.setText("🍅 " + currentTitle);
-            } else {
-                titleText.setText("📘 " + currentTitle);
-            }
-        }
-        if (floatingView != null) {
-            // Update background color based on type
-            android.graphics.drawable.GradientDrawable shape = (android.graphics.drawable.GradientDrawable) floatingView.getBackground();
-            if ("pomodoro".equals(currentType)) {
-                shape.setColor(Color.parseColor("#E53935")); // Red
-            } else {
-                shape.setColor(Color.parseColor("#1E88E5")); // Blue
-            }
+            String timeStr = String.format("%02d:%02d", minutes, seconds);
+            String titleStr = currentTitle;
+            String typeStr = currentType;
+            final String js = String.format("javascript:updateOverlay('%s', '%s', '%s', %b)", timeStr, titleStr, typeStr, isRunning);
+            handler.post(() -> {
+                overlayWebView.evaluateJavascript(js, null);
+            });
         }
     }
 
@@ -115,33 +105,94 @@ public class OverlayTimerService extends Service {
     private void initOverlay() {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         
-        // Simple layout constructed programmatically to avoid needing XML files
-        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
-        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
-        layout.setGravity(Gravity.CENTER);
-        
-        // Set rounded corners or a simple shape, here we just use basic View properties
-        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
-        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
-        shape.setCornerRadii(new float[] { 30, 30, 30, 30, 30, 30, 30, 30 });
-        shape.setColor(Color.parseColor("#E53935"));
-        layout.setBackground(shape);
-        layout.setPadding(20, 20, 20, 20);
+        // Create an interceptable FrameLayout to allow dragging
+        android.widget.FrameLayout layout = new android.widget.FrameLayout(this) {
+            private int initialX;
+            private int initialY;
+            private float initialTouchX;
+            private float initialTouchY;
+            private boolean isDragging = false;
 
-        titleText = new TextView(this);
-        titleText.setText("🍅 Focus Timer");
-        titleText.setTextColor(Color.WHITE);
-        titleText.setTextSize(14);
-        titleText.setGravity(Gravity.CENTER);
-        layout.addView(titleText);
+            @Override
+            public boolean onInterceptTouchEvent(MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        initialX = params.x;
+                        initialY = params.y;
+                        initialTouchX = event.getRawX();
+                        initialTouchY = event.getRawY();
+                        isDragging = false;
+                        break;
+                    case MotionEvent.ACTION_MOVE:
+                        float diffX = Math.abs(event.getRawX() - initialTouchX);
+                        float diffY = Math.abs(event.getRawY() - initialTouchY);
+                        if (diffX > 10 || diffY > 10) {
+                            isDragging = true;
+                            return true; // Intercept for dragging
+                        }
+                        break;
+                }
+                return super.onInterceptTouchEvent(event);
+            }
 
-        timerText = new TextView(this);
-        timerText.setText("25:00");
-        timerText.setTextColor(Color.WHITE);
-        timerText.setTextSize(24);
-        timerText.setGravity(Gravity.CENTER);
-        timerText.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        layout.addView(timerText);
+            @Override
+            public boolean onTouchEvent(MotionEvent event) {
+                if (!isDragging) {
+                    return super.onTouchEvent(event);
+                }
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_MOVE:
+                        params.x = initialX + (int) (event.getRawX() - initialTouchX);
+                        params.y = initialY + (int) (event.getRawY() - initialTouchY);
+                        windowManager.updateViewLayout(this, params);
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        isDragging = false;
+                        return true;
+                }
+                return super.onTouchEvent(event);
+            }
+        };
+
+        layout.setBackgroundColor(Color.TRANSPARENT);
+
+        overlayWebView = new android.webkit.WebView(this);
+        overlayWebView.getSettings().setJavaScriptEnabled(true);
+        overlayWebView.getSettings().setDomStorageEnabled(true);
+        overlayWebView.setBackgroundColor(Color.TRANSPARENT);
+        overlayWebView.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public void resetTimer() {
+                Intent intent = new Intent(OverlayTimerService.this, OverlayTimerService.class);
+                intent.setAction("RESET");
+                startService(intent);
+            }
+            @android.webkit.JavascriptInterface
+            public void pauseTimer() {
+                Intent intent = new Intent(OverlayTimerService.this, OverlayTimerService.class);
+                intent.setAction("PAUSE");
+                startService(intent);
+            }
+            @android.webkit.JavascriptInterface
+            public void resumeTimer() {
+                Intent intent = new Intent(OverlayTimerService.this, OverlayTimerService.class);
+                intent.setAction("RESUME");
+                startService(intent);
+            }
+            @android.webkit.JavascriptInterface
+            public void stopTimer() {
+                Intent intent = new Intent(OverlayTimerService.this, OverlayTimerService.class);
+                intent.setAction("STOP");
+                startService(intent);
+            }
+        }, "OverlayManager");
+        overlayWebView.loadUrl("file:///android_asset/overlay.html");
+
+        int widthPx = (int) (320 * getResources().getDisplayMetrics().density);
+        int heightPx = (int) (80 * getResources().getDisplayMetrics().density);
+        layout.addView(overlayWebView, new android.widget.FrameLayout.LayoutParams(widthPx, heightPx));
+
         floatingView = layout;
 
         int layoutFlag;
@@ -162,33 +213,6 @@ public class OverlayTimerService extends Service {
         params.gravity = Gravity.TOP | Gravity.START;
         params.x = 0;
         params.y = 100;
-
-        floatingView.setOnTouchListener(new View.OnTouchListener() {
-            private int initialX;
-            private int initialY;
-            private float initialTouchX;
-            private float initialTouchY;
-
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        initialX = params.x;
-                        initialY = params.y;
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
-                        return true;
-                    case MotionEvent.ACTION_UP:
-                        return true;
-                    case MotionEvent.ACTION_MOVE:
-                        params.x = initialX + (int) (event.getRawX() - initialTouchX);
-                        params.y = initialY + (int) (event.getRawY() - initialTouchY);
-                        windowManager.updateViewLayout(floatingView, params);
-                        return true;
-                }
-                return false;
-            }
-        });
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
             android.util.Log.e("OverlayTimerService", "SYSTEM_ALERT_WINDOW permission not granted. Cannot draw overlay.");
@@ -229,15 +253,33 @@ public class OverlayTimerService extends Service {
                 }
                 android.util.Log.d("OverlayTimerService", "Starting timer: type=" + currentType + " title=" + currentTitle);
                 updateUIText();
+            } else if ("PAUSE".equals(action)) {
+                android.util.Log.d("OverlayTimerService", "Pausing timer");
+                isRunning = false;
+                handler.removeCallbacks(timerRunnable);
+                updateUIText();
+            } else if ("RESUME".equals(action)) {
+                android.util.Log.d("OverlayTimerService", "Resuming timer");
+                isRunning = true;
+                handler.removeCallbacks(timerRunnable);
+                handler.postDelayed(timerRunnable, 1000);
+                updateUIText();
             } else if ("STOP".equals(action)) {
                 android.util.Log.d("OverlayTimerService", "Stopping timer update loop");
                 handler.removeCallbacks(timerRunnable);
                 stopSelf();
                 return START_NOT_STICKY;
+            } else if ("RESET".equals(action)) {
+                android.util.Log.d("OverlayTimerService", "Resetting timer");
+                currentTimeInSeconds = "pomodoro".equals(currentType) ? 25 * 60 : 0;
+                isRunning = false;
+                handler.removeCallbacks(timerRunnable);
+                updateUIText();
             } else if ("UPDATE".equals(action)) {
                 int time = intent.getIntExtra("time", 0);
                 android.util.Log.d("OverlayTimerService", "Updating timer with time: " + time);
                 currentTimeInSeconds = time;
+                isRunning = true;
                 updateUIText();
                 handler.removeCallbacks(timerRunnable);
                 handler.postDelayed(timerRunnable, 1000);

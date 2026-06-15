@@ -28,6 +28,7 @@ interface FocusContextType extends FocusState {
     pauseSession: () => void;
     resumeSession: () => void;
     resetSession: () => void;
+    restartCurrentSession: () => void;
     setMode: (mode: 'stopwatch' | 'pomodoro') => void;
     setSessionDuration: (minutes: number) => void;
     setActiveSoundId: (id: string | null) => void;
@@ -321,6 +322,14 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         }
     };
 
+    const restartCurrentSession = () => {
+        setIsRunning(false);
+        setElapsed(0);
+        lastTickRef.current = 0;
+        localStorage.setItem(getFocusKey('lastTick'), '0');
+        cancelFinishNotification();
+    };
+
     const resetSession = () => {
         setIsRunning(false);
         setElapsed(0);
@@ -397,7 +406,7 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
             type: timerType,
             mode, duration, elapsed, isRunning, 
             sessionTitle, subjectId, topicId, topicName, activeSoundId,
-            startPomodoro, startSubjectTimer, pauseSession, resumeSession, resetSession, setMode, setSessionDuration, setActiveSoundId, logAndReset, formatTime
+            startPomodoro, startSubjectTimer, pauseSession, resumeSession, resetSession, restartCurrentSession, setMode, setSessionDuration, setActiveSoundId, logAndReset, formatTime
         }}>
             {children}
         </FocusContext.Provider>
