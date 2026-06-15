@@ -25,6 +25,7 @@ import androidx.core.app.NotificationCompat;
 
 public class OverlayTimerService extends Service {
 
+    private boolean isViewAttached = false;
     private WindowManager windowManager;
     private View floatingView;
     private TextView timerText;
@@ -195,6 +196,7 @@ public class OverlayTimerService extends Service {
         }
 
         windowManager.addView(floatingView, params);
+        isViewAttached = true;
         android.util.Log.d("OverlayTimerService", "View attached to WindowManager");
         
         // Read initial state from SharedPreferences (Capacitor stores it as CapacitorStorage)
@@ -248,8 +250,13 @@ public class OverlayTimerService extends Service {
     public void onDestroy() {
         handler.removeCallbacks(timerRunnable);
         super.onDestroy();
-        if (floatingView != null) {
-            windowManager.removeView(floatingView);
+        if (floatingView != null && isViewAttached) {
+            try {
+                windowManager.removeView(floatingView);
+                isViewAttached = false;
+            } catch (Exception e) {
+                android.util.Log.e("OverlayTimerService", "View removal failed", e);
+            }
         }
     }
 }
