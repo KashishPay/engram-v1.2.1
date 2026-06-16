@@ -15,11 +15,9 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.TextView;
 
 import androidx.core.app.NotificationCompat;
 
@@ -234,7 +232,7 @@ public class OverlayTimerService extends Service {
                 handler.removeCallbacks(timerRunnable);
                 handler.postDelayed(timerRunnable, 1000);
             } catch (Exception e) {
-                timerText.setText(savedTime);
+                android.util.Log.e("OverlayTimerService", "Error parsing saved time", e);
             }
         }
     }

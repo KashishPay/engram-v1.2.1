@@ -298,7 +298,7 @@ subprojects {
 
         # Verify OverlayTimerService registration
         if ($manifestContent -notmatch "OverlayTimerService") {
-            $serviceMeta = "`n        <service android:name=`".OverlayTimerService`" android:enabled=`"true`" android:exported=`"false`" android:foregroundServiceType=`"specialUse`" />"
+            $serviceMeta = "`n        <service android:name=`".OverlayTimerService`" android:enabled=`"true`" android:exported=`"false`" android:foregroundServiceType=`"specialUse`">`n            <property android:name=`"android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE`" android:value=`"floating_timer`" />`n        </service>"
             $manifestContent = $manifestContent -replace '</application>', "$serviceMeta`n    </application>"
             Write-Output "Injected OverlayTimerService into AndroidManifest.xml."
         }
