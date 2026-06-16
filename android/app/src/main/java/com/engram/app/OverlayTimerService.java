@@ -33,18 +33,8 @@ public class OverlayTimerService extends Service {
     private WindowManager.LayoutParams params;
 
     private int currentTimeInSeconds = -1;
-    private boolean isRunning = true;
+    private boolean isRunning = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final Runnable timerRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (currentTimeInSeconds > 0 && isRunning) {
-                currentTimeInSeconds--;
-                updateUIText();
-                handler.postDelayed(this, 1000);
-            }
-        }
-    };
 
     private void updateUIText() {
         if (overlayWebView != null && currentTimeInSeconds >= 0) {
@@ -60,10 +50,17 @@ public class OverlayTimerService extends Service {
         }
     }
 
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null; // Not bound
+    private void notifyApp(String state) {
+        SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
+        prefs.edit().putString("timer_state", state).apply();
+        
+        Intent bcast = new Intent("com.engram.app.TIMER_STATE_CHANGED");
+        bcast.putExtra("state", state);
+        sendBroadcast(bcast);
     }
+
+    @Override
+    public IBinder onBind(Intent intent) { return null; }
 
     @Override
     public void onCreate() {
@@ -73,7 +70,6 @@ public class OverlayTimerService extends Service {
         Notification notification = new NotificationCompat.Builder(this, "OVERLAY_CHANNEL")
                 .setContentTitle("Pomodoro Timer")
                 .setContentText("Overlay is active")
-                // Need a valid icon, using default android one for now
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .build();
         
@@ -103,7 +99,6 @@ public class OverlayTimerService extends Service {
     private void initOverlay() {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         
-        // Create an interceptable FrameLayout to allow dragging
         android.widget.FrameLayout layout = new android.widget.FrameLayout(this) {
             private int initialX;
             private int initialY;
@@ -126,7 +121,7 @@ public class OverlayTimerService extends Service {
                         float diffY = Math.abs(event.getRawY() - initialTouchY);
                         if (diffX > 10 || diffY > 10) {
                             isDragging = true;
-                            return true; // Intercept for dragging
+                            return true;
                         }
                         break;
                 }
@@ -161,28 +156,40 @@ public class OverlayTimerService extends Service {
         overlayWebView.setBackgroundColor(Color.TRANSPARENT);
         overlayWebView.addJavascriptInterface(new Object() {
             @android.webkit.JavascriptInterface
+            public void setCollapsed(boolean collapsed) {
+                handler.post(() -> {
+                    if (collapsed) {
+                        int widthPx = (int) (140 * getResources().getDisplayMetrics().density);
+                        int heightPx = (int) (55 * getResources().getDisplayMetrics().density);
+                        overlayWebView.setLayoutParams(new android.widget.FrameLayout.LayoutParams(widthPx, heightPx));
+                    } else {
+                        int widthPx = (int) (320 * getResources().getDisplayMetrics().density);
+                        int heightPx = (int) (80 * getResources().getDisplayMetrics().density);
+                        overlayWebView.setLayoutParams(new android.widget.FrameLayout.LayoutParams(widthPx, heightPx));
+                    }
+                    windowManager.updateViewLayout(floatingView, params);
+                });
+            }
+
+            @android.webkit.JavascriptInterface
             public void resetTimer() {
-                Intent intent = new Intent(OverlayTimerService.this, OverlayTimerService.class);
-                intent.setAction("RESET");
-                startService(intent);
+                notifyApp("reset");
             }
             @android.webkit.JavascriptInterface
             public void pauseTimer() {
-                Intent intent = new Intent(OverlayTimerService.this, OverlayTimerService.class);
-                intent.setAction("PAUSE");
-                startService(intent);
+                notifyApp("paused");
+                isRunning = false;
+                updateUIText();
             }
             @android.webkit.JavascriptInterface
             public void resumeTimer() {
-                Intent intent = new Intent(OverlayTimerService.this, OverlayTimerService.class);
-                intent.setAction("RESUME");
-                startService(intent);
+                notifyApp("resumed");
+                isRunning = true;
+                updateUIText();
             }
             @android.webkit.JavascriptInterface
             public void stopTimer() {
-                Intent intent = new Intent(OverlayTimerService.this, OverlayTimerService.class);
-                intent.setAction("STOP");
-                startService(intent);
+                notifyApp("stopped");
             }
         }, "OverlayManager");
         overlayWebView.loadUrl("file:///android_asset/overlay.html");
@@ -221,7 +228,6 @@ public class OverlayTimerService extends Service {
         isViewAttached = true;
         android.util.Log.d("OverlayTimerService", "View attached to WindowManager");
         
-        // Read initial state from SharedPreferences (Capacitor stores it as CapacitorStorage)
         SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
         String savedTime = prefs.getString("pomodoroTime", "");
         if (!savedTime.isEmpty()) {
@@ -229,11 +235,7 @@ public class OverlayTimerService extends Service {
                 String[] parts = savedTime.split(":");
                 currentTimeInSeconds = Integer.parseInt(parts[0]) * 60 + Integer.parseInt(parts[1]);
                 updateUIText();
-                handler.removeCallbacks(timerRunnable);
-                handler.postDelayed(timerRunnable, 1000);
-            } catch (Exception e) {
-                android.util.Log.e("OverlayTimerService", "Error parsing saved time", e);
-            }
+            } catch (Exception e) {}
         }
     }
 
@@ -249,38 +251,21 @@ public class OverlayTimerService extends Service {
                 if (intent.hasExtra("title")) {
                     currentTitle = intent.getStringExtra("title");
                 }
-                android.util.Log.d("OverlayTimerService", "Starting timer: type=" + currentType + " title=" + currentTitle);
+                isRunning = true;
                 updateUIText();
             } else if ("PAUSE".equals(action)) {
-                android.util.Log.d("OverlayTimerService", "Pausing timer");
                 isRunning = false;
-                handler.removeCallbacks(timerRunnable);
                 updateUIText();
             } else if ("RESUME".equals(action)) {
-                android.util.Log.d("OverlayTimerService", "Resuming timer");
                 isRunning = true;
-                handler.removeCallbacks(timerRunnable);
-                handler.postDelayed(timerRunnable, 1000);
                 updateUIText();
             } else if ("STOP".equals(action)) {
-                android.util.Log.d("OverlayTimerService", "Stopping timer update loop");
-                handler.removeCallbacks(timerRunnable);
                 stopSelf();
                 return START_NOT_STICKY;
-            } else if ("RESET".equals(action)) {
-                android.util.Log.d("OverlayTimerService", "Resetting timer");
-                currentTimeInSeconds = "pomodoro".equals(currentType) ? 25 * 60 : 0;
-                isRunning = false;
-                handler.removeCallbacks(timerRunnable);
-                updateUIText();
             } else if ("UPDATE".equals(action)) {
                 int time = intent.getIntExtra("time", 0);
-                android.util.Log.d("OverlayTimerService", "Updating timer with time: " + time);
                 currentTimeInSeconds = time;
-                isRunning = true;
                 updateUIText();
-                handler.removeCallbacks(timerRunnable);
-                handler.postDelayed(timerRunnable, 1000);
             }
         }
         return START_STICKY;
@@ -288,15 +273,12 @@ public class OverlayTimerService extends Service {
 
     @Override
     public void onDestroy() {
-        handler.removeCallbacks(timerRunnable);
         super.onDestroy();
         if (floatingView != null && isViewAttached) {
             try {
                 windowManager.removeView(floatingView);
                 isViewAttached = false;
-            } catch (Exception e) {
-                android.util.Log.e("OverlayTimerService", "View removal failed", e);
-            }
+            } catch (Exception e) {}
         }
     }
 }

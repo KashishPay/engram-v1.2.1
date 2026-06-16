@@ -401,6 +401,31 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         return () => window.removeEventListener('start_widget_timer', handleWidgetStart);
     }, [isRunning]);
 
+    useEffect(() => {
+        let listener: any = null;
+        if (Capacitor.isNativePlatform()) {
+            OverlayTimer.addListener('timerStateChanged', (info: any) => {
+                const state = info.state;
+                console.log("[FocusContext] Received sync from Overlay:", state);
+                if (state === 'paused') {
+                    setIsRunning(false);
+                    cancelFinishNotification();
+                } else if (state === 'resumed') {
+                    setIsRunning(true);
+                    lastTickRef.current = Date.now();
+                } else if (state === 'reset') {
+                    restartCurrentSession();
+                } else if (state === 'stopped') {
+                    logAndReset();
+                }
+            }).then((l: any) => listener = l);
+        }
+        
+        return () => {
+            if (listener) listener.remove();
+        }
+    }, [restartCurrentSession, logAndReset]);
+
     return (
         <FocusContext.Provider value={{
             type: timerType,

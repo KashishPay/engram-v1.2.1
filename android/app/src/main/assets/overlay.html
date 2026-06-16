@@ -22,18 +22,18 @@
             <div id="clockWrapper" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 animate-pulse bg-white/20">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
-            <div class="min-w-0 flex flex-col">
+            <div id="titleCol" class="min-w-0 flex flex-col">
                 <span class="text-[9px] uppercase opacity-70 tracking-wider leading-none">Focusing</span>
                 <span id="titleText" class="text-sm font-bold truncate max-w-[130px] pr-2">🍅 Focus Timer</span>
             </div>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-2 shrink-0 h-full">
             <span id="timerText" class="font-mono font-bold text-lg tabular-nums pointer-events-none select-none mr-2">
                 25:00
             </span>
             
-            <div class="flex items-center gap-1.5 bg-black/50 rounded-full p-1 shadow-inner border border-black/20">
+            <div id="controlsWrap" class="flex items-center gap-1.5 bg-black/50 rounded-full p-1 shadow-inner border border-black/20 transition-all duration-300 transform origin-right">
                 <button id="pauseBtn" onclick="window.OverlayManager && window.OverlayManager.pauseTimer()" class="w-8 h-8 rounded-full flex items-center justify-center transition bg-white/15 hover:bg-white/25 text-white shadow-sm" title="Pause">
                     <svg id="pauseIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
                 </button>
@@ -43,11 +43,44 @@
                 <button onclick="window.OverlayManager && window.OverlayManager.stopTimer()" class="w-8 h-8 rounded-full flex items-center justify-center bg-white/15 hover:bg-white/25 transition text-green-400 shadow-sm" title="Log & Finish">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 </button>
+                <button onclick="toggleCollapse()" class="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/15 transition text-gray-300 shadow-sm" title="Minimize">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>
+                </button>
             </div>
+            
+            <button id="expandBtn" onclick="toggleCollapse()" class="hidden w-8 h-8 shrink-0 rounded-full items-center justify-center bg-black/50 text-white border border-white/20 shadow-sm transition" title="Expand">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+            </button>
         </div>
     </div>
     
     <script>
+        let isCollapsed = false;
+        function toggleCollapse() {
+            isCollapsed = !isCollapsed;
+            const controlsWrap = document.getElementById('controlsWrap');
+            const expandBtn = document.getElementById('expandBtn');
+            const titleCol = document.getElementById('titleCol');
+            
+            if (isCollapsed) {
+                controlsWrap.classList.add('hidden');
+                expandBtn.classList.remove('hidden');
+                expandBtn.classList.add('flex');
+                if(titleCol) titleCol.classList.add('hidden');
+                if (window.OverlayManager) {
+                   window.OverlayManager.setCollapsed(true);
+                }
+            } else {
+                controlsWrap.classList.remove('hidden');
+                expandBtn.classList.add('hidden');
+                expandBtn.classList.remove('flex');
+                if(titleCol) titleCol.classList.remove('hidden');
+                if (window.OverlayManager) {
+                   window.OverlayManager.setCollapsed(false);
+                }
+            }
+        }
+
         function updateOverlay(time, title, type, isRunning) {
             document.getElementById('timerText').innerText = time;
             document.getElementById('titleText').innerText = title;

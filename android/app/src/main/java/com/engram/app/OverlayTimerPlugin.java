@@ -4,6 +4,11 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -11,6 +16,37 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 @CapacitorPlugin(name = "OverlayTimer")
 public class OverlayTimerPlugin extends Plugin {
+
+    private BroadcastReceiver stateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String state = intent.getStringExtra("state");
+            JSObject ret = new JSObject();
+            ret.put("state", state);
+            notifyListeners("timerStateChanged", ret);
+        }
+    };
+
+    @Override
+    public void load() {
+        super.load();
+        IntentFilter filter = new IntentFilter("com.engram.app.TIMER_STATE_CHANGED");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getContext().registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            getContext().registerReceiver(stateReceiver, filter);
+        }
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        if (stateReceiver != null) {
+            try {
+                getContext().unregisterReceiver(stateReceiver);
+            } catch (Exception e) {}
+        }
+        super.handleOnDestroy();
+    }
 
     @PluginMethod
     public void startTimer(PluginCall call) {
