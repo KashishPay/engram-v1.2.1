@@ -53,6 +53,7 @@ subprojects {
         project.tasks.matching { it.name.contains("Kotlin") }.configureEach {
             if (it.hasProperty("kotlinOptions")) {
                 it.kotlinOptions.jvmTarget = "17"
+                it.kotlinOptions.freeCompilerArgs += ["-Xskip-metadata-version-check"]
             }
         }
     }

@@ -56,6 +56,7 @@ export const WidgetsView: React.FC<WidgetsViewProps> = ({ studyLog, habits, navi
     };
 
     // Simulated widget rendering in the "Add to Home Screen" modal
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const renderWidgetPreview = (id: string) => {
         if (id === 'focus') {
             return (

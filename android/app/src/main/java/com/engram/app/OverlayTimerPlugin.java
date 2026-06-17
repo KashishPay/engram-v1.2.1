@@ -21,6 +21,7 @@ public class OverlayTimerPlugin extends Plugin {
         @Override
         public void onReceive(Context context, Intent intent) {
             String state = intent.getStringExtra("state");
+            android.util.Log.d("OverlayTimerPlugin", "Broadcast received, state: " + state);
             JSObject ret = new JSObject();
             ret.put("state", state);
             notifyListeners("timerStateChanged", ret);
@@ -62,11 +63,13 @@ public class OverlayTimerPlugin extends Plugin {
 
         String type = call.getString("type", "pomodoro");
         String title = call.getString("title", "Focus Timer");
+        String themeColor = call.getString("themeColor", "blue");
 
         Intent serviceIntent = new Intent(getContext(), OverlayTimerService.class);
         serviceIntent.setAction("START");
         serviceIntent.putExtra("type", type);
         serviceIntent.putExtra("title", title);
+        serviceIntent.putExtra("themeColor", themeColor);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getContext().startForegroundService(serviceIntent);
@@ -93,10 +96,14 @@ public class OverlayTimerPlugin extends Plugin {
     public void updateTimer(PluginCall call) {
         int time = call.getInt("time", 0);
         boolean isRunning = call.getBoolean("isRunning", false);
+        String themeColor = call.getString("themeColor", "blue");
+        
         Intent serviceIntent = new Intent(getContext(), OverlayTimerService.class);
         serviceIntent.setAction("UPDATE");
         serviceIntent.putExtra("time", time);
         serviceIntent.putExtra("isRunning", isRunning);
+        serviceIntent.putExtra("themeColor", themeColor);
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getContext().startForegroundService(serviceIntent);
         } else {

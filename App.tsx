@@ -1060,7 +1060,7 @@ export const App: React.FC = () => {
                     </div>
                 </div>
             )}
-            <FocusProvider userId={userId} key={userId}>
+            <FocusProvider userId={userId} key={userId} themeColor={currentTheme}>
             <AppRouter 
                 user={user}
                 isGuest={isGuest}

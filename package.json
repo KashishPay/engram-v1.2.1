@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . --ext .ts,.tsx",
     "check:no-alias": "grep -r \"@/\" . && exit 1 || echo 'Pass: No aliases found.'",
-    "postinstall": "node scripts/copy-pdf-worker.cjs",
+    "postinstall": "node scripts/copy-pdf-worker.cjs && node scripts/fix-admob-gradle.cjs",
     "resources": "capacitor-assets generate"
   },
   "dependencies": {
@@ -21,9 +21,12 @@
     "@capacitor/filesystem": "^8.0.0",
     "@capacitor/haptics": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
+    "@capacitor/keyboard": "^8.0.5",
     "@capacitor/local-notifications": "^8.0.0",
     "@capacitor/preferences": "^8.0.1",
-    "@capacitor/share": "^8.0.0",
+    "@capacitor/share": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "@capawesome-team/capacitor-file-opener": "^8.0.1",
     "@google/genai": "^1.33.0",
     "@streamparser/json": "^0.0.22",

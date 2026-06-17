@@ -16,7 +16,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.MotionEvent;
-import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.WindowManager;
 
 import androidx.core.app.NotificationCompat;
@@ -29,6 +29,7 @@ public class OverlayTimerService extends Service {
     private android.webkit.WebView overlayWebView;
     private String currentType = "pomodoro";
     private String currentTitle = "Focus Timer";
+    private String currentTheme = "blue"; // default theme
 
     private WindowManager.LayoutParams params;
 
@@ -38,36 +39,89 @@ public class OverlayTimerService extends Service {
 
     private int lastSentTime = -1;
     private boolean lastSentRunning = false;
-    private String lastJsStr = "";
+    private String lastTheme = "";
+    
+    private boolean isPageReady = false;
+    private JSInterface jsInterface;
+
+    private class JSInterface {
+        @android.webkit.JavascriptInterface
+        public void setCollapsed(boolean collapsed) {
+            android.util.Log.d("OverlayTimerService", "JS called setCollapsed: " + collapsed);
+            handler.post(() -> {
+                int widthPx, heightPx;
+                if (collapsed) {
+                    widthPx = (int) (140 * getResources().getDisplayMetrics().density);
+                    heightPx = (int) (55 * getResources().getDisplayMetrics().density);
+                } else {
+                    widthPx = (int) (320 * getResources().getDisplayMetrics().density);
+                    heightPx = (int) (80 * getResources().getDisplayMetrics().density);
+                }
+                overlayWebView.setLayoutParams(new android.widget.FrameLayout.LayoutParams(widthPx, heightPx));
+                params.width = widthPx;
+                params.height = heightPx;
+                windowManager.updateViewLayout(floatingView, params);
+            });
+        }
+
+        @android.webkit.JavascriptInterface
+        public void resetTimer() {
+            android.util.Log.d("OverlayTimerService", "JS called resetTimer");
+            notifyApp("reset");
+        }
+        @android.webkit.JavascriptInterface
+        public void pauseTimer() {
+            android.util.Log.d("OverlayTimerService", "JS called pauseTimer");
+            isRunning = false;
+            updateUIText();
+            notifyApp("paused");
+        }
+        @android.webkit.JavascriptInterface
+        public void resumeTimer() {
+            android.util.Log.d("OverlayTimerService", "JS called resumeTimer");
+            isRunning = true;
+            updateUIText();
+            notifyApp("resumed");
+        }
+        @android.webkit.JavascriptInterface
+        public void stopTimer() {
+            android.util.Log.d("OverlayTimerService", "JS called stopTimer");
+            notifyApp("stopped");
+        }
+    }
 
     private void updateUIText() {
-        if (overlayWebView != null && currentTimeInSeconds >= 0) {
-            // Hard debounce against redundant time/state values
-            if (currentTimeInSeconds == lastSentTime && isRunning == lastSentRunning) {
-                return;
-            }
-            lastSentTime = currentTimeInSeconds;
-            lastSentRunning = isRunning;
-
+        if (overlayWebView != null && isPageReady && currentTimeInSeconds >= 0) {
             int minutes = currentTimeInSeconds / 60;
             int seconds = currentTimeInSeconds % 60;
             String timeStr = String.format("%02d:%02d", minutes, seconds);
             String titleStr = currentTitle != null ? currentTitle : "";
             String typeStr = currentType != null ? currentType : "";
-            final String js = String.format("javascript:updateOverlay('%s', '%s', '%s', %b)", timeStr, titleStr, typeStr, isRunning);
             
-            if (js.equals(lastJsStr)) {
-                return;
-            }
-            lastJsStr = js;
+            String safeTitle = titleStr.replace("'", "\\'");
+            String safeType = typeStr.replace("'", "\\'");
+            String safeTheme = currentTheme != null ? currentTheme.replace("'", "\\'") : "";
+            
+            final String js = String.format("javascript:updateOverlay('%s', '%s', '%s', %b, '%s')", timeStr, safeTitle, safeType, isRunning, safeTheme);
+            
+            lastSentTime = currentTimeInSeconds;
+            lastSentRunning = isRunning;
+            lastTheme = currentTheme;
             
             handler.post(() -> {
-                overlayWebView.evaluateJavascript(js, null);
+                if (overlayWebView != null && isPageReady) {
+                    try {
+                        overlayWebView.evaluateJavascript(js, null);
+                    } catch (Exception e) {
+                        android.util.Log.e("OverlayTimerService", "JS evaluation failed", e);
+                    }
+                }
             });
         }
     }
 
     private void notifyApp(String state) {
+        android.util.Log.d("OverlayTimerService", "notifyApp state: " + state);
         SharedPreferences prefs = getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
         prefs.edit().putString("timer_state", state).apply();
         
@@ -115,6 +169,7 @@ public class OverlayTimerService extends Service {
 
     private void initOverlay() {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        int touchSlop = ViewConfiguration.get(this).getScaledTouchSlop();
         
         android.widget.FrameLayout layout = new android.widget.FrameLayout(this) {
             private int initialX;
@@ -136,30 +191,34 @@ public class OverlayTimerService extends Service {
                     case MotionEvent.ACTION_MOVE:
                         float diffX = Math.abs(event.getRawX() - initialTouchX);
                         float diffY = Math.abs(event.getRawY() - initialTouchY);
-                        if (diffX > 10 || diffY > 10) {
+                        if (diffX > touchSlop || diffY > touchSlop) {
                             isDragging = true;
-                            return true;
+                            return true; // intercept touch to handle dragging
                         }
                         break;
                 }
-                return super.onInterceptTouchEvent(event);
+                return false; // do not intercept, let child (WebView) handle it
             }
 
             @Override
             public boolean onTouchEvent(MotionEvent event) {
-                if (!isDragging) {
-                    return super.onTouchEvent(event);
-                }
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_MOVE:
-                        params.x = initialX + (int) (event.getRawX() - initialTouchX);
-                        params.y = initialY + (int) (event.getRawY() - initialTouchY);
-                        windowManager.updateViewLayout(this, params);
-                        return true;
+                        if (isDragging) {
+                            params.x = initialX + (int) (event.getRawX() - initialTouchX);
+                            params.y = initialY + (int) (event.getRawY() - initialTouchY);
+                            windowManager.updateViewLayout(this, params);
+                            return true;
+                        }
+                        break;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
+                        if (isDragging) {
+                            isDragging = false;
+                            return true;
+                        }
                         isDragging = false;
-                        return true;
+                        return false;
                 }
                 return super.onTouchEvent(event);
             }
@@ -171,40 +230,20 @@ public class OverlayTimerService extends Service {
         overlayWebView.getSettings().setJavaScriptEnabled(true);
         overlayWebView.getSettings().setDomStorageEnabled(true);
         overlayWebView.setBackgroundColor(Color.TRANSPARENT);
-        overlayWebView.addJavascriptInterface(new Object() {
-            @android.webkit.JavascriptInterface
-            public void setCollapsed(boolean collapsed) {
-                handler.post(() -> {
-                    if (collapsed) {
-                        int widthPx = (int) (140 * getResources().getDisplayMetrics().density);
-                        int heightPx = (int) (55 * getResources().getDisplayMetrics().density);
-                        overlayWebView.setLayoutParams(new android.widget.FrameLayout.LayoutParams(widthPx, heightPx));
-                    } else {
-                        int widthPx = (int) (320 * getResources().getDisplayMetrics().density);
-                        int heightPx = (int) (80 * getResources().getDisplayMetrics().density);
-                        overlayWebView.setLayoutParams(new android.widget.FrameLayout.LayoutParams(widthPx, heightPx));
-                    }
-                    windowManager.updateViewLayout(floatingView, params);
-                });
+        overlayWebView.setClickable(true);
+        overlayWebView.setFocusable(true);
+        overlayWebView.setFocusableInTouchMode(true);
+        
+        overlayWebView.setWebViewClient(new android.webkit.WebViewClient() {
+            @Override
+            public void onPageFinished(android.webkit.WebView view, String url) {
+                isPageReady = true;
+                updateUIText();
             }
+        });
 
-            @android.webkit.JavascriptInterface
-            public void resetTimer() {
-                notifyApp("reset");
-            }
-            @android.webkit.JavascriptInterface
-            public void pauseTimer() {
-                notifyApp("paused");
-            }
-            @android.webkit.JavascriptInterface
-            public void resumeTimer() {
-                notifyApp("resumed");
-            }
-            @android.webkit.JavascriptInterface
-            public void stopTimer() {
-                notifyApp("stopped");
-            }
-        }, "OverlayManager");
+        jsInterface = new JSInterface();
+        overlayWebView.addJavascriptInterface(jsInterface, "OverlayManager");
         overlayWebView.loadUrl("file:///android_asset/overlay.html");
 
         int widthPx = (int) (320 * getResources().getDisplayMetrics().density);
@@ -220,11 +259,12 @@ public class OverlayTimerService extends Service {
             layoutFlag = WindowManager.LayoutParams.TYPE_PHONE;
         }
 
+        // Use combination of flags for optimal touch handling
         params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 layoutFlag,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                 PixelFormat.TRANSLUCENT
         );
 
@@ -264,6 +304,9 @@ public class OverlayTimerService extends Service {
                 if (intent.hasExtra("title")) {
                     currentTitle = intent.getStringExtra("title");
                 }
+                if (intent.hasExtra("themeColor")) {
+                    currentTheme = intent.getStringExtra("themeColor");
+                }
                 isRunning = true;
                 lastSentTime = -1;
                 updateUIText();
@@ -277,12 +320,17 @@ public class OverlayTimerService extends Service {
                 updateUIText();
             } else if ("STOP".equals(action)) {
                 lastSentTime = -1;
-                lastJsStr = "";
                 stopSelf();
                 return START_NOT_STICKY;
             } else if ("UPDATE".equals(action)) {
                 int time = intent.getIntExtra("time", 0);
                 boolean runState = intent.getBooleanExtra("isRunning", false);
+                if (intent.hasExtra("themeColor")) {
+                    String theme = intent.getStringExtra("themeColor");
+                    if (theme != null && !theme.isEmpty()) {
+                        currentTheme = theme;
+                    }
+                }
                 currentTimeInSeconds = time;
                 isRunning = runState;
                 updateUIText();

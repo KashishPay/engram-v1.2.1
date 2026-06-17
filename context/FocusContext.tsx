@@ -56,7 +56,7 @@ const workerBlob = new Blob([`
 
 const workerUrl = URL.createObjectURL(workerBlob);
 
-export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string }> = ({ children, userId }) => {
+export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string, themeColor?: string }> = ({ children, userId, themeColor = 'blue' }) => {
     const getFocusKey = useCallback((key: string) => `focus_${key}_${userId}`, [userId]);
 
     // Initial state from localStorage or defaults
@@ -202,7 +202,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
                         if (Capacitor.isNativePlatform()) {
                             OverlayTimer.updateTimer({
                                 time: 0,
-                                isRunning: false
+                                isRunning: false,
+                                themeColor: themeColor
                             }).catch(console.error);
                         }
                         
@@ -224,7 +225,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
                         if (Capacitor.isNativePlatform()) {
                             OverlayTimer.updateTimer({
                                 time: floorSecs,
-                                isRunning: true
+                                isRunning: true,
+                                themeColor: themeColor
                             }).catch(console.error);
                         }
                     }
@@ -252,7 +254,7 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
                 const formatted = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
                 Preferences.set({ key: 'pomodoroTime', value: formatted }).catch(console.error);
                 
-                OverlayTimer.updateTimer({ time: Math.floor(secondsToShow), isRunning: false }).catch(console.error);
+                OverlayTimer.updateTimer({ time: Math.floor(secondsToShow), isRunning: false, themeColor: themeColor }).catch(console.error);
             }
         }
 
@@ -299,7 +301,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
              console.log("[FocusContext] Calling OverlayTimer.startTimer for pomodoro");
              OverlayTimer.startTimer({ 
                  type: 'pomodoro', 
-                 title: title || 'Focus Timer' 
+                 title: title || 'Focus Timer',
+                 themeColor: themeColor
              }).catch(console.error);
         }
     };
@@ -321,7 +324,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
              console.log("[FocusContext] Calling OverlayTimer.startTimer for subject");
              OverlayTimer.startTimer({ 
                  type: 'subject', 
-                 title: tName || 'Subject Timer' 
+                 title: tName || 'Subject Timer',
+                 themeColor: themeColor
              }).catch(console.error);
         }
         cancelFinishNotification();
