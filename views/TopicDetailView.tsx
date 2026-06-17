@@ -218,7 +218,9 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
     };
 
     const lastRepetition = topic?.repetitions?.[(topic?.repetitions?.length || 1) - 1];
-    const isReadyForReview = lastRepetition ? new Date(lastRepetition.nextReviewDate) <= new Date() : true;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const alreadyCompletedToday = topic?.lastCompletedDate === todayStr;
+    const isReadyForReview = !alreadyCompletedToday && (lastRepetition ? new Date(lastRepetition.nextReviewDate) <= new Date() : true);
     const repetitionCount = topic?.repetitions?.length || 0;
     const isQuizUnlocked = notes.length > 0;
     const pomodoroTime = topic?.pomodoroTimeMinutes || 0;
@@ -483,11 +485,17 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                                     AdManager.showAlternatingAd().catch(console.error);
                                     navigateTo('quiz', { topic });
                                 }} 
-                                disabled={!isQuizUnlocked || saveStatus === 'saving' || (!isReadyForReview && !topic.isJourneyPaused) || isLoadingBody || !!currentJob || topic.isJourneyPaused}
+                                disabled={!isQuizUnlocked || saveStatus === 'saving' || (!isReadyForReview && !topic.isJourneyPaused) || isLoadingBody || !!currentJob || topic.isJourneyPaused || alreadyCompletedToday}
                                 className={`flex-1 py-2.5 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-lg font-bold shadow-sm text-xs flex items-center justify-center hover:opacity-90 transition disabled:opacity-50`}
                             >
                                 <Zap size={14} className="mr-1.5" /> 
-                                {topic.isJourneyPaused ? "Journey Paused" : isReadyForReview ? "Pop Quiz" : "Not Due"}
+                                {alreadyCompletedToday 
+                                    ? "Completed Today ✅" 
+                                    : topic.isJourneyPaused 
+                                        ? "Journey Paused" 
+                                        : isReadyForReview 
+                                            ? "Pop Quiz" 
+                                            : "Not Due"}
                             </button>
                             <button
                                 onClick={() => navigateTo('chat', { topic })}

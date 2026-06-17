@@ -364,9 +364,12 @@ export const QuizView: React.FC<QuizViewProps> = ({ topic, userId, navigateTo, o
                 quizAttempt: quizAttemptData
             };
 
+            const todayIso = new Date().toISOString().split('T')[0];
+
             const updatedTopic = {
                 ...topic,
-                repetitions: [...(topic.repetitions || []), repetitionData]
+                repetitions: [...(topic.repetitions || []), repetitionData],
+                lastCompletedDate: todayIso
             };
 
             onUpdateTopic(updatedTopic);

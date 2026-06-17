@@ -159,6 +159,13 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         }
     }, [isRunning]);
 
+    const stateRef = useRef({ mode, duration, elapsed });
+    useEffect(() => {
+        stateRef.current = { mode, duration, elapsed };
+    });
+
+    const lastSentSecondsRef = useRef(-1);
+
     // Timer Logic with Web Worker
     useEffect(() => {
         let worker: Worker | null = null;
@@ -184,12 +191,21 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
                 
                 // Update elapsed
                 setElapsed(prev => {
+                    const { mode, duration } = stateRef.current;
                     const next = prev + delta;
                     // If pomodoro and time is up
                     if (mode === 'pomodoro' && next >= duration * 60) {
                         setIsRunning(false);
                         localStorage.setItem(getFocusKey('running'), 'false');
-                        cancelFinishNotification(); // Clear any pending schedule
+                        callbacksRef.current.cancelFinishNotification(); // Clear any pending schedule
+                        
+                        if (Capacitor.isNativePlatform()) {
+                            OverlayTimer.updateTimer({
+                                time: 0,
+                                isRunning: false
+                            }).catch(console.error);
+                        }
+                        
                         // Return exactly the duration to avoid overshoot visual
                         return duration * 60;
                     }
@@ -198,11 +214,21 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
                     if (mode === 'pomodoro') {
                         secondsToShow = Math.max(0, (duration * 60) - next);
                     }
-                    
-                    if (Capacitor.isNativePlatform()) {
-                        OverlayTimer.updateTimer({ time: Math.floor(secondsToShow) }).catch(console.error);
+
+                    const floorSecs = Math.floor(secondsToShow);
+
+                    // Only send if changed
+                    if (floorSecs !== lastSentSecondsRef.current) {
+                        lastSentSecondsRef.current = floorSecs;
+
+                        if (Capacitor.isNativePlatform()) {
+                            OverlayTimer.updateTimer({
+                                time: floorSecs,
+                                isRunning: true
+                            }).catch(console.error);
+                        }
                     }
-                    
+
                     return next;
                 });
                 
@@ -211,7 +237,12 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
             };
 
             worker.postMessage('start');
+        } else {
+            // Not running, reset tick reference
+            lastTickRef.current = 0;
+            localStorage.setItem(getFocusKey('lastTick'), '0');
             if (Capacitor.isNativePlatform()) {
+                const { mode, duration, elapsed } = stateRef.current;
                 let secondsToShow = elapsed;
                 if (mode === 'pomodoro') {
                     secondsToShow = Math.max(0, (duration * 60) - elapsed);
@@ -220,18 +251,8 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
                 const s = Math.floor(secondsToShow % 60);
                 const formatted = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
                 Preferences.set({ key: 'pomodoroTime', value: formatted }).catch(console.error);
-                OverlayTimer.startTimer({ 
-                    type: timerType, 
-                    title: sessionTitle || topicName || 'Focus Timer' 
-                }).catch(console.error);
-            }
-        } else {
-            // Not running, reset tick reference
-            lastTickRef.current = 0;
-            localStorage.setItem(getFocusKey('lastTick'), '0');
-            if (Capacitor.isNativePlatform()) {
-                OverlayTimer.stopTimer().catch(console.error);
-                Preferences.remove({ key: 'pomodoroTime' }).catch(console.error);
+                
+                OverlayTimer.updateTimer({ time: Math.floor(secondsToShow), isRunning: false }).catch(console.error);
             }
         }
 
@@ -241,7 +262,7 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
                 worker.terminate();
             }
         };
-    }, [isRunning, mode, duration]);
+    }, [isRunning]);
 
     // Recover from background throttling/tab closes (Resume logic)
     useEffect(() => {
@@ -340,6 +361,10 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         lastTickRef.current = 0;
         localStorage.setItem(getFocusKey('lastTick'), '0');
         cancelFinishNotification();
+        if (Capacitor.isNativePlatform()) {
+            OverlayTimer.stopTimer().catch(console.error);
+            Preferences.remove({ key: 'pomodoroTime' }).catch(console.error);
+        }
     };
 
     const logAndReset = () => {
@@ -401,6 +426,11 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
         return () => window.removeEventListener('start_widget_timer', handleWidgetStart);
     }, [isRunning]);
 
+    const callbacksRef = useRef({ restartCurrentSession, logAndReset, cancelFinishNotification });
+    useEffect(() => {
+        callbacksRef.current = { restartCurrentSession, logAndReset, cancelFinishNotification };
+    });
+
     useEffect(() => {
         let listener: any = null;
         if (Capacitor.isNativePlatform()) {
@@ -409,22 +439,27 @@ export const FocusProvider: React.FC<{ children: React.ReactNode, userId: string
                 console.log("[FocusContext] Received sync from Overlay:", state);
                 if (state === 'paused') {
                     setIsRunning(false);
-                    cancelFinishNotification();
+                    callbacksRef.current.cancelFinishNotification();
                 } else if (state === 'resumed') {
                     setIsRunning(true);
                     lastTickRef.current = Date.now();
                 } else if (state === 'reset') {
-                    restartCurrentSession();
+                    callbacksRef.current.restartCurrentSession();
                 } else if (state === 'stopped') {
-                    logAndReset();
+                    callbacksRef.current.logAndReset();
                 }
             }).then((l: any) => listener = l);
         }
         
         return () => {
-            if (listener) listener.remove();
+            if (listener) {
+                listener.remove();
+            } else if (Capacitor.isNativePlatform()) {
+                // If it hasn't resolved yet, remove it by event name to be safe
+                OverlayTimer.removeAllListeners();
+            }
         }
-    }, [restartCurrentSession, logAndReset]);
+    }, []);
 
     return (
         <FocusContext.Provider value={{

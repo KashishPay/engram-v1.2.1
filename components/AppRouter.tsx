@@ -439,6 +439,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 title = 'Due for Review';
                 filtered = studyLog.filter(t => {
                     if (t.isJourneyPaused) return false;
+                    if (t.lastCompletedDate === today) return false;
                     if ((t.repetitions?.length || 0) === 0) return true;
                     const lastRep = t.repetitions[t.repetitions.length - 1];
                     return lastRep && lastRep.nextReviewDate <= today;

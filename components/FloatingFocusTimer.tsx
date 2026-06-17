@@ -147,9 +147,9 @@ export const FloatingFocusTimer: React.FC<FloatingFocusTimerProps> = ({
             >
                 <div className="flex flex-col items-center justify-center pointer-events-none select-none">
                     {isRunning ? (
-                       <span className="text-[10px] font-mono font-bold animate-pulse">{formatTime(elapsed)}</span>
+                       <span className="text-sm font-mono font-bold animate-pulse">{formatTime(elapsed)}</span>
                     ) : (
-                       <Clock size={20} />
+                       <span className="text-sm font-mono font-bold">{formatTime(elapsed)}</span>
                     )}
                 </div>
             </div>

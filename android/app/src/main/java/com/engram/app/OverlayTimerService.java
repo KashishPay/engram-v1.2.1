@@ -36,14 +36,31 @@ public class OverlayTimerService extends Service {
     private boolean isRunning = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
+    private int lastSentTime = -1;
+    private boolean lastSentRunning = false;
+    private String lastJsStr = "";
+
     private void updateUIText() {
         if (overlayWebView != null && currentTimeInSeconds >= 0) {
+            // Hard debounce against redundant time/state values
+            if (currentTimeInSeconds == lastSentTime && isRunning == lastSentRunning) {
+                return;
+            }
+            lastSentTime = currentTimeInSeconds;
+            lastSentRunning = isRunning;
+
             int minutes = currentTimeInSeconds / 60;
             int seconds = currentTimeInSeconds % 60;
             String timeStr = String.format("%02d:%02d", minutes, seconds);
-            String titleStr = currentTitle;
-            String typeStr = currentType;
+            String titleStr = currentTitle != null ? currentTitle : "";
+            String typeStr = currentType != null ? currentType : "";
             final String js = String.format("javascript:updateOverlay('%s', '%s', '%s', %b)", timeStr, titleStr, typeStr, isRunning);
+            
+            if (js.equals(lastJsStr)) {
+                return;
+            }
+            lastJsStr = js;
+            
             handler.post(() -> {
                 overlayWebView.evaluateJavascript(js, null);
             });
@@ -178,14 +195,10 @@ public class OverlayTimerService extends Service {
             @android.webkit.JavascriptInterface
             public void pauseTimer() {
                 notifyApp("paused");
-                isRunning = false;
-                updateUIText();
             }
             @android.webkit.JavascriptInterface
             public void resumeTimer() {
                 notifyApp("resumed");
-                isRunning = true;
-                updateUIText();
             }
             @android.webkit.JavascriptInterface
             public void stopTimer() {
@@ -252,19 +265,26 @@ public class OverlayTimerService extends Service {
                     currentTitle = intent.getStringExtra("title");
                 }
                 isRunning = true;
+                lastSentTime = -1;
                 updateUIText();
             } else if ("PAUSE".equals(action)) {
                 isRunning = false;
+                lastSentTime = -1;
                 updateUIText();
             } else if ("RESUME".equals(action)) {
                 isRunning = true;
+                lastSentTime = -1;
                 updateUIText();
             } else if ("STOP".equals(action)) {
+                lastSentTime = -1;
+                lastJsStr = "";
                 stopSelf();
                 return START_NOT_STICKY;
             } else if ("UPDATE".equals(action)) {
                 int time = intent.getIntExtra("time", 0);
+                boolean runState = intent.getBooleanExtra("isRunning", false);
                 currentTimeInSeconds = time;
+                isRunning = runState;
                 updateUIText();
             }
         }

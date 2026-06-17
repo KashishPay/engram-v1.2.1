@@ -24,6 +24,11 @@ export const TopicListView: React.FC<TopicListViewProps> = ({ title, topics, nav
         if (topic.isJourneyPaused) {
             return 'Journey Paused';
         }
+        
+        const todayIso = new Date().toISOString().split('T')[0];
+        if (topic.lastCompletedDate === todayIso) {
+            return 'Completed Today ✅';
+        }
 
         const repetitionCount = topic.repetitions?.length || 0;
         const lastRepetition = topic.repetitions?.[repetitionCount - 1];

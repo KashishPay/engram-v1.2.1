@@ -6,8 +6,8 @@ import android.os.Build;
 import android.provider.Settings;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
 import android.content.IntentFilter;
+
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -92,9 +92,11 @@ public class OverlayTimerPlugin extends Plugin {
     @PluginMethod
     public void updateTimer(PluginCall call) {
         int time = call.getInt("time", 0);
+        boolean isRunning = call.getBoolean("isRunning", false);
         Intent serviceIntent = new Intent(getContext(), OverlayTimerService.class);
         serviceIntent.setAction("UPDATE");
         serviceIntent.putExtra("time", time);
+        serviceIntent.putExtra("isRunning", isRunning);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getContext().startForegroundService(serviceIntent);
         } else {

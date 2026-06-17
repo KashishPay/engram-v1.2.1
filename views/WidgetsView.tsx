@@ -23,6 +23,7 @@ export const WidgetsView: React.FC<WidgetsViewProps> = ({ studyLog, habits, navi
         const today = new Date().toISOString().split('T')[0];
         return studyLog.filter(topic => {
             if (topic.isJourneyPaused) return false;
+            if (topic.lastCompletedDate === today) return false;
             if (topic.repetitions?.length === 0) return true;
             const lastRep = topic.repetitions[topic.repetitions.length - 1];
             return lastRep && lastRep.nextReviewDate <= today;
