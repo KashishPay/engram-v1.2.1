@@ -291,4 +291,3 @@ subprojects {
 Write-Output "--- Step 10: Syncing to Android ---"
 npx cap sync android
 
-
