@@ -20,18 +20,28 @@ public class OverlayTimerPlugin extends Plugin {
     private BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String state = intent.getStringExtra("state");
-            android.util.Log.d("OverlayTimerPlugin", "Broadcast received, state: " + state);
-            JSObject ret = new JSObject();
-            ret.put("state", state);
-            notifyListeners("timerStateChanged", ret);
+            String action = intent.getAction();
+            if ("com.engram.app.TIMER_STATE_CHANGED".equals(action)) {
+                String state = intent.getStringExtra("state");
+                android.util.Log.d("OverlayTimerPlugin", "Broadcast received, state: " + state);
+                JSObject ret = new JSObject();
+                ret.put("state", state);
+                notifyListeners("timerStateChanged", ret);
+            } else if ("com.engram.app.TIMER_TICK".equals(action)) {
+                int time = intent.getIntExtra("time", 0);
+                JSObject ret = new JSObject();
+                ret.put("time", time);
+                notifyListeners("timerTick", ret);
+            }
         }
     };
 
     @Override
     public void load() {
         super.load();
-        IntentFilter filter = new IntentFilter("com.engram.app.TIMER_STATE_CHANGED");
+        IntentFilter filter = new IntentFilter();
+        filter.addAction("com.engram.app.TIMER_STATE_CHANGED");
+        filter.addAction("com.engram.app.TIMER_TICK");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             getContext().registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
@@ -64,12 +74,16 @@ public class OverlayTimerPlugin extends Plugin {
         String type = call.getString("type", "pomodoro");
         String title = call.getString("title", "Focus Timer");
         String themeColor = call.getString("themeColor", "blue");
+        int time = call.getInt("time", -1);
 
         Intent serviceIntent = new Intent(getContext(), OverlayTimerService.class);
         serviceIntent.setAction("START");
         serviceIntent.putExtra("type", type);
         serviceIntent.putExtra("title", title);
         serviceIntent.putExtra("themeColor", themeColor);
+        if (time != -1) {
+            serviceIntent.putExtra("time", time);
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getContext().startForegroundService(serviceIntent);

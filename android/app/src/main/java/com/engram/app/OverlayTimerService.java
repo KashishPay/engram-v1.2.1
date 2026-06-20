@@ -34,8 +34,10 @@ public class OverlayTimerService extends Service {
     private WindowManager.LayoutParams params;
 
     private int currentTimeInSeconds = -1;
+    private int initialSessionSeconds = 0;
     private boolean isRunning = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private Runnable timerRunnable;
 
     private int lastSentTime = -1;
     private boolean lastSentRunning = false;
@@ -67,30 +69,54 @@ public class OverlayTimerService extends Service {
         @android.webkit.JavascriptInterface
         public void resetTimer() {
             android.util.Log.d("OverlayTimerService", "JS called resetTimer");
-            notifyApp("reset");
+            handler.post(() -> {
+                currentTimeInSeconds = initialSessionSeconds;
+                isRunning = false;
+                updateUIText();
+                notifyApp("reset");
+            });
         }
         @android.webkit.JavascriptInterface
         public void pauseTimer() {
             android.util.Log.d("OverlayTimerService", "JS called pauseTimer");
-            isRunning = false;
-            updateUIText();
-            notifyApp("paused");
+            handler.post(() -> {
+                isRunning = false;
+                android.util.Log.d("OverlayTimerService", "Bypassing throttle for button-triggered update (pause)");
+                updateUIText();
+                notifyApp("paused");
+            });
         }
         @android.webkit.JavascriptInterface
         public void resumeTimer() {
             android.util.Log.d("OverlayTimerService", "JS called resumeTimer");
-            isRunning = true;
-            updateUIText();
-            notifyApp("resumed");
+            handler.post(() -> {
+                if ("pomodoro".equals(currentType) && currentTimeInSeconds == 0) {
+                    return;
+                }
+                isRunning = true;
+                android.util.Log.d("OverlayTimerService", "Bypassing throttle for button-triggered update (resume)");
+                updateUIText();
+                notifyApp("resumed");
+            });
         }
         @android.webkit.JavascriptInterface
         public void stopTimer() {
             android.util.Log.d("OverlayTimerService", "JS called stopTimer");
-            notifyApp("stopped");
+            handler.post(() -> {
+                isRunning = false;
+                updateUIText();
+                notifyApp("stopped");
+                stopSelf();
+            });
         }
     }
 
     private void updateUIText() {
+        if (!isRunning && currentTimeInSeconds == lastSentTime && currentTheme != null && currentTheme.equals(lastTheme) && !lastSentRunning) {
+            android.util.Log.d("OverlayTimerService", "Skipped redundant paused updateUIText");
+            return;
+        }
+
         if (overlayWebView != null && isPageReady && currentTimeInSeconds >= 0) {
             int minutes = currentTimeInSeconds / 60;
             int seconds = currentTimeInSeconds % 60;
@@ -151,6 +177,48 @@ public class OverlayTimerService extends Service {
         }
         
         initOverlay();
+
+        timerRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (isRunning && currentTimeInSeconds >= 0) {
+                    if ("pomodoro".equals(currentType)) {
+                        if (currentTimeInSeconds > 0) {
+                            currentTimeInSeconds--;
+                        } else {
+                            currentTimeInSeconds = 0;
+                            isRunning = false;
+
+                            updateUIText();
+
+                            Intent tickIntent = new Intent("com.engram.app.TIMER_TICK");
+                            tickIntent.putExtra("time", currentTimeInSeconds);
+                            sendBroadcast(tickIntent);
+
+                            notifyApp("stopped");
+                            return;
+                        }
+                    } else {
+                        currentTimeInSeconds++;
+                    }
+                    
+                    if (currentTimeInSeconds % 2 == 0 || currentTimeInSeconds == 0) {
+                        updateUIText();
+                        
+                        Intent tickIntent = new Intent("com.engram.app.TIMER_TICK");
+                        tickIntent.putExtra("time", currentTimeInSeconds);
+                        sendBroadcast(tickIntent);
+                    } else {
+                        android.util.Log.d("OverlayTimerService", "updateUIText skipped due to throttle - time: " + currentTimeInSeconds);
+                        android.util.Log.d("OverlayTimerService", "TIMER_TICK broadcast skipped due to throttle - time: " + currentTimeInSeconds);
+                    }
+                }
+                if (!( !isRunning && currentTimeInSeconds <= 0 )) {
+                    handler.postDelayed(this, 1000);
+                }
+            }
+        };
+        handler.postDelayed(timerRunnable, 1000);
     }
 
     private void createNotificationChannel() {
@@ -298,6 +366,10 @@ public class OverlayTimerService extends Service {
             String action = intent.getAction();
             android.util.Log.d("OverlayTimerService", "Received action: " + action);
             if ("START".equals(action)) {
+                if (isRunning && currentTimeInSeconds > 0) {
+                    android.util.Log.d("OverlayTimerService", "Ignoring duplicate START");
+                    return START_STICKY;
+                }
                 if (intent.hasExtra("type")) {
                     currentType = intent.getStringExtra("type");
                 }
@@ -307,7 +379,19 @@ public class OverlayTimerService extends Service {
                 if (intent.hasExtra("themeColor")) {
                     currentTheme = intent.getStringExtra("themeColor");
                 }
+                if (intent.hasExtra("time")) {
+                    currentTimeInSeconds = intent.getIntExtra("time", 0);
+                } else {
+                    if ("pomodoro".equals(currentType)) {
+                        currentTimeInSeconds = 1500;
+                    } else {
+                        currentTimeInSeconds = 0;
+                    }
+                }
+                initialSessionSeconds = currentTimeInSeconds;
                 isRunning = true;
+                handler.removeCallbacks(timerRunnable);
+                handler.postDelayed(timerRunnable, 1000);
                 lastSentTime = -1;
                 updateUIText();
             } else if ("PAUSE".equals(action)) {
@@ -320,11 +404,13 @@ public class OverlayTimerService extends Service {
                 updateUIText();
             } else if ("STOP".equals(action)) {
                 lastSentTime = -1;
+                isRunning = false;
+                updateUIText();
+                notifyApp("stopped");
                 stopSelf();
                 return START_NOT_STICKY;
             } else if ("UPDATE".equals(action)) {
                 int time = intent.getIntExtra("time", 0);
-                boolean runState = intent.getBooleanExtra("isRunning", false);
                 if (intent.hasExtra("themeColor")) {
                     String theme = intent.getStringExtra("themeColor");
                     if (theme != null && !theme.isEmpty()) {
@@ -332,7 +418,7 @@ public class OverlayTimerService extends Service {
                     }
                 }
                 currentTimeInSeconds = time;
-                isRunning = runState;
+                initialSessionSeconds = time;
                 updateUIText();
             }
         }
@@ -342,6 +428,18 @@ public class OverlayTimerService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (timerRunnable != null) {
+            handler.removeCallbacks(timerRunnable);
+        }
+        if (overlayWebView != null) {
+            try {
+                overlayWebView.removeAllViews();
+                overlayWebView.destroy();
+                overlayWebView = null;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
         if (floatingView != null && isViewAttached) {
             try {
                 windowManager.removeView(floatingView);
