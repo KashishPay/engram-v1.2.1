@@ -28,7 +28,7 @@ interface SettingsViewProps {
     navigateTo: (view: string) => void;
     setShowFeedbackModal: (show: boolean) => void;
     handleExportData: () => Promise<void>;
-    handleImportData: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    handleImportData: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
     appMode: string;
     setAppMode: (mode: string) => void;
     onSignOut: () => void;
@@ -180,6 +180,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const [showCelebration, setShowCelebration] = useState(false);
     const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
     const [isExporting, setIsExporting] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
 
     const onExportClick = async () => {
         setIsExporting(true);
@@ -187,6 +188,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             await handleExportData();
         } finally {
             setIsExporting(false);
+        }
+    };
+    
+    const onImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        setIsImporting(true);
+        try {
+            await handleImportData(e);
+        } finally {
+            setIsImporting(false);
         }
     };
     
@@ -603,15 +613,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                     </button>
                                     {isGuest ? (
                                         <button 
-                                            onClick={() => handleImportData({ target: { value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)} 
-                                            className="flex items-center justify-center p-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl font-medium text-sm border border-green-100 dark:border-green-800 transition hover:bg-green-100 dark:hover:bg-green-900/30"
+                                            onClick={() => onImportChange({ target: { value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)} 
+                                            disabled={isImporting}
+                                            className={`flex items-center justify-center p-3 rounded-xl font-medium text-sm border transition ${
+                                                isImporting 
+                                                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed' 
+                                                    : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-green-100 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30'
+                                            }`}
                                         >
-                                            <Upload size={18} className="mr-2" /> Import Backup
+                                            {isImporting ? (
+                                                <>
+                                                    <Loader2 size={18} className="mr-2 animate-spin" />
+                                                    Bringing back your data...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload size={18} className="mr-2" /> Import Backup
+                                                </>
+                                            )}
                                         </button>
                                     ) : (
-                                        <label className="flex items-center justify-center p-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl font-medium text-sm border border-green-100 dark:border-green-800 transition hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer">
-                                            <Upload size={18} className="mr-2" />Import Backup
-                                            <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
+                                        <label className={`flex items-center justify-center p-3 rounded-xl font-medium text-sm border transition ${
+                                            isImporting 
+                                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-wait' 
+                                                : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border-green-100 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer'
+                                        }`}>
+                                            {isImporting ? (
+                                                <>
+                                                    <Loader2 size={18} className="mr-2 animate-spin" />
+                                                    Bringing back your data...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload size={18} className="mr-2" />Import Backup
+                                                </>
+                                            )}
+                                            <input type="file" accept=".json,.jsonl" onChange={onImportChange} className="hidden" disabled={isImporting} />
                                         </label>
                                     )}
                                 </div>

@@ -766,7 +766,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
     }, [props.studyLog, focusState.topicId, focusState.topicName, props.userId, props.handleUpdateTopic]);
 
     // Import/Export Handlers
-    const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImportData = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (props.isGuest) {
             setRouterError(new Error("Restoring backups is reserved for registered accounts. Please sign up to import your data and sync across devices."));
             e.target.value = '';
@@ -774,151 +774,309 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
         }
         const file = e.target.files?.[0];
         if (!file) return;
-        if (file.size > 50 * 1024 * 1024) {
-            setRouterError(new Error("Backup file is too large (>50MB). Import cancelled."));
+
+        // Peak at the first few bytes to detect format
+        const peakSlice = file.slice(0, 500);
+        const peakText = await peakSlice.text();
+        const isV2Format = peakText.includes('"schemaVersion":"2.0.0"') || peakText.includes('"schemaVersion": "2.0.0"');
+        const isLegacyJSON = !isV2Format;
+
+        if (isLegacyJSON) {
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                try {
+                    const jsonStr = ev.target?.result as string;
+                    const data = JSON.parse(jsonStr);
+                    
+                    if (data.schemaVersion && data.schemaVersion !== "1.0.0" && data.schemaVersion !== "1.1.0" && data.schemaVersion !== "1.2.0") {
+                        console.warn("Legacy backup with unknown schema:", data.schemaVersion);
+                    }
+                    if (!Array.isArray(data.studyLog)) throw new Error("Invalid backup format.");
+                    
+                    // 1. Hydrate Notes: Merge separated notes back into topic objects for reliable import
+                    const hydratedLog = data.studyLog.map((t: Topic) => ({
+                        ...t,
+                        shortNotes: data.notesByTopicId?.[t.id] || t.shortNotes || ""
+                    }));
+
+                    // 2. Restore Cropped Images (for Inline Rendering)
+                    if (data.images) await batchSaveImages(data.images);
+                    
+                    // 3. Restore Original Source Images (for "View Original")
+                    if (data.originalImages) await batchSaveImages(data.originalImages);
+
+                    // 3.1 Restore Audio
+                    if (data.audioByTopicId) await batchSaveAudio(data.audioByTopicId);
+
+                    // 4. Restore Preferences (Overwrites)
+                    if (data.preferences) {
+                        if (data.preferences.ai) localStorage.setItem(`engram_ai_preferences_${props.userId}`, JSON.stringify(data.preferences.ai));
+                        if (data.preferences.appMode) {
+                            localStorage.setItem(`engramAppMode_${props.userId}`, data.preferences.appMode);
+                            props.setAppMode(data.preferences.appMode);
+                        }
+                        if (data.preferences.themeColor) props.setCurrentTheme(data.preferences.themeColor);
+                        if (data.preferences.themeIntensity) props.setThemeIntensity(data.preferences.themeIntensity);
+                        if (data.preferences.dateTimeSettings) props.setDateTimeSettings(data.preferences.dateTimeSettings);
+                        if (data.preferences.notificationSettings) props.setNotificationSettings(data.preferences.notificationSettings);
+                        if (data.preferences.enabledTabs && Array.isArray(data.preferences.enabledTabs)) props.setEnabledTabs(data.preferences.enabledTabs);
+                        if (data.preferences.fcFont) localStorage.setItem(`engram_fc_font_${props.userId}`, data.preferences.fcFont);
+                        if (data.preferences.celebrated21Days) localStorage.setItem(`engram_21_day_celebrated_${props.userId}`, data.preferences.celebrated21Days);
+                        if (data.preferences.podcastConfig) props.setPodcastConfig(data.preferences.podcastConfig);
+                    }
+                    
+                    // 5. Restore Tasks, Matrix, Habits (SMART MERGE)
+                    if (data.tasks) {
+                        const localTasks = safeReadJSON(`engramTasks_${props.userId}`, []);
+                        const mergedTasks = mergeTasksSmart(localTasks, data.tasks, 'text');
+                        localStorage.setItem(`engramTasks_${props.userId}`, JSON.stringify(mergedTasks));
+                    }
+
+                    if (data.matrix) {
+                        const localMatrix = safeReadJSON(`engramMatrix_${props.userId}`, []);
+                        const mergedMatrix = mergeTasksSmart(localMatrix, data.matrix, 'text');
+                        localStorage.setItem(`engramMatrix_${props.userId}`, JSON.stringify(mergedMatrix));
+                    }
+
+                    if (data.habits && Array.isArray(data.habits)) {
+                        const mergedHabits = mergeHabits(props.habits, data.habits);
+                        props.setHabits(mergedHabits);
+                    }
+                    
+                    // 6. Restore Profile (Overwrites as per original spec)
+                    if (data.userProfile && data.userProfile.name) props.setUserProfile(data.userProfile);
+                    
+                    // 7. Restore Observations (SMART MERGE)
+                    if (data.observations && Array.isArray(data.observations)) {
+                        const localObs = ObservationsService.getAll(props.userId);
+                        const mergedObs = mergeObservations(localObs, data.observations);
+                        ObservationsService.saveAll(props.userId, mergedObs);
+                    }
+
+                    // 8. Restore Global Pomodoro Logs
+                    if (data.globalPomodoroLogs && Array.isArray(data.globalPomodoroLogs)) {
+                        savePomodoroLogs(data.globalPomodoroLogs);
+                    }
+
+                    // 9. Restore Chat History
+                    if (data.chatHistoryByTopicId) {
+                        await batchSaveChatHistories(props.userId, data.chatHistoryByTopicId);
+                    }
+
+                    // 10. Restore Study Log (Smart Merge handled by hook)
+                    await props.importStudyLog(hydratedLog, data.userSubjects);
+
+                    // 11. Restore Flashcard History
+                    if (data.flashcardHistory && Array.isArray(data.flashcardHistory)) {
+                        const key = `engram-flashcard-history_${props.userId}`;
+                        const localHistory = safeReadJSON(key, []);
+                        const mergedHistory = mergeFlashcards(localHistory, data.flashcardHistory);
+                        localStorage.setItem(key, JSON.stringify(mergedHistory));
+                    }
+
+                    // 12. Restore Test Series History
+                    if (data.testSeriesHistory && Array.isArray(data.testSeriesHistory)) {
+                        const key = `engram_test_series_history_${props.userId}`;
+                        const localHistory = safeReadJSON(key, []);
+                        const mergedHistory = [...localHistory, ...data.testSeriesHistory].filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i);
+                        localStorage.setItem(key, JSON.stringify(mergedHistory));
+                    }
+
+                    // 13. Restore Test Series Past Questions
+                    if (data.testSeriesPastQuestions && Array.isArray(data.testSeriesPastQuestions)) {
+                        const key = `engram_test_series_past_questions_${props.userId}`;
+                        const localQuestions = safeReadJSON(key, []);
+                        const mergedQuestions = [...new Set([...localQuestions, ...data.testSeriesPastQuestions])].slice(-100);
+                        localStorage.setItem(key, JSON.stringify(mergedQuestions));
+                    }
+                    
+                    // 14. Restore Diary
+                    if (data.diary && Array.isArray(data.diary)) {
+                        const key = `engram_diary_${props.userId}`;
+                        const localDiary = safeReadJSON(key, []);
+                        const mergedDiary = [...localDiary, ...data.diary].filter((v, i, a) => a.findIndex(D => D.id === v.id) === i);
+                        localStorage.setItem(key, JSON.stringify(mergedDiary));
+                    }
+
+                    // 15. Restore Recent Exams
+                    if (data.recentExams && Array.isArray(data.recentExams)) {
+                        const key = `engram_recent_exams_${props.userId}`;
+                        const localExams = safeReadJSON(key, []);
+                        const mergedExams = [...localExams, ...data.recentExams].filter((v, i, a) => a.findIndex(e => e.id === v.id) === i);
+                        localStorage.setItem(key, JSON.stringify(mergedExams));
+                    }
+
+                    // 16. Restore Analytics
+                    if (data.analytics) {
+                        const key = `engramCalendarAgg_${props.userId}`;
+                        localStorage.setItem(key, JSON.stringify(data.analytics));
+                    }
+                    
+                    // 17. Restore Test Series Language
+                    if (data.preferences?.testSeriesLanguage) {
+                         localStorage.setItem(`engram_test_series_language_${props.userId}`, data.preferences.testSeriesLanguage);
+                    }
+                    
+                    setShowImportSuccessModal(true);
+                } catch (err: unknown) {
+                    console.error("Legacy Import failed:", err);
+                    const message = err instanceof Error ? err.message : "Failed to parse legacy backup file.";
+                    setRouterError(new Error(message));
+                }
+                e.target.value = '';
+            };
+            reader.readAsText(file);
             return;
         }
-        const reader = new FileReader();
-        reader.onload = async (ev) => {
-            try {
-                const jsonStr = ev.target?.result as string;
-                const data = JSON.parse(jsonStr);
-                
-                if (data.schemaVersion !== "1.0.0") throw new Error("Unsupported backup version.");
-                if (!Array.isArray(data.studyLog)) throw new Error("Invalid backup format.");
-                
-                // 1. Hydrate Notes: Merge separated notes back into topic objects for reliable import
-                const hydratedLog = data.studyLog.map((t: Topic) => ({
-                    ...t,
-                    shortNotes: data.notesByTopicId?.[t.id] || t.shortNotes || ""
-                }));
 
-                // 2. Restore Cropped Images (for Inline Rendering)
-                if (data.images) await batchSaveImages(data.images);
-                
-                // 3. Restore Original Source Images (for "View Original")
-                if (data.originalImages) await batchSaveImages(data.originalImages);
+        // New V2 Streaming JSONL Import (Handles >2GB)
+        try {
+            const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB limit per read
+            let offset = 0;
+            let buffer = '';
 
-                // 3.1 Restore Audio
-                if (data.audioByTopicId) await batchSaveAudio(data.audioByTopicId);
+            let studyLog: Topic[] = [];
+            let userSubjects: Subject[] = [];
+            const notesByTopicId: Record<string, string> = {};
+            const chatHistoryByTopicId: Record<string, any[]> = {};
+            const images: Record<string, string> = {};
+            const originalImages: Record<string, string> = {};
+            const audioByTopicId: Record<string, any> = {};
 
-                // 4. Restore Preferences (Overwrites)
-                if (data.preferences) {
-                    if (data.preferences.ai) localStorage.setItem(`engram_ai_preferences_${props.userId}`, JSON.stringify(data.preferences.ai));
-                    if (data.preferences.appMode) {
-                        localStorage.setItem(`engramAppMode_${props.userId}`, data.preferences.appMode);
-                        props.setAppMode(data.preferences.appMode);
-                    }
-                    if (data.preferences.themeColor) props.setCurrentTheme(data.preferences.themeColor);
-                    if (data.preferences.themeIntensity) props.setThemeIntensity(data.preferences.themeIntensity);
-                    if (data.preferences.dateTimeSettings) props.setDateTimeSettings(data.preferences.dateTimeSettings);
-                    if (data.preferences.notificationSettings) props.setNotificationSettings(data.preferences.notificationSettings);
-                    if (data.preferences.enabledTabs && Array.isArray(data.preferences.enabledTabs)) props.setEnabledTabs(data.preferences.enabledTabs);
-                    if (data.preferences.fcFont) localStorage.setItem(`engram_fc_font_${props.userId}`, data.preferences.fcFont);
-                    if (data.preferences.celebrated21Days) localStorage.setItem(`engram_21_day_celebrated_${props.userId}`, data.preferences.celebrated21Days);
-                    if (data.preferences.podcastConfig) props.setPodcastConfig(data.preferences.podcastConfig);
-                }
-                
-                // 5. Restore Tasks, Matrix, Habits (SMART MERGE)
-                if (data.tasks) {
+            const processLine = async (line: string) => {
+                if (!line.trim()) return;
+                const obj = JSON.parse(line);
+                if (obj.type === "metadata") {
+                    if (obj.schemaVersion !== "2.0.0") throw new Error("Unsupported chunked backup version.");
+                } else if (obj.type === "studyLog") {
+                    studyLog = obj.data || [];
+                } else if (obj.type === "userSubjects") {
+                    userSubjects = obj.data || [];
+                } else if (obj.type === "note") {
+                    notesByTopicId[obj.id] = obj.data;
+                } else if (obj.type === "chatHistory") {
+                    chatHistoryByTopicId[obj.id] = obj.data;
+                } else if (obj.type === "image") {
+                    images[obj.id] = obj.data;
+                } else if (obj.type === "originalImage") {
+                    originalImages[obj.id] = obj.data;
+                } else if (obj.type === "audio") {
+                    audioByTopicId[obj.id] = obj.data;
+                } else if (obj.type === "preferences") {
+                    const p = obj.data;
+                    if (p.ai) localStorage.setItem(`engram_ai_preferences_${props.userId}`, JSON.stringify(p.ai));
+                    if (p.appMode) { localStorage.setItem(`engramAppMode_${props.userId}`, p.appMode); props.setAppMode(p.appMode); }
+                    if (p.themeColor) props.setCurrentTheme(p.themeColor);
+                    if (p.themeIntensity) props.setThemeIntensity(p.themeIntensity);
+                    if (p.dateTimeSettings) props.setDateTimeSettings(p.dateTimeSettings);
+                    if (p.notificationSettings) props.setNotificationSettings(p.notificationSettings);
+                    if (p.enabledTabs && Array.isArray(p.enabledTabs)) props.setEnabledTabs(p.enabledTabs);
+                    if (p.fcFont) localStorage.setItem(`engram_fc_font_${props.userId}`, p.fcFont);
+                    if (p.celebrated21Days) localStorage.setItem(`engram_21_day_celebrated_${props.userId}`, p.celebrated21Days);
+                    if (p.testSeriesLanguage) localStorage.setItem(`engram_test_series_language_${props.userId}`, p.testSeriesLanguage);
+                    if (p.podcastConfig) props.setPodcastConfig(p.podcastConfig);
+                } else if (obj.type === "tasks") {
                     const localTasks = safeReadJSON(`engramTasks_${props.userId}`, []);
-                    const mergedTasks = mergeTasksSmart(localTasks, data.tasks, 'text');
-                    localStorage.setItem(`engramTasks_${props.userId}`, JSON.stringify(mergedTasks));
-                }
-
-                if (data.matrix) {
+                    localStorage.setItem(`engramTasks_${props.userId}`, JSON.stringify(mergeTasksSmart(localTasks, obj.data, 'text')));
+                } else if (obj.type === "matrix") {
                     const localMatrix = safeReadJSON(`engramMatrix_${props.userId}`, []);
-                    const mergedMatrix = mergeTasksSmart(localMatrix, data.matrix, 'text');
-                    localStorage.setItem(`engramMatrix_${props.userId}`, JSON.stringify(mergedMatrix));
-                }
-
-                if (data.habits && Array.isArray(data.habits)) {
-                    const mergedHabits = mergeHabits(props.habits, data.habits);
-                    props.setHabits(mergedHabits);
-                }
-                
-                // 6. Restore Profile (Overwrites as per original spec)
-                if (data.userProfile && data.userProfile.name) props.setUserProfile(data.userProfile);
-                
-                // 7. Restore Observations (SMART MERGE)
-                if (data.observations && Array.isArray(data.observations)) {
-                    const localObs = ObservationsService.getAll(props.userId);
-                    const mergedObs = mergeObservations(localObs, data.observations);
-                    ObservationsService.saveAll(props.userId, mergedObs);
-                }
-
-                // 8. Restore Global Pomodoro Logs
-                if (data.globalPomodoroLogs && Array.isArray(data.globalPomodoroLogs)) {
-                    savePomodoroLogs(data.globalPomodoroLogs);
-                }
-
-                // 9. Restore Chat History
-                if (data.chatHistoryByTopicId) {
-                    await batchSaveChatHistories(props.userId, data.chatHistoryByTopicId);
-                }
-
-                // 10. Restore Study Log (Smart Merge handled by hook)
-                await props.importStudyLog(hydratedLog, data.userSubjects);
-
-                // 11. Restore Flashcard History
-                if (data.flashcardHistory && Array.isArray(data.flashcardHistory)) {
-                    const key = `engram-flashcard-history_${props.userId}`;
-                    const localHistory = safeReadJSON(key, []);
-                    const mergedHistory = mergeFlashcards(localHistory, data.flashcardHistory);
-                    localStorage.setItem(key, JSON.stringify(mergedHistory));
-                }
-
-                // 12. Restore Test Series History
-                if (data.testSeriesHistory && Array.isArray(data.testSeriesHistory)) {
-                    const key = `engram_test_series_history_${props.userId}`;
-                    const localHistory = safeReadJSON(key, []);
-                    const mergedHistory = [...localHistory, ...data.testSeriesHistory].filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i);
-                    localStorage.setItem(key, JSON.stringify(mergedHistory));
-                }
-
-                // 13. Restore Test Series Past Questions
-                if (data.testSeriesPastQuestions && Array.isArray(data.testSeriesPastQuestions)) {
-                    const key = `engram_test_series_past_questions_${props.userId}`;
-                    const localQuestions = safeReadJSON(key, []);
-                    const mergedQuestions = [...new Set([...localQuestions, ...data.testSeriesPastQuestions])].slice(-100);
-                    localStorage.setItem(key, JSON.stringify(mergedQuestions));
+                    localStorage.setItem(`engramMatrix_${props.userId}`, JSON.stringify(mergeTasksSmart(localMatrix, obj.data, 'text')));
+                } else if (obj.type === "habits") {
+                    if (Array.isArray(obj.data)) props.setHabits(mergeHabits(props.habits, obj.data));
+                } else if (obj.type === "userProfile") {
+                    if (obj.data && obj.data.name) props.setUserProfile(obj.data);
+                } else if (obj.type === "observations") {
+                    if (Array.isArray(obj.data)) ObservationsService.saveAll(props.userId, mergeObservations(ObservationsService.getAll(props.userId), obj.data));
+                } else if (obj.type === "globalPomodoroLogs") {
+                    if (Array.isArray(obj.data)) savePomodoroLogs(obj.data);
+                } else if (obj.type === "flashcardHistory") {
+                    if (Array.isArray(obj.data)) {
+                        const key = `engram-flashcard-history_${props.userId}`;
+                        localStorage.setItem(key, JSON.stringify(mergeFlashcards(safeReadJSON(key, []), obj.data)));
+                    }
+                } else if (obj.type === "testSeriesHistory") {
+                    if (Array.isArray(obj.data)) {
+                        const key = `engram_test_series_history_${props.userId}`;
+                        const mergedHistory = [...safeReadJSON(key, []), ...obj.data].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+                        localStorage.setItem(key, JSON.stringify(mergedHistory));
+                    }
+                } else if (obj.type === "testSeriesPastQuestions") {
+                    if (Array.isArray(obj.data)) {
+                        const key = `engram_test_series_past_questions_${props.userId}`;
+                        localStorage.setItem(key, JSON.stringify([...new Set([...safeReadJSON(key, []), ...obj.data])].slice(-100)));
+                    }
+                } else if (obj.type === "diary") {
+                    if (Array.isArray(obj.data)) {
+                        const key = `engram_diary_${props.userId}`;
+                        const mergedDiary = [...safeReadJSON(key, []), ...obj.data].filter((v, i, a) => a.findIndex(D => D.id === v.id) === i);
+                        localStorage.setItem(key, JSON.stringify(mergedDiary));
+                    }
+                } else if (obj.type === "recentExams") {
+                    if (Array.isArray(obj.data)) {
+                        const key = `engram_recent_exams_${props.userId}`;
+                        const mergedExams = [...safeReadJSON(key, []), ...obj.data].filter((v, i, a) => a.findIndex(e => e.id === v.id) === i);
+                        localStorage.setItem(key, JSON.stringify(mergedExams));
+                    }
+                } else if (obj.type === "analytics") {
+                    if (obj.data) localStorage.setItem(`engramCalendarAgg_${props.userId}`, JSON.stringify(obj.data));
                 }
                 
-                // 14. Restore Diary
-                if (data.diary && Array.isArray(data.diary)) {
-                    const key = `engram_diary_${props.userId}`;
-                    const localDiary = safeReadJSON(key, []);
-                    const mergedDiary = [...localDiary, ...data.diary].filter((v, i, a) => a.findIndex(D => D.id === v.id) === i);
-                    localStorage.setItem(key, JSON.stringify(mergedDiary));
+                // Flush Images/Audio buffers if they get larger than threshold to free memory
+                if (Object.keys(images).length > 20) {
+                    await batchSaveImages(images);
+                    for (const k in images) delete images[k];
                 }
+                if (Object.keys(originalImages).length > 20) {
+                    await batchSaveImages(originalImages);
+                    for (const k in originalImages) delete originalImages[k];
+                }
+                if (Object.keys(chatHistoryByTopicId).length > 20) {
+                    await batchSaveChatHistories(props.userId, chatHistoryByTopicId);
+                    for (const k in chatHistoryByTopicId) delete chatHistoryByTopicId[k];
+                }
+                if (Object.keys(audioByTopicId).length > 10) {
+                    await batchSaveAudio(audioByTopicId);
+                    for (const k in audioByTopicId) delete audioByTopicId[k];
+                }
+            };
 
-                // 15. Restore Recent Exams
-                if (data.recentExams && Array.isArray(data.recentExams)) {
-                    const key = `engram_recent_exams_${props.userId}`;
-                    const localExams = safeReadJSON(key, []);
-                    const mergedExams = [...localExams, ...data.recentExams].filter((v, i, a) => a.findIndex(e => e.id === v.id) === i);
-                    localStorage.setItem(key, JSON.stringify(mergedExams));
-                }
-
-                // 16. Restore Analytics
-                if (data.analytics) {
-                    const key = `engramCalendarAgg_${props.userId}`;
-                    localStorage.setItem(key, JSON.stringify(data.analytics));
-                }
+            while (offset < file.size) {
+                const slice = file.slice(offset, offset + CHUNK_SIZE);
+                const textChunk = await slice.text();
+                buffer += textChunk;
                 
-                // 17. Restore Test Series Language
-                if (data.preferences?.testSeriesLanguage) {
-                     localStorage.setItem(`engram_test_series_language_${props.userId}`, data.preferences.testSeriesLanguage);
+                let newlineIndex;
+                while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
+                    const line = buffer.slice(0, newlineIndex).trim();
+                    buffer = buffer.slice(newlineIndex + 1);
+                    if (line) await processLine(line);
                 }
-                
-                setShowImportSuccessModal(true);
-            } catch (err: unknown) {
-                console.error("Import failed:", err);
-                const message = err instanceof Error ? err.message : "Failed to parse backup file.";
-                setRouterError(new Error(message));
+                offset += CHUNK_SIZE;
             }
-        };
-        reader.readAsText(file);
+            
+            if (buffer.trim()) {
+                await processLine(buffer.trim());
+            }
+
+            // Flush remaining data
+            if (Object.keys(images).length > 0) await batchSaveImages(images);
+            if (Object.keys(originalImages).length > 0) await batchSaveImages(originalImages);
+            if (Object.keys(chatHistoryByTopicId).length > 0) await batchSaveChatHistories(props.userId, chatHistoryByTopicId);
+            if (Object.keys(audioByTopicId).length > 0) await batchSaveAudio(audioByTopicId);
+
+            // Reconstruct notes inside studyLog
+            const hydratedLog = studyLog.map((t: Topic) => ({
+                ...t,
+                shortNotes: notesByTopicId[t.id] || t.shortNotes || ""
+            }));
+            await props.importStudyLog(hydratedLog, userSubjects);
+
+            setShowImportSuccessModal(true);
+        } catch (err: any) {
+            console.error("V2 Streaming Import failed:", err);
+            setRouterError(new Error(err.message || "Failed to process backup stream."));
+        }
+        e.target.value = '';
     };
 
     const handleExportData = async () => {
@@ -927,17 +1085,13 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
             const topicIds = sanitizedLog.map(t => t.id);
 
             const generateBackupStream = async function* (): AsyncGenerator<string, void, unknown> {
-                yield '{\n';
-                yield `  "schemaVersion": "1.0.0",\n`;
-                yield `  "appVersion": "1.4",\n`;
-                yield `  "timestamp": "${new Date().toISOString()}",\n`;
-                yield `  "userId": ${JSON.stringify(props.userId)},\n`;
-                yield `  "userSubjects": ${JSON.stringify(props.userSubjects || [])},\n`;
-                yield `  "studyLog": ${JSON.stringify(sanitizedLog || [])},\n`;
-
-                // 2. Fetch Bodies Incrementally
-                yield `  "notesByTopicId": {`;
-                let firstNote = true;
+                // V2 Chunked Format (JSON Lines) - No arbitrary size limit
+                yield JSON.stringify({ type: 'metadata', schemaVersion: '2.0.0', appVersion: '1.4', timestamp: new Date().toISOString(), userId: props.userId, userProfile: props.userProfile, guestStartTs: props.isGuest ? getGuestStartTimestamp() : null }) + '\n';
+                
+                yield JSON.stringify({ type: 'userSubjects', data: props.userSubjects || [] }) + '\n';
+                yield JSON.stringify({ type: 'studyLog', data: sanitizedLog || [] }) + '\n';
+                
+                // Fetch Bodies Incrementally
                 const imageIds = new Set<string>();
                 const captureRegex = /\[FIG_CAPTURE: (.*?) \|/g; 
                 for (const id of topicIds) {
@@ -945,80 +1099,48 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     if (note) {
                         const matches = [...note.matchAll(captureRegex)];
                         matches.forEach(m => imageIds.add(m[1]));
-                        if (!firstNote) yield ',';
-                        yield `\n    "${id}": ${JSON.stringify(note)}`;
-                        firstNote = false;
+                        yield JSON.stringify({ type: 'note', id, data: note }) + '\n';
                     }
                 }
-                yield `\n  },\n`;
 
-                // 3. Fetch Cropped Images (parsed from notes) incrementally
-                yield `  "images": {`;
-                let firstImage = true;
+                // Fetch Cropped Images (parsed from notes) incrementally
                 for (const imgId of Array.from(imageIds)) {
                     const imgBase64 = await getImageFromIDB(imgId);
-                    if (imgBase64) {
-                        if (!firstImage) yield ',';
-                        yield `\n    "${imgId}": ${JSON.stringify(imgBase64)}`;
-                        firstImage = false;
-                    }
+                    if (imgBase64) yield JSON.stringify({ type: 'image', id: imgId, data: imgBase64 }) + '\n';
                 }
-                yield `\n  },\n`;
 
-                // 4. Fetch Original Source Images incrementally
-                yield `  "originalImages": {`;
-                let firstOrig = true;
+                // Fetch Original Source Images incrementally
                 for (const id of topicIds) {
                     const origImages = await batchGetOriginalImages([id]);
                     for (const [k, v] of Object.entries(origImages)) {
-                        if (!firstOrig) yield ',';
-                        yield `\n    "${k}": ${JSON.stringify(v)}`;
-                        firstOrig = false;
+                        yield JSON.stringify({ type: 'originalImage', id: k, data: v }) + '\n';
                     }
                 }
-                yield `\n  },\n`;
 
-                // 4.1 Fetch Audio Data incrementally
-                yield `  "audioByTopicId": {`;
-                let firstAudio = true;
+                // Fetch Audio Data incrementally
                 for (const id of topicIds) {
                     const audio = await batchGetAudio([id]);
-                    if (audio[id]) {
-                        if (!firstAudio) yield ',';
-                        yield `\n    "${id}": ${JSON.stringify(audio[id])}`;
-                        firstAudio = false;
-                    }
+                    if (audio[id]) yield JSON.stringify({ type: 'audio', id, data: audio[id] }) + '\n';
                 }
-                yield `\n  },\n`;
 
-                // 5. Fetch Additional User Data
-                yield `  "observations": ${JSON.stringify(ObservationsService.getAll(props.userId) || [])},\n`;
-                yield `  "globalPomodoroLogs": ${JSON.stringify(getPomodoroLogs() || [])},\n`;
+                yield JSON.stringify({ type: 'observations', data: ObservationsService.getAll(props.userId) || [] }) + '\n';
+                yield JSON.stringify({ type: 'globalPomodoroLogs', data: getPomodoroLogs() || [] }) + '\n';
 
                 // Chat History Incrementally
-                yield `  "chatHistoryByTopicId": {`;
-                let firstChat = true;
                 for (const id of topicIds) {
                     const chatLog = await getChatFromIDB(props.userId, id);
-                    if (chatLog) {
-                        if (!firstChat) yield ',';
-                        yield `\n    "${id}": ${JSON.stringify(chatLog)}`;
-                        firstChat = false;
-                    }
+                    if (chatLog) yield JSON.stringify({ type: 'chatHistory', id, data: chatLog }) + '\n';
                 }
-                yield `\n  },\n`;
 
-                yield `  "flashcardHistory": ${JSON.stringify(safeReadJSON(`engram-flashcard-history_${props.userId}`, []))},\n`;
-                yield `  "testSeriesHistory": ${JSON.stringify(safeReadJSON(`engram_test_series_history_${props.userId}`, safeReadJSON('engram_test_series_history', [])))},\n`;
-                yield `  "testSeriesPastQuestions": ${JSON.stringify(safeReadJSON(`engram_test_series_past_questions_${props.userId}`, safeReadJSON('engram_test_series_past_questions', [])))},\n`;
-                yield `  "diary": ${JSON.stringify(safeReadJSON(`engram_diary_${props.userId}`, []))},\n`;
-                yield `  "recentExams": ${JSON.stringify(safeReadJSON(`engram_recent_exams_${props.userId}`, []))},\n`;
-                yield `  "analytics": ${JSON.stringify(safeReadJSON(`engramCalendarAgg_${props.userId}`, null))},\n`;
-                yield `  "habits": ${JSON.stringify(props.habits || [])},\n`;
-                yield `  "tasks": ${JSON.stringify(safeReadJSON(`engramTasks_${props.userId}`, []))},\n`;
-                yield `  "matrix": ${JSON.stringify(safeReadJSON(`engramMatrix_${props.userId}`, []))},\n`;
-                yield `  "userProfile": ${JSON.stringify(props.userProfile || null)},\n`;
-                yield `  "guestStartTs": ${props.isGuest ? JSON.stringify(getGuestStartTimestamp()) : "null"},\n`;
+                yield JSON.stringify({ type: 'flashcardHistory', data: safeReadJSON(`engram-flashcard-history_${props.userId}`, []) }) + '\n';
+                yield JSON.stringify({ type: 'testSeriesHistory', data: safeReadJSON(`engram_test_series_history_${props.userId}`, safeReadJSON('engram_test_series_history', [])) }) + '\n';
+                yield JSON.stringify({ type: 'testSeriesPastQuestions', data: safeReadJSON(`engram_test_series_past_questions_${props.userId}`, safeReadJSON('engram_test_series_past_questions', [])) }) + '\n';
+                yield JSON.stringify({ type: 'diary', data: safeReadJSON(`engram_diary_${props.userId}`, []) }) + '\n';
+                yield JSON.stringify({ type: 'recentExams', data: safeReadJSON(`engram_recent_exams_${props.userId}`, []) }) + '\n';
+                yield JSON.stringify({ type: 'analytics', data: safeReadJSON(`engramCalendarAgg_${props.userId}`, null) }) + '\n';
+                yield JSON.stringify({ type: 'habits', data: props.habits || [] }) + '\n';
+                yield JSON.stringify({ type: 'tasks', data: safeReadJSON(`engramTasks_${props.userId}`, []) }) + '\n';
+                yield JSON.stringify({ type: 'matrix', data: safeReadJSON(`engramMatrix_${props.userId}`, []) }) + '\n';
 
                 let aiPrefs = {};
                 try {
@@ -1026,23 +1148,25 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                     if (raw) aiPrefs = JSON.parse(raw);
                 } catch { /* ignore */ }
 
-                yield `  "preferences": ${JSON.stringify({
-                    ai: aiPrefs,
-                    appMode: localStorage.getItem(`engramAppMode_${props.userId}`) || 'system',
-                    themeColor: props.currentTheme,
-                    themeIntensity: props.themeIntensity,
-                    dateTimeSettings: props.dateTimeSettings,
-                    notificationSettings: props.notificationSettings,
-                    enabledTabs: props.enabledTabs,
-                    fcFont: localStorage.getItem(`engram_fc_font_${props.userId}`),
-                    celebrated21Days: localStorage.getItem(`engram_21_day_celebrated_${props.userId}`),
-                    testSeriesLanguage: localStorage.getItem(`engram_test_series_language_${props.userId}`),
-                    podcastConfig: props.podcastConfig,
-                })}\n`;
-                yield '}\n';
+                yield JSON.stringify({
+                    type: 'preferences',
+                    data: {
+                        ai: aiPrefs,
+                        appMode: localStorage.getItem(`engramAppMode_${props.userId}`) || 'system',
+                        themeColor: props.currentTheme,
+                        themeIntensity: props.themeIntensity,
+                        dateTimeSettings: props.dateTimeSettings,
+                        notificationSettings: props.notificationSettings,
+                        enabledTabs: props.enabledTabs,
+                        fcFont: localStorage.getItem(`engram_fc_font_${props.userId}`),
+                        celebrated21Days: localStorage.getItem(`engram_21_day_celebrated_${props.userId}`),
+                        testSeriesLanguage: localStorage.getItem(`engram_test_series_language_${props.userId}`),
+                        podcastConfig: props.podcastConfig,
+                    }
+                }) + '\n';
             };
 
-            const fileName = `engram_backup_${new Date().toISOString().split('T')[0]}.json`;
+            const fileName = `engram_backup_${new Date().toISOString().split('T')[0]}.jsonl`;
             await downloadLargeJSONStream(generateBackupStream(), fileName);
             
         } catch (e) {

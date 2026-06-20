@@ -250,11 +250,33 @@ export const downloadLargeJSONStream = async (
       }
   } else {
       try {
+          if ('showSaveFilePicker' in window) {
+              try {
+                  const handle = await (window as any).showSaveFilePicker({
+                      suggestedName: filename,
+                      types: [{
+                          description: 'JSON Lines file',
+                          accept: { 'application/jsonl+json': ['.jsonl'], 'application/json': ['.json'] },
+                      }],
+                  });
+                  const writable = await handle.createWritable();
+                  for await (const chunk of stream) {
+                      await writable.write(chunk);
+                  }
+                  await writable.close();
+                  triggerHaptic.notification('Success');
+                  return;
+              } catch (err: any) {
+                  if (err.name === 'AbortError') return; // User cancelled
+                  console.warn('showSaveFilePicker failed, falling back to Blob', err);
+              }
+          }
+
           const chunks: string[] = [];
           for await (const chunk of stream) {
               chunks.push(chunk);
           }
-          const blob = new Blob(chunks, { type: "application/json" });
+          const blob = new Blob(chunks, { type: filename.endsWith('.jsonl') ? "application/jsonl+json" : "application/json" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
