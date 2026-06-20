@@ -1,14 +1,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Clock, Pause, Play, CheckSquare, Minimize2, RotateCw } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
+import { Clock, Pause, Play, CheckSquare, Minimize2 } from 'lucide-react';
 import { useFocus } from '../context/FocusContext';
 import { playCompletionCue } from '../utils/audioCue';
 import { showLocalNotification } from '../utils/notifications';
 import { releaseWakeLock } from '../utils/wakeLock';
 
 interface FloatingFocusTimerProps {
-    activeTopicId: string | null;
+    activeTopicId: string;
     activeTopicName: string;
     currentView: string;
     selectedTopicId: string | undefined;
@@ -24,7 +23,7 @@ export const FloatingFocusTimer: React.FC<FloatingFocusTimerProps> = ({
     themeColor,
     onLogTime
 }) => {
-    const { elapsed, isRunning, pauseSession, resumeSession, restartCurrentSession, logAndReset, formatTime, mode, duration } = useFocus();
+    const { elapsed, isRunning, pauseSession, resumeSession, logAndReset, formatTime, mode, duration } = useFocus();
     const [isMinimized, setIsMinimized] = useState(false);
     const completionHandled = useRef(false);
     
@@ -112,6 +111,7 @@ export const FloatingFocusTimer: React.FC<FloatingFocusTimerProps> = ({
 
     // Double-check exclusions in render phase
     if (currentView === 'topicDetail' && selectedTopicId === activeTopicId) return null;
+    if (currentView === 'pomodoro') return null;
 
     const handleLog = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -130,10 +130,6 @@ export const FloatingFocusTimer: React.FC<FloatingFocusTimerProps> = ({
         ? `bg-${themeColor}-600/40 border-${themeColor}-400/50`
         : `bg-gray-800/40 border-gray-600/50`;
 
-    if (Capacitor.isNativePlatform()) {
-        return null;
-    }
-
     // Minimized View (Ball)
     if (isMinimized) {
         return (
@@ -147,9 +143,9 @@ export const FloatingFocusTimer: React.FC<FloatingFocusTimerProps> = ({
             >
                 <div className="flex flex-col items-center justify-center pointer-events-none select-none">
                     {isRunning ? (
-                       <span className="text-sm font-mono font-bold animate-pulse">{formatTime(elapsed)}</span>
+                       <span className="text-[10px] font-mono font-bold animate-pulse">{formatTime(elapsed)}</span>
                     ) : (
-                       <span className="text-sm font-mono font-bold">{formatTime(elapsed)}</span>
+                       <Clock size={20} />
                     )}
                 </div>
             </div>
@@ -160,7 +156,7 @@ export const FloatingFocusTimer: React.FC<FloatingFocusTimerProps> = ({
     return (
         <div
             className={`fixed z-50 rounded-full backdrop-blur-md shadow-xl border flex items-center justify-between p-2 pl-3 gap-3 cursor-grab active:cursor-grabbing transition-all duration-300 text-white ${bgStyle}`}
-            style={{ left: pos.x, top: pos.y, touchAction: 'none', maxWidth: '340px' }}
+            style={{ left: pos.x, top: pos.y, touchAction: 'none', maxWidth: '280px' }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -171,40 +167,32 @@ export const FloatingFocusTimer: React.FC<FloatingFocusTimerProps> = ({
                 </div>
                 <div className="min-w-0 flex flex-col">
                     <span className="text-[9px] uppercase opacity-70 tracking-wider leading-none">Focusing</span>
-                    <span className="text-sm font-bold truncate max-w-[130px] pr-2">{activeTopicName}</span>
+                    <span className="text-xs font-bold truncate max-w-[90px]">{activeTopicName}</span>
                 </div>
              </div>
 
              <div className="flex items-center gap-2 shrink-0">
-                 <span className="font-mono font-bold text-lg tabular-nums pointer-events-none select-none mr-2">
+                 <span className="font-mono font-bold text-lg tabular-nums pointer-events-none select-none mr-1">
                      {formatTime(elapsed)}
                  </span>
                  
-                 <div className="flex items-center gap-1.5 bg-black/50 rounded-full p-1 shadow-inner border border-black/20" onPointerDown={(e) => e.stopPropagation()}>
+                 <div className="flex items-center gap-1 bg-white/10 rounded-full p-0.5" onPointerDown={(e) => e.stopPropagation()}>
                      <button 
                         onClick={isRunning ? pauseSession : resumeSession}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center transition ${isRunning ? 'bg-white/15 hover:bg-white/25 text-white' : 'bg-white text-black hover:bg-gray-200 shadow-md'}`}
-                        title={isRunning ? "Pause" : "Play"}
+                        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/20 transition"
                      >
                          {isRunning ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
                      </button>
                      <button 
-                        onClick={(e) => { e.stopPropagation(); restartCurrentSession(); }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center bg-white/15 hover:bg-white/25 transition text-yellow-400 shadow-sm"
-                        title="Reset Timer"
-                     >
-                        <RotateCw size={14} />
-                     </button>
-                     <button 
                         onClick={handleLog}
-                        className="w-8 h-8 rounded-full flex items-center justify-center bg-white/15 hover:bg-white/25 transition text-green-400 shadow-sm"
+                        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/20 transition text-green-300"
                         title="Log & Finish"
                      >
                         <CheckSquare size={14} />
                      </button>
                      <button 
                         onClick={toggleMinimize}
-                        className="w-8 h-8 rounded-full flex items-center justify-center bg-white/15 hover:bg-white/25 transition text-white opacity-90 shadow-sm"
+                        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/20 transition opacity-80"
                         title="Minimize"
                      >
                         <Minimize2 size={14} />

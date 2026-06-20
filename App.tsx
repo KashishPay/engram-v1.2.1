@@ -29,9 +29,6 @@ import { ProfileService } from './services/profile';
 import { getFeatureConfig } from './services/gemini';
 import { SyncService, SyncPayload } from './services/sync';
 import { initNotificationListeners } from './utils/notifications';
-import { Preferences } from '@capacitor/preferences';
-import { Capacitor } from '@capacitor/core';
-import OverlayTimer from './plugins/OverlayTimer';
 
 export const App: React.FC = () => {
     // [AUTH DIAGNOSIS] Boot Logs & Upload Diagnostics
@@ -652,87 +649,6 @@ export const App: React.FC = () => {
         return allBadges;
     }, [studyLog, currentStreak]);
 
-    // Sync Widget Data to Android Native (CapacitorStorage)
-    useEffect(() => {
-        if (!Capacitor.isNativePlatform()) return;
-        
-        const updateWidgetData = async () => {
-            const today = new Date().toISOString().split('T')[0];
-            const dueCount = studyLog.filter(topic => {
-                if (topic.isJourneyPaused) return false;
-                if (!topic.repetitions || topic.repetitions.length === 0) return true;
-                const lastRep = topic.repetitions[topic.repetitions.length - 1];
-                if (!lastRep) return false;
-                
-                const repDate = new Date(lastRep.dateCompleted);
-                const daysBetween = lastRep.score > 7 ? 3 : (lastRep.score < 5 ? 1 : 2);
-                repDate.setDate(repDate.getDate() + daysBetween);
-                const nextDueDateStr = repDate.toISOString().split('T')[0];
-                return nextDueDateStr <= today;
-            }).length;
-
-            const progress = studyLog.length; // Maps to 'mastered' or 'total' in WidgetsView
-            
-            try {
-                await Preferences.set({ key: 'widget_data_due', value: dueCount.toString() });
-                await Preferences.set({ key: 'widget_data_streak', value: currentStreak.toString() });
-                await Preferences.set({ key: 'widget_data_progress', value: progress.toString() });
-                
-                await OverlayTimer.updateWidgets();
-            } catch (err) {
-                console.error("[WidgetSync] Error syncing widget data to preferences", err);
-            }
-        };
-
-        updateWidgetData();
-    }, [studyLog, currentStreak]);
-
-    // Handle interactive widget actions
-    useEffect(() => {
-        if (!Capacitor.isNativePlatform()) return;
-        
-        const checkWidgetActions = async () => {
-            try {
-                const [startTimer, addTask, startReview] = await Promise.all([
-                    Preferences.get({ key: 'widget_action_start_timer' }),
-                    Preferences.get({ key: 'widget_action_add_task' }),
-                    Preferences.get({ key: 'widget_action_start_review' })
-                ]);
-                
-                if (startTimer.value) {
-                    await Preferences.remove({ key: 'widget_action_start_timer' });
-                    window.dispatchEvent(new CustomEvent('start_widget_timer'));
-                    window.location.hash = '#/focus';
-                }
-                if (addTask.value) {
-                    await Preferences.remove({ key: 'widget_action_add_task' });
-                    window.location.hash = '#/topicDetail';
-                }
-                if (startReview.value) {
-                    await Preferences.remove({ key: 'widget_action_start_review' });
-                    window.location.hash = '#/list/due';
-                }
-            } catch (e) {
-                console.error("[Widget] Error checking actions", e);
-            }
-        };
-
-        let listenerObj: unknown = null;
-        Capacitor.Plugins.App.addListener('appStateChange', (state: { isActive: boolean }) => {
-            if (state.isActive) {
-                checkWidgetActions();
-            }
-        }).then((l: unknown) => listenerObj = l);
-        
-        checkWidgetActions();
-
-        return () => {
-            if (listenerObj && typeof (listenerObj as Record<string, unknown>).remove === 'function') {
-                 ((listenerObj as Record<string, unknown>).remove as () => void)();
-            }
-        };
-    }, []);
-
     // Save active user ID whenever it changes
     useEffect(() => {
         localStorage.setItem('engramCurrentUserId', userId);
@@ -1060,7 +976,7 @@ export const App: React.FC = () => {
                     </div>
                 </div>
             )}
-            <FocusProvider userId={userId} key={userId} themeColor={currentTheme}>
+            <FocusProvider userId={userId} key={userId}>
             <AppRouter 
                 user={user}
                 isGuest={isGuest}

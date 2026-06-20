@@ -218,9 +218,7 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
     };
 
     const lastRepetition = topic?.repetitions?.[(topic?.repetitions?.length || 1) - 1];
-    const todayStr = new Date().toISOString().split('T')[0];
-    const alreadyCompletedToday = topic?.lastCompletedDate === todayStr;
-    const isReadyForReview = !alreadyCompletedToday && (lastRepetition ? new Date(lastRepetition.nextReviewDate) <= new Date() : true);
+    const isReadyForReview = lastRepetition ? new Date(lastRepetition.nextReviewDate) <= new Date() : true;
     const repetitionCount = topic?.repetitions?.length || 0;
     const isQuizUnlocked = notes.length > 0;
     const pomodoroTime = topic?.pomodoroTimeMinutes || 0;
@@ -380,7 +378,6 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                 <div className="grid grid-cols-1 gap-4">
                     <PomodoroTimer 
                         topicId={topic.id}
-                        subjectId={topic.subjectId}
                         topicName={topic.topicName}
                         onTimeLogged={handleTimeLogged} 
                         themeColor={themeColor} 
@@ -485,17 +482,11 @@ export const TopicDetailView: React.FC<TopicDetailViewProps> = React.memo(({ top
                                     AdManager.showAlternatingAd().catch(console.error);
                                     navigateTo('quiz', { topic });
                                 }} 
-                                disabled={!isQuizUnlocked || saveStatus === 'saving' || (!isReadyForReview && !topic.isJourneyPaused) || isLoadingBody || !!currentJob || topic.isJourneyPaused || alreadyCompletedToday}
+                                disabled={!isQuizUnlocked || saveStatus === 'saving' || (!isReadyForReview && !topic.isJourneyPaused) || isLoadingBody || !!currentJob || topic.isJourneyPaused}
                                 className={`flex-1 py-2.5 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-lg font-bold shadow-sm text-xs flex items-center justify-center hover:opacity-90 transition disabled:opacity-50`}
                             >
                                 <Zap size={14} className="mr-1.5" /> 
-                                {alreadyCompletedToday 
-                                    ? "Completed Today ✅" 
-                                    : topic.isJourneyPaused 
-                                        ? "Journey Paused" 
-                                        : isReadyForReview 
-                                            ? "Pop Quiz" 
-                                            : "Not Due"}
+                                {topic.isJourneyPaused ? "Journey Paused" : isReadyForReview ? "Pop Quiz" : "Not Due"}
                             </button>
                             <button
                                 onClick={() => navigateTo('chat', { topic })}

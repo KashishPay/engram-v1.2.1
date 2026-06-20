@@ -24,7 +24,6 @@ import { normalizeDoubleHashToQuery } from '../utils/urlSanitizer';
 import { checkGuestStatus, getGuestStartTimestamp } from '../utils/guestLimit';
 import { ErrorCard } from './ErrorCard';
 import { downloadLargeJSONStream } from '../utils/download';
-import { JSONParser } from '@streamparser/json';
 import { App as CapacitorApp, URLOpenListenerEvent } from '@capacitor/app'; 
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -439,7 +438,6 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 title = 'Due for Review';
                 filtered = studyLog.filter(t => {
                     if (t.isJourneyPaused) return false;
-                    if (t.lastCompletedDate === today) return false;
                     if ((t.repetitions?.length || 0) === 0) return true;
                     const lastRep = t.repetitions[t.repetitions.length - 1];
                     return lastRep && lastRep.nextReviewDate <= today;
@@ -768,7 +766,7 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
     }, [props.studyLog, focusState.topicId, focusState.topicName, props.userId, props.handleUpdateTopic]);
 
     // Import/Export Handlers
-    const handleImportData = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (props.isGuest) {
             setRouterError(new Error("Restoring backups is reserved for registered accounts. Please sign up to import your data and sync across devices."));
             e.target.value = '';
@@ -776,81 +774,35 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
         }
         const file = e.target.files?.[0];
         if (!file) return;
-        
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const data: Record<string, any> = { notesByTopicId: {} };
-            let imageBatch: Record<string, string> = {};
-            let originalImageBatch: Record<string, string> = {};
-            let audioBatch: Record<string, string> = {};
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let chatHistoryBatch: Record<string, any[]> = {};
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let promiseQueue: Promise<any>[] = [];
+        if (file.size > 50 * 1024 * 1024) {
+            setRouterError(new Error("Backup file is too large (>50MB). Import cancelled."));
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            try {
+                const jsonStr = ev.target?.result as string;
+                const data = JSON.parse(jsonStr);
+                
+                if (data.schemaVersion !== "1.0.0") throw new Error("Unsupported backup version.");
+                if (!Array.isArray(data.studyLog)) throw new Error("Invalid backup format.");
+                
+                // 1. Hydrate Notes: Merge separated notes back into topic objects for reliable import
+                const hydratedLog = data.studyLog.map((t: Topic) => ({
+                    ...t,
+                    shortNotes: data.notesByTopicId?.[t.id] || t.shortNotes || ""
+                }));
 
-            const flushTasks = () => {
-                if (Object.keys(imageBatch).length > 0) { promiseQueue.push(batchSaveImages({ ...imageBatch })); imageBatch = {}; }
-                if (Object.keys(originalImageBatch).length > 0) { promiseQueue.push(batchSaveImages({ ...originalImageBatch })); originalImageBatch = {}; }
-                if (Object.keys(audioBatch).length > 0) { promiseQueue.push(batchSaveAudio({ ...audioBatch })); audioBatch = {}; }
-                if (Object.keys(chatHistoryBatch).length > 0) { promiseQueue.push(batchSaveChatHistories(props.userId, { ...chatHistoryBatch })); chatHistoryBatch = {}; }
-            };
+                // 2. Restore Cropped Images (for Inline Rendering)
+                if (data.images) await batchSaveImages(data.images);
+                
+                // 3. Restore Original Source Images (for "View Original")
+                if (data.originalImages) await batchSaveImages(data.originalImages);
 
-            const waitQueue = async () => {
-                if (promiseQueue.length > 10) {
-                    await Promise.all(promiseQueue);
-                    promiseQueue = [];
-                }
-            };
+                // 3.1 Restore Audio
+                if (data.audioByTopicId) await batchSaveAudio(data.audioByTopicId);
 
-            const parser = new JSONParser();
-            parser.onValue = ({ value, key, parent, stack }) => {
-                if (stack.length === 1 && key !== undefined) {
-                    if (!['images', 'originalImages', 'audioByTopicId', 'chatHistoryByTopicId', 'notesByTopicId'].includes(key as string)) {
-                        data[key] = value;
-                    }
-                } else if (stack.length === 2 && stack[1].key === 'images') {
-                    imageBatch[key as string] = value;
-                    delete parent[key];
-                } else if (stack.length === 2 && stack[1].key === 'originalImages') {
-                    originalImageBatch[key as string] = value;
-                    delete parent[key];
-                } else if (stack.length === 2 && stack[1].key === 'audioByTopicId') {
-                    audioBatch[key as string] = value;
-                    delete parent[key];
-                } else if (stack.length === 2 && stack[1].key === 'chatHistoryByTopicId') {
-                    chatHistoryBatch[key as string] = value;
-                    delete parent[key];
-                } else if (stack.length === 2 && stack[1].key === 'notesByTopicId') {
-                    data.notesByTopicId[key as string] = value;
-                    delete parent[key];
-                }
-            };
-
-            const stream = file.stream();
-            const textStream = stream.pipeThrough(new TextDecoderStream());
-            const reader = textStream.getReader();
-
-            // eslint-disable-next-line no-constant-condition
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                parser.write(value);
-                flushTasks();
-                await waitQueue();
-            }
-            flushTasks();
-            await Promise.all(promiseQueue);
-
-            if (data.schemaVersion !== "1.0.0") throw new Error("Unsupported backup version.");
-            if (!Array.isArray(data.studyLog)) throw new Error("Invalid backup format.");
-            
-            // 1. Hydrate Notes: Merge separated notes back into topic objects for reliable import
-            const hydratedLog = data.studyLog.map((t: Topic) => ({
-                ...t,
-                shortNotes: data.notesByTopicId?.[t.id] || t.shortNotes || ""
-            }));
-
-            // 4. Restore Preferences (Overwrites)
+                // 4. Restore Preferences (Overwrites)
                 if (data.preferences) {
                     if (data.preferences.ai) localStorage.setItem(`engram_ai_preferences_${props.userId}`, JSON.stringify(data.preferences.ai));
                     if (data.preferences.appMode) {
@@ -965,6 +917,8 @@ export const AppRouter: React.FC<AppRouterProps> = (props) => {
                 const message = err instanceof Error ? err.message : "Failed to parse backup file.";
                 setRouterError(new Error(message));
             }
+        };
+        reader.readAsText(file);
     };
 
     const handleExportData = async () => {

@@ -85,7 +85,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
     // MOUNT GATE: Only mount Floating Timer if we are NOT on the detail view of the currently active topic.
     const showFloatingTimer = isLoggedIn && 
-        (focusState.topicId || focusState.sessionTitle) && 
+        focusState.topicId && 
         currentView !== 'onboarding' && 
         !(currentView === 'topicDetail' && selectedTopic?.id === focusState.topicId);
 
@@ -366,7 +366,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 {showFloatingTimer && (
                     <FloatingFocusTimer
                         activeTopicId={focusState.topicId}
-                        activeTopicName={focusState.sessionTitle || focusState.topicName || "Topic"}
+                        activeTopicName={focusState.topicName || "Topic"}
                         currentView={currentView}
                         selectedTopicId={selectedTopic?.id}
                         themeColor={themeColor}

@@ -12,15 +12,14 @@ import { triggerHaptic } from '../utils/haptics';
 interface PomodoroTimerProps {
   topicId: string;
   topicName: string;
-  subjectId?: string;
   onTimeLogged: (minutes: number) => void;
   themeColor: string;
 }
 
-export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ topicId, topicName, subjectId, onTimeLogged, themeColor }) => {
+export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ topicId, topicName, onTimeLogged, themeColor }) => {
     const { 
-        type, mode, duration, elapsed, isRunning, topicId: activeTopicId, sessionTitle: activeSessionTitle, topicName: activeTopicName, activeSoundId,
-        startPomodoro, startSubjectTimer, pauseSession, resumeSession, resetSession, 
+        mode, duration, elapsed, isRunning, topicId: activeTopicId, topicName: activeTopicName, activeSoundId,
+        startSession, pauseSession, resumeSession, resetSession, 
         setMode, setSessionDuration, setActiveSoundId, logAndReset, formatTime 
     } = useFocus();
 
@@ -32,8 +31,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ topicId, topicName
     const completionHandled = useRef(false);
 
     // Is this specific timer active for the current topic?
-    const isActiveTimer = (type === 'pomodoro' && activeSessionTitle === topicName && topicId === 'general-focus') || 
-                          (type === 'subject' && activeTopicId === topicId);
+    const isActiveTimer = activeTopicId === topicId;
     
     // Derived state for display
     const displayTime = isActiveTimer ? formatTime(elapsed) : (mode === 'pomodoro' ? `${duration}:00` : '00:00');
@@ -106,11 +104,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ topicId, topicName
         }
 
         if (!isActiveTimer) {
-            if (topicId === 'general-focus') {
-                startPomodoro(topicName, duration);
-            } else {
-                startSubjectTimer(subjectId || 'Unknown', topicId, topicName);
-            }
+            startSession(topicId, topicName);
         } else {
             if (isRunning) pauseSession();
             else resumeSession();
@@ -127,8 +121,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ topicId, topicName
     const handleLogTime = () => {
         if (isActiveTimer && elapsed > 5) { // Minimum 5 seconds to count
             triggerHaptic.notification('Success');
-            const minutes = elapsed / 60; // Calculate before reset
-            logAndReset();
+            const minutes = logAndReset();
             console.debug("[TIMER] Logging minutes:", minutes);
             onTimeLogged(minutes);
         }
@@ -302,9 +295,9 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ topicId, topicName
                 </div>
             )}
 
-            {!isActiveTimer && (activeTopicId || activeSessionTitle) && (
+            {!isActiveTimer && activeTopicId && (
                 <div className="absolute top-12 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full z-10 animate-pulse">
-                    Timer active for: {(type === 'pomodoro' ? activeSessionTitle : activeTopicName) || 'Another Topic'}
+                    Timer active for: {activeTopicName || 'Another Topic'}
                 </div>
             )}
 

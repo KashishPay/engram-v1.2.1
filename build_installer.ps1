@@ -41,7 +41,7 @@ $from  = if ($inner) { $inner.FullName } else { $src }
 
 # Use Robocopy for speed and reliability. /MT:32 uses multi-threading.
 # Piped to Out-Null to keep the console clean.
-& robocopy $from $repo /E /MT:32 /XD node_modules dist .git ios /XF .env.local | Out-Null
+& robocopy $from $repo /E /MT:32 /XD node_modules dist .git android ios /XF .env.local | Out-Null
 cd $repo
 
 # 4) Configure Package & PDF Worker
@@ -86,7 +86,7 @@ npm install
 Write-Output "Ensuring Core UX Capacitor Plugins are installed..."
 # Install standard UI plugins (Splash Screen, Status Bar, Keyboard) which are essential for native polish
 # but often omitted from package.json. This ensures assets generated in Step 8 render correctly.
-npm install @capacitor/splash-screen @capacitor/status-bar @capacitor/keyboard @capacitor/preferences @capacitor/app @capacitor/filesystem @capacitor/haptics @capacitor/local-notifications @capacitor/share --save
+npm install @capacitor/splash-screen @capacitor/status-bar @capacitor/keyboard --save
 
 # 6) Build Web App
 Write-Output "--- Step 6: Building Web Assets ---"
@@ -142,13 +142,8 @@ if (Test-Path "android") {
         $varsContent = $varsContent -replace 'targetSdkVersion = \d+', 'targetSdkVersion = 36'
         $varsContent = $varsContent -replace 'minSdkVersion = \d+', 'minSdkVersion = 24'
         $varsContent = $varsContent -replace "androidxCoreVersion = '[^']+'", "androidxCoreVersion = '1.15.0'"
-        if ($varsContent -notmatch "kotlin_version") {
-            $varsContent = "ext.kotlin_version = '2.0.21'`n" + $varsContent
-        } else {
-            $varsContent = $varsContent -replace "kotlin_version\s*=\s*'[^']+'", "kotlin_version = '2.0.21'"
-        }
         Set-Content -Path $varsFile -Value $varsContent
-        Write-Output "Updated variables.gradle (compile/target=36, min=24, androidxCoreVersion=1.15.0, kotlin_version=2.0.21)."
+        Write-Output "Updated variables.gradle (compile/target=36, min=24, androidxCoreVersion=1.15.0)."
     }
 
     # 1.1 Update gradle-wrapper.properties
@@ -166,35 +161,12 @@ if (Test-Path "android") {
         $rootGradleContent = Get-Content $rootGradleFile -Raw
         # Also handle standard AGP classpaths as well as variables if any
         $rootGradleContent = $rootGradleContent -replace "classpath 'com\.android\.tools\.build:gradle:[^']+'", "classpath 'com.android.tools.build:gradle:8.9.1'"
-        $rootGradleContent = $rootGradleContent -replace "classpath 'org\.jetbrains\.kotlin:kotlin-gradle-plugin:[^']+'", "classpath `"org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21`""
-        if ($rootGradleContent -notmatch "compose-compiler-gradle-plugin") {
-            $rootGradleContent = $rootGradleContent -replace "classpath `"org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21`"", "classpath `"org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21`"`n        classpath `"org.jetbrains.kotlin:compose-compiler-gradle-plugin:2.0.21`""
-        }
-        
-        # Inject kotlin_version into buildscript block if not already present
-        if ($rootGradleContent -notmatch "ext\.kotlin_version") {
-            $rootGradleContent = $rootGradleContent -replace "buildscript\s*\{(?!\s*ext\.kotlin_version)", "buildscript {`n    ext.kotlin_version = '2.0.21'"
-        }
         
         # 1.3 Add subprojects block for Java/Kotlin 17 enforcement
-        # If it ALREADY exists, we should probably update it, but string replacement is safest if we just rewrite it or assume it's cleanly injected.
-        # Here we do a clean replace if there's an older version, or just append:
-        if ($rootGradleContent -match "subprojects\s*\{") {
-            $rootGradleContent = [regex]::Replace($rootGradleContent, '(?s)subprojects\s*\{.*$', '')
-        }
-        
-        $subprojectsBlock = @"
+        if ($rootGradleContent -notmatch "subprojects\s*\{") {
+            $subprojectsBlock = @"
 
 subprojects {
-    configurations.all {
-        resolutionStrategy {
-            force "org.jetbrains.kotlin:kotlin-stdlib:2.0.21"
-            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21"
-            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21"
-            force "org.jetbrains.kotlin:kotlin-reflect:2.0.21"
-        }
-    }
-
     afterEvaluate { project ->
 
         // Fix Java for all modules
@@ -211,13 +183,13 @@ subprojects {
         project.tasks.matching { it.name.contains("Kotlin") }.configureEach {
             if (it.hasProperty("kotlinOptions")) {
                 it.kotlinOptions.jvmTarget = "17"
-                it.kotlinOptions.freeCompilerArgs += ["-Xskip-metadata-version-check"]
             }
         }
     }
 }
 "@
-        $rootGradleContent = $rootGradleContent + $subprojectsBlock
+            $rootGradleContent = $rootGradleContent + $subprojectsBlock
+        }
         
         Set-Content -Path $rootGradleFile -Value $rootGradleContent
         Write-Output "Updated Android Gradle Plugin (AGP) version to 8.9.1 and injected Java 17 / Kotlin 17 constraints in build.gradle."
@@ -264,10 +236,7 @@ subprojects {
             "android.permission.READ_EXTERNAL_STORAGE",
             "android.permission.WAKE_LOCK",
             "android.permission.VIBRATE",
-            "com.google.android.gms.permission.AD_ID",
-            "android.permission.SYSTEM_ALERT_WINDOW",
-            "android.permission.FOREGROUND_SERVICE",
-            "android.permission.FOREGROUND_SERVICE_SPECIAL_USE"
+            "com.google.android.gms.permission.AD_ID"
         )
 
         foreach ($perm in $permsToInject) {
@@ -275,32 +244,6 @@ subprojects {
                 $manifestContent = $manifestContent -replace '<manifest([^>]*)>', "<manifest`$1>`n    <uses-permission android:name=`"$perm`" />"
                 Write-Output "Injected permission: $perm"
             }
-        }
-        
-        # Verify Widget Receiver registrations
-        $widgetsToInject = @(
-            @{Name="EngramWidgetReceiver"; Xml="engram_widget_info"; Label="Engram Widget"},
-            @{Name="FocusWidgetReceiver"; Xml="focus_widget_info"; Label="Focus Timer Widget"},
-            @{Name="ReviewWidgetReceiver"; Xml="review_widget_info"; Label="Due Reviews Widget"},
-            @{Name="StreakWidgetReceiver"; Xml="streak_widget_info"; Label="Activity Streak Widget"}
-        )
-
-        foreach ($w in $widgetsToInject) {
-            $name = $w.Name
-            $xml = $w.Xml
-            $label = $w.Label
-            if ($manifestContent -notmatch $name) {
-                $meta = "`n        <receiver android:name=`".glance.$name`" android:label=`"$label`" android:exported=`"true`">`n            <intent-filter>`n                <action android:name=`"android.appwidget.action.APPWIDGET_UPDATE`" />`n            </intent-filter>`n            <meta-data android:name=`"android.appwidget.provider`" android:resource=`"@xml/$xml`" />`n        </receiver>"
-                $manifestContent = $manifestContent -replace '</application>', "$meta`n    </application>"
-                Write-Output "Injected $name into AndroidManifest.xml."
-            }
-        }
-
-        # Verify OverlayTimerService registration
-        if ($manifestContent -notmatch "OverlayTimerService") {
-            $serviceMeta = "`n        <service android:name=`".OverlayTimerService`" android:enabled=`"true`" android:exported=`"false`" android:foregroundServiceType=`"specialUse`">`n            <property android:name=`"android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE`" android:value=`"floating_timer`" />`n        </service>"
-            $manifestContent = $manifestContent -replace '</application>', "$serviceMeta`n    </application>"
-            Write-Output "Injected OverlayTimerService into AndroidManifest.xml."
         }
 
         # Inject <queries> for File Opener (Android 11+)
@@ -340,160 +283,12 @@ subprojects {
             Write-Output "Enforced Java 17 source/target compatibility in app/build.gradle."
         }
 
-        # Verify Glance and Compose dependencies
-        if ($appGradleContent -notmatch "androidx.glance:glance-appwidget") {
-            $glanceDeps = "`n    implementation `"androidx.glance:glance-appwidget:1.1.0`"`n    implementation `"androidx.glance:glance-material3:1.1.0`""
-            $appGradleContent = $appGradleContent -replace 'dependencies\s*\{', "dependencies {$glanceDeps"
-            Write-Output "Injected Glance dependencies into app/build.gradle."
-        }
-        
-        # 1. ENSURE ADMOB RUNTIME DEPENDENCY
-        if ($appGradleContent -notmatch "com\.google\.android\.gms:play-services-ads") {
-            $adMobDeps = "`n    implementation `"com.google.android.gms:play-services-ads:22.6.0`""
-            $appGradleContent = $appGradleContent -replace 'dependencies\s*\{', "dependencies {$adMobDeps"
-            Write-Output "Injected AdMob runtime dependency into app/build.gradle."
-        }
-        
-        # 2. ENABLE MULTIDEX SUPPORT
-        if ($appGradleContent -notmatch "multiDexEnabled\s+true") {
-            if ($appGradleContent -match "defaultConfig\s*\{") {
-                $appGradleContent = $appGradleContent -replace "defaultConfig\s*\{", "defaultConfig {`n        multiDexEnabled true"
-            }
-        }
-        if ($appGradleContent -notmatch "androidx\.multidex:multidex") {
-            $multiDexDep = "`n    implementation `"androidx.multidex:multidex:2.0.1`""
-            $appGradleContent = $appGradleContent -replace 'dependencies\s*\{', "dependencies {$multiDexDep"
-        }
-        Write-Output "Checked MultiDex support in app/build.gradle."
-
-        if ($appGradleContent -notmatch "buildFeatures\s*\{[^}]*compose\s+true") {
-            if ($appGradleContent -match "buildFeatures\s*\{") {
-                $appGradleContent = $appGradleContent -replace "buildFeatures\s*\{", "buildFeatures {`n        compose true"
-            } else {
-                $appGradleContent = $appGradleContent -replace 'android\s*\{', "android {`n    buildFeatures {`n        compose true`n    }"
-            }
-            Write-Output "Enabled Compose buildFeatures in app/build.gradle."
-        }
-
-        # Remove deprecated composeOptions for Kotlin 2.0+
-        if ($appGradleContent -match 'composeOptions\s*\{(?:\s*kotlinCompilerExtensionVersion\s*[^}]*\s*)?\}') {
-            $appGradleContent = [regex]::Replace($appGradleContent, '(?s)composeOptions\s*\{(?:[^{}]*|\{[^{}]*\})*\}', '')
-            Write-Output "Removed deprecated composeOptions from app/build.gradle for Kotlin 2.0+ compatibility."
-        }
-        
-        # Apply JetBrains Compose Compiler plugin
-        if ($appGradleContent -notmatch "org\.jetbrains\.kotlin\.plugin\.compose") {
-            $appGradleContent = $appGradleContent -replace "apply plugin:\s*'org\.jetbrains\.kotlin\.android'", "apply plugin: 'org.jetbrains.kotlin.android'`napply plugin: 'org.jetbrains.kotlin.plugin.compose'"
-            Write-Output "Applied org.jetbrains.kotlin.plugin.compose plugin in app/build.gradle."
-        }
-
         Set-Content -Path $appGradleFile -Value $appGradleContent
-    }
-
-    # 6. Ensure widget XML exists and is correct
-    $widgetNames = @("engram_widget_info", "focus_widget_info", "review_widget_info", "streak_widget_info")
-    
-    foreach ($widget in $widgetNames) {
-        $widgetXmlFile = "android\app\src\main\res\xml\$widget.xml"
-        $xmlDir = Split-Path $widgetXmlFile -Parent
-        if (-not (Test-Path $xmlDir)) {
-            New-Item -ItemType Directory -Force -Path $xmlDir | Out-Null
-        }
-        
-        $expectedWidgetXml = @"
-<?xml version="1.0" encoding="utf-8"?>
-<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="110dp"
-    android:minHeight="110dp"
-    android:updatePeriodMillis="0"
-    android:initialLayout="@android:layout/simple_list_item_1"
-    android:resizeMode="horizontal|vertical"
-    android:widgetCategory="home_screen" />
-"@
-        Set-Content -Path $widgetXmlFile -Value $expectedWidgetXml -Encoding UTF8
-        Write-Output "Ensured $widget.xml exists with safe layout."
-    }
-
-    # 7. Enforce safe fallback layouts in other widget XMLs
-    $xmlResDir = "android\app\src\main\res\xml"
-    if (Test-Path $xmlResDir) {
-        Get-ChildItem -Path $xmlResDir -Filter "*.xml" | ForEach-Object {
-            $xmlContent = Get-Content $_.FullName -Raw
-            $layoutMatches = [regex]::Matches($xmlContent, 'android:initialLayout="(@layout/([^"]+))"')
-            $modified = $false
-            foreach ($match in $layoutMatches) {
-                $layoutRef = $match.Groups[1].Value
-                $layoutName = $match.Groups[2].Value
-                $layoutFile = "android\app\src\main\res\layout\$layoutName.xml"
-                if (-not (Test-Path $layoutFile)) {
-                    Write-Output "Warning: Invalid layout $layoutRef in $($_.Name). Replaced with @android:layout/simple_list_item_1"
-                    $xmlContent = $xmlContent.Replace($layoutRef, '@android:layout/simple_list_item_1')
-                    $modified = $true
-                }
-            }
-            if ($modified) {
-                Set-Content -Path $_.FullName -Value $xmlContent
-            }
-        }
     }
 }
 
 # 10) Sync & Launch
 Write-Output "--- Step 10: Syncing to Android ---"
 npx cap sync android
-
-# 11) Fix plugin configurations
-Write-Output "--- Step 11: Fixing outdated node_modules plugin Gradle files ---"
-$admobPluginGradle = "node_modules\@capacitor-community\admob\android\build.gradle"
-if (Test-Path $admobPluginGradle) {
-    Write-Output "Fixing AdMob Plugin Gradle..."
-    $admobContent = Get-Content $admobPluginGradle -Raw
-    
-    # 1. Update kotlin plugin notation (no explicit version required as root has it)
-    $admobContent = $admobContent -replace "ext\.kotlin_version\s*=.*", "ext.kotlin_version = '2.0.21'"
-    $admobContent = $admobContent -replace "classpath\s*`"org.jetbrains.kotlin:kotlin-gradle-plugin:[^`"]*`"", "classpath `"org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21`""
-    $admobContent = $admobContent -replace "apply\s*plugin:\s*'kotlin-android'", "apply plugin: 'org.jetbrains.kotlin.android'"
-    
-    # 2. Enforce java/kotlin 17
-    $admobContent = $admobContent -replace "sourceCompatibility\s*JavaVersion\.VERSION_21", "sourceCompatibility JavaVersion.VERSION_17"
-    $admobContent = $admobContent -replace "targetCompatibility\s*JavaVersion\.VERSION_21", "targetCompatibility JavaVersion.VERSION_17"
-    $admobContent = $admobContent -replace "jvmTarget\s*=\s*(?:JavaVersion\.VERSION_21|'21')", "jvmTarget = `"17`""
-
-    # 3. Add compiler argument to skip metadata validation
-    if ($admobContent -notmatch "Xskip-metadata-version-check") {
-        $admobContent += "`n`ntasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {`n    kotlinOptions {`n        freeCompilerArgs += [`"-Xskip-metadata-version-check`"]`n    }`n}`n"
-    }
-
-    Set-Content -Path $admobPluginGradle -Value $admobContent
-    Write-Output "AdMob plugin aligned to Kotlin 2.0.21 and Java 17."
-}
-
-# 12) Final Validation
-Write-Output "--- Step 12: Final Validation before build ---"
-$validationFailed = $false
-
-$appGradleVal = Get-Content "android\app\build.gradle" -Raw -ErrorAction SilentlyContinue
-if ($appGradleVal -notmatch "com\.google\.android\.gms:play-services-ads") {
-    Write-Output "ERROR: play-services-ads dependency missing in app/build.gradle!"
-    $validationFailed = $true
-}
-
-$rootGradleVal = Get-Content "android\build.gradle" -Raw -ErrorAction SilentlyContinue
-if ($rootGradleVal -notmatch "ext\.kotlin_version\s*=\s*'2.0.21'") {
-    Write-Output "ERROR: Kotlin version mismatch in root build.gradle!"
-    $validationFailed = $true
-}
-
-$manifestVal = Get-Content "android\app\src\main\AndroidManifest.xml" -Raw -ErrorAction SilentlyContinue
-if ($manifestVal -notmatch "android\.permission\.FOREGROUND_SERVICE_SPECIAL_USE") {
-    Write-Output "ERROR: FOREGROUND_SERVICE_SPECIAL_USE permission missing!"
-    $validationFailed = $true
-}
-
-if ($validationFailed) {
-    Write-Output "Validation failed! Please review."
-} else {
-    Write-Output "Validation passed. Build environment is ready and safe."
-}
 
 
