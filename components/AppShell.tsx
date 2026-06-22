@@ -75,7 +75,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     const mainBgClass = `bg-${themeColor}-${themeIntensity} dark:bg-gray-900`;
     const isLoggedIn = !!(user || isGuest);
 
-    const showTabBar = isLoggedIn && currentView !== 'onboarding' && currentView !== 'chat' && !hideTabBar;
+    const showTabBar = isLoggedIn && currentView !== 'onboarding' && currentView !== 'chat' && !hideTabBar && !isPodcastOpen;
 
     // Guest Status Check
     const guestStatus = isGuest ? checkGuestStatus() : null;

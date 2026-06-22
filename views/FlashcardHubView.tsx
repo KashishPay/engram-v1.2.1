@@ -349,7 +349,7 @@ export const FlashcardHubView: React.FC<FlashcardHubViewProps> = ({ userId, them
         // --- DECK VIEW ---
         if (isReviewingDeck) {
             return (
-                <div className="absolute inset-x-0 inset-y-0 -mt-4 -mx-4 z-50 bg-gray-50 dark:bg-gray-900 overflow-hidden flex flex-col items-center justify-center">
+                <div className={`absolute inset-x-0 inset-y-0 -mt-4 -mx-4 z-50 bg-gradient-to-b from-${themeColor}-50/80 to-gray-50 dark:from-${themeColor}-900/20 dark:to-gray-900 overflow-hidden flex flex-col items-center justify-center`}>
                     <div className="w-full max-w-lg">
                         <FlashCardDeck
                             initialDeck={activeDeck}

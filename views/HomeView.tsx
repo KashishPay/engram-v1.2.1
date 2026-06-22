@@ -11,6 +11,7 @@ import { TopicSelectorModal } from '../components/TopicSelectorModal';
 import katex from 'katex';
 import DOMPurify from 'dompurify';
 import { triggerHaptic } from '../utils/haptics';
+import { getAllLogs } from '../utils/sessionLog';
 import { AdManager } from '../services/admob';
 
 interface HomeViewProps {
@@ -567,10 +568,10 @@ export const FlashCardDeck: React.FC<{
             )}
 
             <div className="relative w-full flex-1 flex items-center justify-center perspective-1000">
-                {index + 1 < cards.length && <div className="absolute inset-0 bg-gray-100 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 transform scale-95 translate-y-3 z-0"></div>}
+                {index + 1 < cards.length && <div className={`absolute inset-0 bg-${themeColor}-50/50 dark:bg-${themeColor}-900/20 rounded-2xl border border-${themeColor}-100 dark:border-${themeColor}-800/50 transform scale-95 translate-y-3 z-0`}></div>}
                 
                 {/* ACTIVE CARD FACE */}
-                <div onClick={() => { if (!currentCard.isAd) { triggerHaptic.selection(); setIsFlipped(!isFlipped); } }} className={`absolute inset-0 z-10 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 flex flex-col items-center justify-center text-center ${!currentCard.isAd ? 'cursor-pointer' : ''} transition-all duration-300 ${swipe === 'left' ? '-translate-x-[150%] rotate-[-15deg] opacity-0' : ''} ${swipe === 'right' ? 'translate-x-[150%] rotate-[15deg] opacity-0' : ''}`}>
+                <div onClick={() => { if (!currentCard.isAd) { triggerHaptic.selection(); setIsFlipped(!isFlipped); } }} className={`absolute inset-0 z-10 bg-white dark:bg-gray-800 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-${themeColor}-100 dark:border-${themeColor}-800/50 p-6 flex flex-col items-center justify-center text-center ${!currentCard.isAd ? 'cursor-pointer' : ''} transition-all duration-300 ${swipe === 'left' ? '-translate-x-[150%] rotate-[-15deg] opacity-0' : ''} ${swipe === 'right' ? 'translate-x-[150%] rotate-[15deg] opacity-0' : ''}`}>
                     
                     {/* Header Row: Q/A & Status */}
                     <div className="absolute top-4 left-4 flex items-center space-x-2 text-[10px] font-bold text-gray-400 tracking-widest uppercase z-20">
@@ -656,6 +657,7 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
 
     const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>('all');
     const [showQuizDetails, setShowQuizDetails] = useState(true);
+    const [showStudyDetails, setShowStudyDetails] = useState(true);
     
     const today = new Date().toISOString().split('T')[0];
     const hour = new Date().getHours();
@@ -725,6 +727,14 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
             };
         });
     }, [quizzedTopics]);
+
+    const recentStudyLogs = useMemo(() => {
+        const logs = getAllLogs();
+        const filteredLogs = selectedSubjectFilter === 'all' 
+            ? logs 
+            : logs.filter(l => l.subject === allSubjects.find(s=>s.id===selectedSubjectFilter)?.name);
+        return filteredLogs.slice(0, 3);
+    }, [studyLog, selectedSubjectFilter, allSubjects]);
 
     const chartData = useMemo(() => {
         const repetitionsByCount: { [key: number]: number[] } = {};
@@ -844,23 +854,59 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ studyLog, allSubj
 
                 <div className="grid grid-cols-2 gap-3">
                      <div 
-                        className={`bg-${themeColor}-50 dark:bg-${themeColor}-900/20 p-4 rounded-2xl border border-${themeColor}-100 dark:border-${themeColor}-800 transition-all cursor-pointer hover:shadow-md relative overflow-hidden`}
-                        onClick={() => navigateTo('studyBreakdown', { id: selectedSubjectFilter })}
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Open Study Breakdown"
+                        className={`bg-${themeColor}-50 dark:bg-${themeColor}-900/20 p-4 rounded-2xl border border-${themeColor}-100 dark:border-${themeColor}-800 transition-all hover:shadow-md relative overflow-hidden`}
                      >
-                        <div className="flex justify-between items-start">
+                        <div 
+                            className="flex justify-between items-start cursor-pointer"
+                            onClick={() => navigateTo('studyBreakdown', { id: selectedSubjectFilter })}
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Open Study Breakdown"
+                        >
                             <div>
                                 <p className={`text-xs font-bold text-${themeColor}-600 dark:text-${themeColor}-400 uppercase mb-1`}>Total Study</p>
                                 <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                                     {statsTotalHours}<span className="text-sm text-gray-400">h</span> {statsRemainingMins}<span className="text-sm text-gray-400">m</span>
                                 </p>
                             </div>
-                            <div className={`p-1 rounded-full hover:bg-${themeColor}-100 dark:hover:bg-${themeColor}-800/50 text-${themeColor}-400`}>
-                                <ChevronRight size={16} />
-                            </div>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); setShowStudyDetails(!showStudyDetails); }}
+                                className={`text-${themeColor}-400 bg-white dark:bg-${themeColor}-900/40 rounded-full p-1 hover:bg-${themeColor}-100 dark:hover:bg-${themeColor}-900/60 transition`}
+                            >
+                                {showStudyDetails ? <ChevronUp size={16} /> : <ChevronRight size={16} />}
+                            </button>
                         </div>
+
+                        {showStudyDetails && recentStudyLogs.length > 0 && (
+                            <div className={`mt-3 pt-3 border-t border-${themeColor}-200 dark:border-${themeColor}-800/50 animate-in fade-in slide-in-from-top-1`}>
+                                <div className="flex items-center text-[10px] font-bold text-gray-400 uppercase mb-2">
+                                    <History size={10} className="mr-1"/> RECENT
+                                </div>
+                                <div className="space-y-3">
+                                    {recentStudyLogs.map((log) => (
+                                        <div key={log.createdAt} className={`pb-3 border-b border-${themeColor}-100 dark:border-${themeColor}-800/30 last:border-0 last:pb-0`}>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="font-bold text-gray-700 dark:text-gray-300 text-sm truncate max-w-[120px]">
+                                                    {log.topicName}
+                                                </span>
+                                                <span className={`text-xs font-semibold text-${themeColor}-600 dark:text-${themeColor}-400`}>
+                                                    {Math.round(log.minutes)}m
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] text-gray-500 truncate max-w-[100px]">{log.subject}</span>
+                                                <span className="text-[10px] text-gray-400">{log.date}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {showStudyDetails && recentStudyLogs.length === 0 && (
+                            <div className={`mt-3 pt-3 border-t border-${themeColor}-200 dark:border-${themeColor}-800/50 animate-in fade-in slide-in-from-top-1 text-center`}>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 py-2">No recent study logs.</p>
+                            </div>
+                        )}
                      </div>
 
                      <div 

@@ -423,11 +423,37 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
         }, {} as Record<string, {name: string, id: string, count: number, notes: string[], latestCreatedAt: string}>);
     }, [studyLog]);
 
+    const downloadedItems = useMemo(() => {
+        const topics = studyLog
+            .filter(t => t.hasSavedAudio)
+            .map(t => ({ ...t, sortDate: t.createdAt }));
+
+        const subjects = Object.values(subjectsMap)
+            .filter(s => availableSubjects.has(s.id))
+            .map(s => ({
+                id: `subject-recap-${s.id}`,
+                topicName: `${s.name} (Full Recap)`,
+                subject: s.name,
+                isSubject: true,
+                subjectId: s.id,
+                shortNotes: s.notes.join('\n\n'),
+                sortDate: s.latestCreatedAt
+            }));
+
+        return [...topics, ...subjects].sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime());
+    }, [studyLog, subjectsMap, availableSubjects]);
+
     const availableSubjectNames = useMemo(() => {
         const subjects = new Set<string>();
-        studyLog.forEach(t => { if ((t.shortNotes || '').length > 50) subjects.add(t.subject); });
+        if (libraryTab === 'downloads') {
+            downloadedItems.forEach((t: Record<string, unknown>) => {
+                if (t.subject && typeof t.subject === 'string') subjects.add(t.subject);
+            });
+        } else {
+            studyLog.forEach(t => { if ((t.shortNotes || '').length > 50) subjects.add(t.subject); });
+        }
         return Array.from(subjects).sort();
-    }, [studyLog]);
+    }, [studyLog, downloadedItems, libraryTab]);
 
     useEffect(() => {
         const checkSubjects = async () => {
@@ -454,28 +480,6 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
             })
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [studyLog, selectedSubjectFilter]);
-
-    const downloadedItems = useMemo(() => {
-        const topics = studyLog
-            .filter(t => t.hasSavedAudio)
-            .map(t => ({ ...t, sortDate: t.createdAt }));
-
-        const subjects = Object.values(subjectsMap)
-            .filter(s => availableSubjects.has(s.id))
-            .map(s => ({
-                id: `subject-recap-${s.id}`,
-                topicName: `${s.name} (Full Recap)`,
-                subject: s.name,
-                isSubject: true,
-                subjectId: s.id,
-                shortNotes: s.notes.join('\n\n'),
-                sortDate: s.latestCreatedAt
-            }));
-
-        return [...topics, ...subjects].sort((a, b) => 
-            new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
-        );
-    }, [studyLog, subjectsMap, availableSubjects]);
 
     const handlePlaySubject = (subjectId: string) => {
         ensureAudioContext(); // Prime context on user gesture
@@ -846,7 +850,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                         </div>
                     </div>
                     
-                    <div className="p-4 overflow-y-auto">
+                    <div className="p-4 pb-24 overflow-y-auto">
                         <div className="mb-6 text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-3xl">
                             <div className={`w-20 h-20 mx-auto bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center text-green-500 mb-4`}>
                                 {libraryTab === 'downloads' ? <Download size={32} /> : <Mic2 size={32} />}
@@ -863,8 +867,10 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                             </p>
                         </div>
 
+                        <h3 className="text-md font-bold text-gray-800 dark:text-white mb-4 px-2">Ready to Play</h3>
+
                         {/* List Items */}
-                        {libraryTab === 'topics' && availableSubjectNames.length > 0 && (
+                        {(libraryTab === 'topics' || libraryTab === 'downloads') && availableSubjectNames.length > 0 && (
                             <div className="flex space-x-2 mb-4 overflow-x-auto no-scrollbar px-1 pb-1">
                                 <button
                                     onClick={() => setSelectedSubjectFilter('all')}
@@ -891,8 +897,6 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                 ))}
                             </div>
                         )}
-
-                        <h3 className="text-md font-bold text-gray-800 dark:text-white mb-4 px-2">Ready to Play</h3>
                         
                         <div className="space-y-3">
                             {libraryTab === 'topics' ? (
@@ -1008,12 +1012,16 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                 })
                             ) : (
                                 // Downloads Tab
-                                downloadedItems.length === 0 ? (
-                                    <div className="text-center py-10">
-                                        <p className="text-gray-400 text-sm">No downloaded podcasts yet.</p>
-                                    </div>
-                                ) : (
-                                    downloadedItems.map((item: Record<string, unknown>) => {
+                                (() => {
+                                    const filteredDownloads = downloadedItems.filter(item => selectedSubjectFilter === 'all' || item.subject === selectedSubjectFilter);
+                                    if (filteredDownloads.length === 0) {
+                                        return (
+                                            <div className="text-center py-10">
+                                                <p className="text-gray-400 text-sm">{downloadedItems.length === 0 ? 'No downloaded podcasts yet.' : 'No downloaded podcasts match your filter.'}</p>
+                                            </div>
+                                        );
+                                    }
+                                    return filteredDownloads.map((item: Record<string, unknown>) => {
                                         const isSubject = !!item.isSubject;
                                         
                                         return (
@@ -1047,7 +1055,7 @@ export const PodcastFullView: React.FC<PodcastFullViewProps> = ({
                                             </div>
                                         );
                                     })
-                                )
+                                })()
                             )}
                         </div>
                         {libraryTab === 'topics' && filteredTopics.length === 0 && (
