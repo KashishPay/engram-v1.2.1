@@ -139,6 +139,68 @@ export const useStudyData = (userId: string) => {
                     return { ...topic, subjectId, subject: subjectName };
                 });
                 
+                // --- TOPIC DEDUPLICATION BY NAME ---
+                const topicMap = new Map<string, Topic>();
+                let mergedTopicCount = 0;
+                
+                finalTopics.forEach(topic => {
+                    const normName = topic.topicName.trim().toLowerCase();
+                    const key = `${topic.subjectId}_${normName}`;
+                    
+                    if (topicMap.has(key)) {
+                        mergedTopicCount++;
+                        const existing = topicMap.get(key)!;
+                        // Determine which is newer
+                        const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+                        const newTime = new Date(topic.updatedAt || topic.createdAt || 0).getTime();
+                        
+                        // Merge repetitions (deduped by dateCompleted)
+                        const allReps = [...(existing.repetitions || []), ...(topic.repetitions || [])];
+                        const repsMap = new Map();
+                        allReps.forEach(r => repsMap.set(r.dateCompleted, r));
+                        const mergedReps = Array.from(repsMap.values()).sort((a, b) => new Date(a.dateCompleted).getTime() - new Date(b.dateCompleted).getTime());
+                        
+                        // Merge focusLogs (deduped by date)
+                        const allLogs = [...(existing.focusLogs || []), ...(topic.focusLogs || [])];
+                        const logsMap = new Map();
+                        allLogs.forEach(l => {
+                            // Using a combination of date and minutes to deduplicate
+                            logsMap.set(`${l.date}_${l.minutes}`, l);
+                        });
+                        const mergedLogs = Array.from(logsMap.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                        
+                        const mergedPomodoroTime = Math.max((existing.pomodoroTimeMinutes || 0), (topic.pomodoroTimeMinutes || 0));
+
+                        if (newTime > existingTime) {
+                            topicMap.set(key, { 
+                                ...topic, 
+                                repetitions: mergedReps, 
+                                focusLogs: mergedLogs,
+                                pomodoroTimeMinutes: mergedPomodoroTime,
+                                hasSavedAudio: existing.hasSavedAudio || topic.hasSavedAudio,
+                                hasNotes: existing.hasNotes || topic.hasNotes
+                            });
+                        } else {
+                            topicMap.set(key, { 
+                                ...existing, 
+                                repetitions: mergedReps, 
+                                focusLogs: mergedLogs,
+                                pomodoroTimeMinutes: mergedPomodoroTime,
+                                hasSavedAudio: existing.hasSavedAudio || topic.hasSavedAudio,
+                                hasNotes: existing.hasNotes || topic.hasNotes
+                            });
+                        }
+                    } else {
+                        topicMap.set(key, topic);
+                    }
+                });
+                
+                finalTopics = Array.from(topicMap.values());
+                
+                if (mergedTopicCount > 0) {
+                    console.log(`%c [Boot] Merged ${mergedTopicCount} duplicate topics.`, 'color: blue');
+                }
+                
                 finalSubjects = uniqueSubjects;
 
                 if (mergedCount > 0 || missingIdCount > 0) {
@@ -212,8 +274,56 @@ export const useStudyData = (userId: string) => {
             });
         }
 
-        setStudyLog(prevLog => prevLog.map(t => (t.id === updatedTopic.id ? topicToState : t)));
-        return topicToState; 
+        let mergedTopicToReturn = topicToState;
+
+        setStudyLog(prevLog => {
+            const newName = updatedTopic.topicName.trim().toLowerCase();
+            const collisionIdx = prevLog.findIndex(t => 
+                t.id !== updatedTopic.id && 
+                t.subjectId === updatedTopic.subjectId && 
+                t.topicName.trim().toLowerCase() === newName
+            );
+
+            if (collisionIdx !== -1) {
+                const existing = prevLog[collisionIdx];
+                
+                // Merge repetitions (deduped by dateCompleted)
+                const mergedRepsMap = new Map();
+                [...(existing.repetitions || []), ...(topicToState.repetitions || [])].forEach(r => mergedRepsMap.set(r.dateCompleted, r));
+                const mergedReps = Array.from(mergedRepsMap.values()).sort((a, b) => new Date(a.dateCompleted).getTime() - new Date(b.dateCompleted).getTime());
+
+                // Merge focusLogs (deduped by date)
+                const mergedLogsMap = new Map();
+                [...(existing.focusLogs || []), ...(topicToState.focusLogs || [])].forEach(l => mergedLogsMap.set(`${l.date}_${l.minutes}`, l));
+                const mergedLogs = Array.from(mergedLogsMap.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+                const mergedPomodoroTime = Math.max(existing.pomodoroTimeMinutes || 0, topicToState.pomodoroTimeMinutes || 0);
+
+                mergedTopicToReturn = {
+                    ...topicToState,
+                    repetitions: mergedReps,
+                    focusLogs: mergedLogs,
+                    pomodoroTimeMinutes: mergedPomodoroTime,
+                    hasSavedAudio: existing.hasSavedAudio || topicToState.hasSavedAudio,
+                    hasNotes: existing.hasNotes || topicToState.hasNotes
+                };
+
+                // Delete the old one from IDB if we are overwriting its reference
+                // Actually since we keep `updatedTopic.id`, `existing.id` is orphaned. We should delete it.
+                deleteTopicBodyFromIDB(userId, existing.id).catch(console.error);
+                deleteAudioFromIDB(existing.id).catch(console.error);
+
+                return prevLog.map(t => {
+                    if (t.id === updatedTopic.id) return mergedTopicToReturn;
+                    if (t.id === existing.id) return null as any; 
+                    return t;
+                }).filter(Boolean);
+            }
+
+            return prevLog.map(t => (t.id === updatedTopic.id ? topicToState : t));
+        });
+        
+        return mergedTopicToReturn; 
     }, [userId]);
 
     const handleAddTopic = useCallback((newTopicData: Omit<Topic, 'id'>) => {

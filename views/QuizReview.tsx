@@ -31,20 +31,7 @@ export const QuizReview: React.FC<QuizReviewProps> = ({ topic, quizData, answers
         };
     }, [topic?.id, repetitionNumber]);
 
-    // Back Button Interceptor: Force user to go to 'topicDetail' instead of 'quiz' if they hit back
-    useEffect(() => {
-        const handlePopState = () => {
-            // If the user hits back, intercept and replace to a safe route
-            // Prevents re-submitting the quiz or entering an invalid state
-            console.debug("[REVIEW] popstate intercepted, redirecting to detail");
-            // Stop propagation if possible (though native browser back often fires regardless)
-            // We push the safe route to ensure we land there.
-            navigateTo('topicDetail', topic, { replace: true });
-        };
 
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
-    }, [navigateTo, topic]);
 
     const renderMathHtml = (text: string | undefined | null) => {
         if (!text || typeof text !== 'string') return "";

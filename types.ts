@@ -53,6 +53,7 @@ export interface Topic {
   hasSavedAudio?: boolean; // Flag indicating audio is stored in IndexedDB
   isMarkedDifficult?: boolean; // Flag for difficult topics folder
   isJourneyPaused?: boolean; // Flag to disable spaced repetition pop quizzes
+  lastCompletedDate?: string; // Date (YYYY-MM-DD) when the quiz was last completed
   sourcePageCount?: number; // Number of original source pages stored in IDB
   pomodoroTimeMinutes: number;
   focusLogs?: FocusSession[];
